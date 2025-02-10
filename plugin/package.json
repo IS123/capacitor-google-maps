@@ -1,6 +1,6 @@
 {
-  "name": "vholodivskiy-capacitor-google-maps",
-  "version": "5.4.1",
+  "name": "arbo-capacitor-google-maps",
+  "version": "5.4.2",
   "description": "Fork of Ionic Team Capacitor Google Maps",
   "main": "dist/plugin.cjs.js",
   "module": "dist/esm/index.js",
@@ -18,7 +18,7 @@
     "android/build.gradle",
     "dist/",
     "ios/Plugin/",
-    "VholodivskiyCapacitorGoogleMaps.podspec"
+    "ArboCapacitorGoogleMaps.podspec"
   ],
   "author": "Volodymyr Holodivskyi <volodymyrholodivskyi@gmail.com>",
   "license": "MIT",
