@@ -2,9 +2,9 @@ name: "Release Dev"
 
 on:
   push:
-    branches:
-      - 'master'
-      # - 'main'
+    # branches:
+    #   - 'master'
+    #   - 'main'
   workflow_dispatch:
 
 jobs:

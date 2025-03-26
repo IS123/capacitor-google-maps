@@ -139,11 +139,11 @@ class CapacitorGoogleMap(
         CoroutineScope(Dispatchers.Main).launch {
             val offsetViewBounds = getMapBounds()
 
-            val relativeTop = offsetViewBounds.top
-            val relativeLeft = offsetViewBounds.left
+            val relativeTop = offsetViewBounds.top;
+            val relativeLeft = offsetViewBounds.left;
 
-            event.setLocation(event.x - relativeLeft, event.y - relativeTop)
-            mapView.dispatchTouchEvent(event)
+			event.setLocation(event.x - relativeLeft, event.y - relativeTop)
+			mapView.dispatchTouchEvent(event)
         }
     }
 

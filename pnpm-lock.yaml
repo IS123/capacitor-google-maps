@@ -14,9 +14,6 @@ importers:
       '@types/node':
         specifier: ^20.11.25
         version: 20.14.14
-      husky:
-        specifier: ^9.0.1
-        version: 9.1.4
       lerna:
         specifier: ^8.1.2
         version: 8.1.8(encoding@0.1.13)
@@ -37,17 +34,17 @@ importers:
         version: 3.50.5
     devDependencies:
       '@capacitor/android':
-        specifier: ^6.1.0
-        version: 6.1.2(@capacitor/core@6.1.2)
+        specifier: ^5.2.2
+        version: 5.7.8(@capacitor/core@5.7.8)
       '@capacitor/core':
-        specifier: ^6.1.0
-        version: 6.1.2
+        specifier: ^5.0.0
+        version: 5.7.8
       '@capacitor/docgen':
         specifier: 0.2.2
         version: 0.2.2
       '@capacitor/ios':
-        specifier: ^6.1.0
-        version: 6.1.2(@capacitor/core@6.1.2)
+        specifier: ^5.0.0
+        version: 5.7.8(@capacitor/core@5.7.8)
       '@ionic/prettier-config':
         specifier: ^1.0.1
         version: 1.0.1(prettier@2.8.8)
@@ -108,10 +105,13 @@ packages:
     resolution: {integrity: sha512-EStJpq4OuY8xYfhGVXngigBJRWxftKX9ksiGDnmlY3o7B/V7KIAc9X4oiK87uPJSc/vs5L869bem5fhZa8caZw==}
     engines: {node: '>=6.9.0'}
 
-  '@capacitor/android@6.1.2':
-    resolution: {integrity: sha512-Yh0gQDY1bgRrL25J6ecIlvvs2kF8iNSwIPXjyw6Yz9mnwYxBazF5KZbjpKtGPnJgicJhFkYGsqOkEtxrve0EoQ==}
+  '@capacitor/android@5.7.8':
+    resolution: {integrity: sha512-ooWclwcuW0dy3YfqgoozkHkjatX8H2fb2/RwRsJa3cew1P1lUXIXri3Dquuy4LdqFAJA7UHcJ19Bl/6UKdsZYA==}
     peerDependencies:
-      '@capacitor/core': ^6.1.0
+      '@capacitor/core': ^5.7.0
+
+  '@capacitor/core@5.7.8':
+    resolution: {integrity: sha512-rrZcm/2vJM0WdWRQup1TUidbjQV9PfIadSkV4rAGLD7R6PuzZSMPGT0gmoZzCRlXkqrazrWWDkurei3ozU02FA==}
 
   '@capacitor/core@6.1.2':
     resolution: {integrity: sha512-xFy1/4qLFLp5WCIzIhtwUuVNNoz36+V7/BzHmLqgVJcvotc4MMjswW/TshnPQaLLujEOaLkA4h8ZJ0uoK3ImGg==}
@@ -120,6 +120,11 @@ packages:
     resolution: {integrity: sha512-617jB5DlKjUljxfoANORWeqffsHqHekckH48oslKWFGzfCHYIAEPfJfMa5M4mVSzn2ifSvWB5C3st4augwhl5w==}
     engines: {node: '>=14.5.0'}
     hasBin: true
+
+  '@capacitor/ios@5.7.8':
+    resolution: {integrity: sha512-XhGrziBnlRmCJ97LdPXOJquHPpYTwSJZIxYSXuPl7SDDuAEve8vs2wY76gLdaaFH2Z6ctdugUX+jR6VNu+ds+w==}
+    peerDependencies:
+      '@capacitor/core': ^5.7.0
 
   '@capacitor/ios@6.1.2':
     resolution: {integrity: sha512-HaeW68KisBd/7TmavzPDlL2bpoDK5AjR2ZYrqU4TlGwM88GtQfvduBCAlSCj20X0w/4+rWMkseD9dAAkacjiyQ==}
@@ -1517,11 +1522,6 @@ packages:
   human-signals@2.1.0:
     resolution: {integrity: sha512-B4FFZ6q/T2jhhksgkbEW3HBvWIfDW85snkQgawt07S7J5QXTk6BkNV+0yAeZrM5QpMAdYlocGoljn0sJ/WQkFw==}
     engines: {node: '>=10.17.0'}
-
-  husky@9.1.4:
-    resolution: {integrity: sha512-bho94YyReb4JV7LYWRWxZ/xr6TtOTt8cMfmQ39MQYJ7f/YE268s3GdghGwi+y4zAeqewE5zYLvuhV0M0ijsDEA==}
-    engines: {node: '>=18'}
-    hasBin: true
 
   iconv-lite@0.4.24:
     resolution: {integrity: sha512-v3MXnZAcvnywkTUEZomIActle7RXXeedOR31wwl7VlyoXO4Qi9arvSenNQWne1TcRwhCL1HwLI21bEqdpj8/rA==}
@@ -3041,9 +3041,13 @@ snapshots:
       js-tokens: 4.0.0
       picocolors: 1.0.1
 
-  '@capacitor/android@6.1.2(@capacitor/core@6.1.2)':
+  '@capacitor/android@5.7.8(@capacitor/core@5.7.8)':
     dependencies:
-      '@capacitor/core': 6.1.2
+      '@capacitor/core': 5.7.8
+
+  '@capacitor/core@5.7.8':
+    dependencies:
+      tslib: 2.6.3
 
   '@capacitor/core@6.1.2':
     dependencies:
@@ -3056,6 +3060,10 @@ snapshots:
       github-slugger: 1.5.0
       minimist: 1.2.8
       typescript: 4.2.4
+
+  '@capacitor/ios@5.7.8(@capacitor/core@5.7.8)':
+    dependencies:
+      '@capacitor/core': 5.7.8
 
   '@capacitor/ios@6.1.2(@capacitor/core@6.1.2)':
     dependencies:
@@ -4815,8 +4823,6 @@ snapshots:
       - supports-color
 
   human-signals@2.1.0: {}
-
-  husky@9.1.4: {}
 
   iconv-lite@0.4.24:
     dependencies:

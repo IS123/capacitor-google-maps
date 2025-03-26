@@ -1,8 +1,31 @@
 {
-  "name": "root",
+  "name": "@capacitor/google-maps",
+  "version": "5.4.2",
+  "description": "Fork of Ionic Team Capacitor Google Maps",
   "private": true,
+  "main": "dist/plugin.cjs.js",
+  "module": "dist/esm/index.js",
+  "typings": "dist/typings/index.d.ts",
+  "typesVersions": {
+    "<4.1": {
+      "dist/typings/index.d.ts": [
+        "dist/typings/ts_old/index.d.ts"
+      ]
+    }
+  },
+  "unpkg": "dist/plugin.js",
+  "files": [
+    "android/src/main/",
+    "android/build.gradle",
+    "dist/",
+    "ios/Plugin/",
+    "CapacitorGoogleMaps.podspec"
+  ],
+  "author": "Ionic <hi@ionicframework.com>",
+  "license": "MIT",
   "scripts": {
     "build": "lerna run build && yes | cp ./plugin/README.md ./README.md",
+    "prepare": "npm run build && node on-postinstall.js",
     "lint": "pnpm lerna run lint",
     "fmt": "pnpm lerna run fmt",
     "publish:cocoapod": "lerna run publish:cocoapod --concurrency 1",
@@ -26,5 +49,21 @@
   },
   "workspaces": [
     "plugin"
-  ]
+  ],
+  "capacitor": {
+    "ios": {
+      "src": "ios"
+    },
+    "android": {
+      "src": "android"
+    }
+  },
+  "peerDependencies": {
+    "@capacitor/core": "^5.0.0"
+  },
+  "dependencies": {
+    "@googlemaps/js-api-loader": "~1.13.7",
+    "@googlemaps/markerclusterer": "~2.0.7",
+    "@types/google.maps": "~3.50.5"
+  }
 }

@@ -50,6 +50,9 @@ class CapacitorGoogleMapsPlugin : Plugin(), OnMapsSdkInitializedCallback {
 
         this.bridge.webView.setOnTouchListener(
                 object : View.OnTouchListener {
+                    private var touchStartX: Float = -1f
+                    private var touchStartY: Float = -1f
+                    private var touchStartedInsideMap: Boolean = false
                     override fun onTouch(v: View?, event: MotionEvent?): Boolean {
                         if (event != null) {
                             if (event.source == -1) {
@@ -58,6 +61,34 @@ class CapacitorGoogleMapsPlugin : Plugin(), OnMapsSdkInitializedCallback {
 
                             val touchX = event.x
                             val touchY = event.y
+
+                            when (event.action) {
+                                MotionEvent.ACTION_DOWN -> {
+                                    // Store initial touch position
+                                    touchStartX = touchX
+                                    touchStartY = touchY
+                                    touchStartedInsideMap = false
+
+                                    // Check if touch started inside any map
+                                    for ((id, map) in maps) {
+                                        if (touchEnabled[id] == false) continue
+                                        val mapRect = map.getMapBounds()
+
+                                        if (mapRect.contains(touchStartX.toInt(), touchStartY.toInt())) {
+                                            touchStartedInsideMap = true
+                                            break
+                                        }
+                                    }
+
+                                    Log.d("GoogleMapsPlugin", "Touch start position: ($touchStartX, $touchStartY), inside map: $touchStartedInsideMap")
+                                }
+                                MotionEvent.ACTION_MOVE, MotionEvent.ACTION_UP -> {
+                                    if (!touchStartedInsideMap) {
+                                        Log.d("GoogleMapsPlugin", "Blocking touch event since it started outside the map.")
+                                        return v?.onTouchEvent(event) ?: true // Allow normal app handling, ignore map touch
+                                    }
+                                }
+                            }
 
                             for ((id, map) in maps) {
                                 if (touchEnabled[id] == false) {

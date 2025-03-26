@@ -1,5 +1,5 @@
 {
-  "name": "arbo-capacitor-google-maps",
+  "name": "@capacitor/google-maps",
   "version": "5.4.2",
   "description": "Fork of Ionic Team Capacitor Google Maps",
   "main": "dist/plugin.cjs.js",
@@ -18,7 +18,7 @@
     "android/build.gradle",
     "dist/",
     "ios/Plugin/",
-    "ArboCapacitorGoogleMaps.podspec"
+    "CapacitorGoogleMaps.podspec"
   ],
   "author": "Volodymyr Holodivskyi <volodymyrholodivskyi@gmail.com>",
   "license": "MIT",
@@ -46,6 +46,7 @@
     "build": "pnpm run clean && pnpm run docgen && tsc && rollup -c rollup.config.mjs && pnpm run downleveldts",
     "clean": "rimraf ./dist",
     "watch": "tsc --watch",
+    "prepare": "pnpm run build",
     "prepublishOnly": "pnpm run build",
     "publish:cocoapod": "pod trunk push ./CapacitorGoogleMaps.podspec --allow-warnings",
     "downleveldts": "pnpm downlevel-dts dist/typings dist/typings/ts_old --to=3.5",

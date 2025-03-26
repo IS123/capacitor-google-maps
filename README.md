@@ -4,8 +4,10 @@ Google maps on Capacitor
 
 ## Install
 
+Install from forked github repo. Modified root package.json with `prepare` script run build on install, so dist is not included in vcs. Since it's monorepo, the `on-postinstall.js` script is added to move dist files from plugin to root folder. When merge origin main branch make sure files of root package.json is the same as in plugin's.
+
 ```bash
-npm install arbo-capacitor-google-maps
+npm install github:IS123/capacitor-google-maps.git#tag
 npx cap sync
 ```
 
@@ -288,6 +290,8 @@ export default MyMap;
 * [`disableClustering()`](#disableclustering)
 * [`addMarker(...)`](#addmarker)
 * [`addMarkers(...)`](#addmarkers)
+* [`updateMarker(...)`](#updatemarker)
+* [`updateMarkerIcon(...)`](#updatemarkericon)
 * [`removeMarker(...)`](#removemarker)
 * [`removeMarkers(...)`](#removemarkers)
 * [`addPolygons(...)`](#addpolygons)
@@ -305,6 +309,7 @@ export default MyMap;
 * [`enableAccessibilityElements(...)`](#enableaccessibilityelements)
 * [`enableCurrentLocation(...)`](#enablecurrentlocation)
 * [`setPadding(...)`](#setpadding)
+* [`getMapBounds()`](#getmapbounds)
 * [`fitBounds(...)`](#fitbounds)
 * [`setOnBoundsChangedListener(...)`](#setonboundschangedlistener)
 * [`setOnCameraIdleListener(...)`](#setoncameraidlelistener)
@@ -322,6 +327,13 @@ export default MyMap;
 * [`setOnMarkerDragEndListener(...)`](#setonmarkerdragendlistener)
 * [`setOnMyLocationButtonClickListener(...)`](#setonmylocationbuttonclicklistener)
 * [`setOnMyLocationClickListener(...)`](#setonmylocationclicklistener)
+* [`setOnMapDoubleClickListener(...)`](#setonmapdoubleclicklistener)
+* [`setOnMapLoadedListener(...)`](#setonmaploadedlistener)
+* [`setOnZoomChangedListener(...)`](#setonzoomchangedlistener)
+* [`takeSnapshot(...)`](#takesnapshot)
+* [`addGroundOverlay(...)`](#addgroundoverlay)
+* [`getZoomLevel()`](#getzoomlevel)
+* [`hasIcon(...)`](#hasicon)
 * [Interfaces](#interfaces)
 * [Type Aliases](#type-aliases)
 * [Enums](#enums)
@@ -413,6 +425,37 @@ addMarkers(markers: Marker[]) => Promise<string[]>
 | **`markers`** | <code>Marker[]</code> |
 
 **Returns:** <code>Promise&lt;string[]&gt;</code>
+
+--------------------
+
+
+### updateMarker(...)
+
+```typescript
+updateMarker(id: string, marker: Marker) => Promise<string>
+```
+
+| Param        | Type                                      |
+| ------------ | ----------------------------------------- |
+| **`id`**     | <code>string</code>                       |
+| **`marker`** | <code><a href="#marker">Marker</a></code> |
+
+**Returns:** <code>Promise&lt;string&gt;</code>
+
+--------------------
+
+
+### updateMarkerIcon(...)
+
+```typescript
+updateMarkerIcon(id: string, iconId: string, iconUrl: string) => Promise<void>
+```
+
+| Param         | Type                |
+| ------------- | ------------------- |
+| **`id`**      | <code>string</code> |
+| **`iconId`**  | <code>string</code> |
+| **`iconUrl`** | <code>string</code> |
 
 --------------------
 
@@ -636,6 +679,19 @@ setPadding(padding: MapPadding) => Promise<void>
 | Param         | Type                                              |
 | ------------- | ------------------------------------------------- |
 | **`padding`** | <code><a href="#mappadding">MapPadding</a></code> |
+
+--------------------
+
+
+### getMapBounds()
+
+```typescript
+getMapBounds() => Promise<LatLngBounds>
+```
+
+Get the map's current viewport latitude and longitude bounds.
+
+**Returns:** <code>Promise&lt;LatLngBounds&gt;</code>
 
 --------------------
 
@@ -864,6 +920,100 @@ setOnMyLocationClickListener(callback?: MapListenerCallback<MapClickCallbackData
 --------------------
 
 
+### setOnMapDoubleClickListener(...)
+
+```typescript
+setOnMapDoubleClickListener(callback?: MapListenerCallback<MapClickCallbackData> | undefined) => Promise<void>
+```
+
+| Param          | Type                                                                                                                                |
+| -------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| **`callback`** | <code><a href="#maplistenercallback">MapListenerCallback</a>&lt;<a href="#mapclickcallbackdata">MapClickCallbackData</a>&gt;</code> |
+
+--------------------
+
+
+### setOnMapLoadedListener(...)
+
+```typescript
+setOnMapLoadedListener(callback?: MapListenerCallback<{ id: string; }> | undefined) => Promise<void>
+```
+
+| Param          | Type                                                                                       |
+| -------------- | ------------------------------------------------------------------------------------------ |
+| **`callback`** | <code><a href="#maplistenercallback">MapListenerCallback</a>&lt;{ id: string; }&gt;</code> |
+
+--------------------
+
+
+### setOnZoomChangedListener(...)
+
+```typescript
+setOnZoomChangedListener(callback?: MapListenerCallback<{ zoomLevel: number | undefined; }> | undefined) => Promise<void>
+```
+
+| Param          | Type                                                                                              |
+| -------------- | ------------------------------------------------------------------------------------------------- |
+| **`callback`** | <code><a href="#maplistenercallback">MapListenerCallback</a>&lt;{ zoomLevel: number; }&gt;</code> |
+
+--------------------
+
+
+### takeSnapshot(...)
+
+```typescript
+takeSnapshot(format?: string | undefined, quality?: number | undefined) => Promise<{ snapshot: string | HTMLElement; }>
+```
+
+| Param         | Type                |
+| ------------- | ------------------- |
+| **`format`**  | <code>string</code> |
+| **`quality`** | <code>number</code> |
+
+**Returns:** <code>Promise&lt;{ snapshot: any; }&gt;</code>
+
+--------------------
+
+
+### addGroundOverlay(...)
+
+```typescript
+addGroundOverlay(groundOverlayOptions: GroundOverlayArgs) => Promise<void>
+```
+
+| Param                      | Type                                                            |
+| -------------------------- | --------------------------------------------------------------- |
+| **`groundOverlayOptions`** | <code><a href="#groundoverlayargs">GroundOverlayArgs</a></code> |
+
+--------------------
+
+
+### getZoomLevel()
+
+```typescript
+getZoomLevel() => Promise<number | undefined>
+```
+
+**Returns:** <code>Promise&lt;number&gt;</code>
+
+--------------------
+
+
+### hasIcon(...)
+
+```typescript
+hasIcon(iconId: string) => Promise<boolean>
+```
+
+| Param        | Type                |
+| ------------ | ------------------- |
+| **`iconId`** | <code>string</code> |
+
+**Returns:** <code>Promise&lt;boolean&gt;</code>
+
+--------------------
+
+
 ### Interfaces
 
 
@@ -939,6 +1089,7 @@ A marker is an icon placed at a particular point on the map's surface.
 | **`tintColor`**  | <code>{ r: number; g: number; b: number; a: number; }</code> | Customizes the color of the default marker image. Each value must be between 0 and 255. Only for iOS and Android.                                                                         |                    | 4.2.0 |
 | **`draggable`**  | <code>boolean</code>                                         | Controls whether this marker can be dragged interactively                                                                                                                                 | <code>false</code> |       |
 | **`zIndex`**     | <code>number</code>                                          | Specifies the stack order of this marker, relative to other markers on the map. A marker with a high z-index is drawn on top of markers with lower z-indexes                              | <code>0</code>     |       |
+| **`iconId`**     | <code>string</code>                                          | Icon id that`s using for caching purposes.                                                                                                                                                |                    |       |
 
 
 #### Size
@@ -1132,6 +1283,17 @@ Controls for setting padding on the 'visible' region of the view.
 | Prop        | Type                |
 | ----------- | ------------------- |
 | **`mapId`** | <code>string</code> |
+
+
+#### GroundOverlayArgs
+
+| Prop            | Type                |
+| --------------- | ------------------- |
+| **`latitude`**  | <code>number</code> |
+| **`longitude`** | <code>number</code> |
+| **`width`**     | <code>number</code> |
+| **`height`**    | <code>number</code> |
+| **`imagePath`** | <code>string</code> |
 
 
 ### Type Aliases
