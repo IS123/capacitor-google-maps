@@ -25,7 +25,7 @@
   "license": "MIT",
   "scripts": {
     "build": "lerna run build && yes | cp ./plugin/README.md ./README.md",
-    "prepare": "npm run build && node on-postinstall.js",
+    "prepare": "node on-postinstall.js",
     "lint": "pnpm lerna run lint",
     "fmt": "pnpm lerna run fmt",
     "publish:cocoapod": "lerna run publish:cocoapod --concurrency 1",

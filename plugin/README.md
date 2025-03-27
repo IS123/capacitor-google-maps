@@ -5,9 +5,30 @@ Google maps on Capacitor
 ## Install
 
 ```bash
-npm install @capacitor/google-maps
+npm install github:IS123/capacitor-google-maps.git#tag
 npx cap sync
 ```
+
+## Development
+
+- main branch is for sync with original upstream ionic @capacitor/google-maps
+- master branch is for forked version
+
+- Modified root package.json with `prepare` script runs `on-postinstall.js` script on install. It moves dist files from plugin to root folder. 
+- When merge origin main branch make sure files of root package.json is the same as in plugin's.
+
+
+When you develop locally you can install from local repo folder in main app:
+
+```bash
+npm install @capacitor/google-maps@git+file:///Users/username/path/to/plugin-repo-folder#commit
+```
+
+### When ready to deploy.
+- Build the dist `pnpm run build`
+- Create a git tag with name v<semver_version> `git tag -a v6.0.0`
+- Push changes to master branch, or create a PR to master.
+- Push tag to remote `git push origin --tags`
 
 ## API Keys
 
