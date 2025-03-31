@@ -2050,6 +2050,25 @@
           "complexTypes": []
         }
       ]
+    },
+    {
+      "name": "Marker",
+      "slug": "marker",
+      "docs": "Supports markers of either either \"legacy\" or \"advanced\" types.",
+      "types": [
+        {
+          "text": "google.maps.Marker",
+          "complexTypes": [
+            "google"
+          ]
+        },
+        {
+          "text": "google.maps.marker.AdvancedMarkerElement",
+          "complexTypes": [
+            "google"
+          ]
+        }
+      ]
     }
   ],
   "pluginConfigs": []
