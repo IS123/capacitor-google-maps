@@ -1145,8 +1145,9 @@ class CapacitorGoogleMapsPlugin : Plugin(), OnMapsSdkInitializedCallback {
 
             CoroutineScope(Dispatchers.Main).launch {
                 if (latitude != null && longitude != null && width != null && height !== null && imagePath != null) {
-                    map.addGroundOverlay(latitude, longitude, width, height, imagePath)
-                    call.resolve()
+                    map.addGroundOverlay(latitude, longitude, width, height, imagePath) {
+                        call.resolve()
+                    }
                 } else {
                     call.reject("Missing parameters")
                 }

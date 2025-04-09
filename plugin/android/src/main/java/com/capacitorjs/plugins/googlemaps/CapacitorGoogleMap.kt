@@ -613,7 +613,8 @@ class CapacitorGoogleMap(
         longitude: Double,
         width: Float,
         height: Float,
-        imagePath: String
+        imagePath: String,
+        onComplete: (() -> Unit)? = null
     ) {
         try {
             googleMap ?: throw GoogleMapNotAvailable()
@@ -637,6 +638,8 @@ class CapacitorGoogleMap(
                             googleMap!!.addGroundOverlay(groundOverlayOptions)
                         } catch (e: java.lang.Exception) {
                             Log.e("CapacitorGoogleMaps", e.stackTraceToString())
+                        } finally {
+                            onComplete?.invoke()
                         }
                     }
                 },
