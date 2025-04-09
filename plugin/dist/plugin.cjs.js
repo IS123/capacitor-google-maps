@@ -1227,17 +1227,18 @@ class CapacitorGoogleMapsWeb extends core.WebPlugin {
         return (await this.addMarker({ id: args.id, marker: args.marker }));
     }
     async updateMarkerIcon(args) {
-        // ToDo fix wrong conversion to deprecated Marker, in runtime it's probably AdvancedMarkerElement without getIcon and setIcon
+        var _a, _b;
         const marker = this.maps[args.id].markers[args.markerId];
         if (marker) {
-            let iconImage = undefined;
-            iconImage = {
-                url: args.iconUrl,
-                scaledSize: marker.getIcon().size,
-                anchor: marker.getIcon().anchor,
-                origin: marker.getIcon().origin
-            };
-            marker.setIcon(iconImage);
+            // Clone the existing size/anchor/origin from the current icon if needed
+            const iconUrl = args.iconUrl;
+            const existingIcon = marker.content;
+            const img = document.createElement('img');
+            img.src = iconUrl;
+            img.style.width = (_a = existingIcon === null || existingIcon === void 0 ? void 0 : existingIcon.style.width) !== null && _a !== void 0 ? _a : '32px';
+            img.style.height = (_b = existingIcon === null || existingIcon === void 0 ? void 0 : existingIcon.style.height) !== null && _b !== void 0 ? _b : '32px';
+            // Replace content
+            marker.content = img;
         }
     }
     async removeMarkers(_args) {

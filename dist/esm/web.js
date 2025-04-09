@@ -5,31 +5,37 @@ export class CapacitorGoogleMapsWeb extends WebPlugin {
     constructor() {
         super(...arguments);
         this.gMapsRef = undefined;
+        this.AdvancedMarkerElement = undefined;
+        this.PinElement = undefined;
         this.maps = {};
         this.currMarkerId = 0;
         this.currPolygonId = 0;
         this.currCircleId = 0;
         this.currPolylineId = 0;
+        this.currMapId = 0;
         this.onClusterClickHandler = (_, cluster, map) => {
-            var _a, _b;
+            var _a;
             const mapId = this.getIdFromMap(map);
             const items = [];
-            if (cluster.markers != undefined) {
+            if (cluster.markers != undefined && this.AdvancedMarkerElement) {
                 for (const marker of cluster.markers) {
-                    const markerId = this.getIdFromMarker(mapId, marker);
-                    items.push({
-                        markerId: markerId,
-                        latitude: (_a = marker.getPosition()) === null || _a === void 0 ? void 0 : _a.lat(),
-                        longitude: (_b = marker.getPosition()) === null || _b === void 0 ? void 0 : _b.lng(),
-                        title: marker.getTitle(),
-                        snippet: '',
-                    });
+                    if (marker instanceof this.AdvancedMarkerElement) {
+                        const markerId = this.getIdFromMarker(mapId, marker);
+                        const position = marker.position;
+                        items.push({
+                            markerId: markerId,
+                            latitude: position.lat,
+                            longitude: position.lng,
+                            title: (_a = marker.title) !== null && _a !== void 0 ? _a : '',
+                            snippet: '',
+                        });
+                    }
                 }
             }
             this.notifyListeners('onClusterClick', {
                 mapId: mapId,
-                latitude: cluster.position.lat(),
-                longitude: cluster.position.lng(),
+                latitude: cluster.position.lat,
+                longitude: cluster.position.lng,
                 size: cluster.count,
                 items: items,
             });
@@ -63,6 +69,10 @@ export class CapacitorGoogleMapsWeb extends WebPlugin {
             });
             const google = await loader.load();
             this.gMapsRef = google.maps;
+            // Import marker library once
+            const { AdvancedMarkerElement, PinElement } = (await google.maps.importLibrary('marker'));
+            this.AdvancedMarkerElement = AdvancedMarkerElement;
+            this.PinElement = PinElement;
             console.log('Loaded google maps API');
         }
     }
@@ -174,22 +184,20 @@ export class CapacitorGoogleMapsWeb extends WebPlugin {
         const markerIds = [];
         const map = this.maps[_args.id];
         for (const markerArgs of _args.markers) {
-            const markerOpts = this.buildMarkerOpts(markerArgs, map.map);
-            const marker = new google.maps.Marker(markerOpts);
+            const advancedMarker = this.buildMarkerOpts(markerArgs, map.map);
             const id = '' + this.currMarkerId;
-            map.markers[id] = marker;
-            this.setMarkerListeners(_args.id, id, marker);
+            map.markers[id] = advancedMarker;
+            await this.setMarkerListeners(_args.id, id, advancedMarker);
             markerIds.push(id);
             this.currMarkerId++;
         }
         return { ids: markerIds };
     }
     async addMarker(_args) {
-        const markerOpts = this.buildMarkerOpts(_args.marker, this.maps[_args.id].map);
-        const marker = new google.maps.Marker(markerOpts);
+        const advancedMarker = this.buildMarkerOpts(_args.marker, this.maps[_args.id].map);
         const id = '' + this.currMarkerId;
-        this.maps[_args.id].markers[id] = marker;
-        this.setMarkerListeners(_args.id, id, marker);
+        this.maps[_args.id].markers[id] = advancedMarker;
+        await this.setMarkerListeners(_args.id, id, advancedMarker);
         this.currMarkerId++;
         return { id: id };
     }
@@ -201,28 +209,34 @@ export class CapacitorGoogleMapsWeb extends WebPlugin {
         return (await this.addMarker({ id: args.id, marker: args.marker }));
     }
     async updateMarkerIcon(args) {
+        var _a, _b;
         const marker = this.maps[args.id].markers[args.markerId];
         if (marker) {
-            let iconImage = undefined;
-            iconImage = {
-                url: args.iconUrl,
-                scaledSize: marker.getIcon().size,
-                anchor: marker.getIcon().anchor,
-                origin: marker.getIcon().origin
-            };
-            marker.setIcon(iconImage);
+            // Clone the existing size/anchor/origin from the current icon if needed
+            const iconUrl = args.iconUrl;
+            const existingIcon = marker.content;
+            const img = document.createElement('img');
+            img.src = iconUrl;
+            img.style.width = (_a = existingIcon === null || existingIcon === void 0 ? void 0 : existingIcon.style.width) !== null && _a !== void 0 ? _a : '32px';
+            img.style.height = (_b = existingIcon === null || existingIcon === void 0 ? void 0 : existingIcon.style.height) !== null && _b !== void 0 ? _b : '32px';
+            // Replace content
+            marker.content = img;
         }
     }
     async removeMarkers(_args) {
         const map = this.maps[_args.id];
         for (const id of _args.markerIds) {
-            map.markers[id].setMap(null);
-            delete map.markers[id];
+            if (map.markers[id]) {
+                map.markers[id].map = null;
+                delete map.markers[id];
+            }
         }
     }
     async removeMarker(_args) {
-        this.maps[_args.id].markers[_args.markerId].setMap(null);
-        delete this.maps[_args.id].markers[_args.markerId];
+        if (this.maps[_args.id].markers[_args.markerId]) {
+            this.maps[_args.id].markers[_args.markerId].map = null;
+            delete this.maps[_args.id].markers[_args.markerId];
+        }
     }
     async addPolygons(args) {
         const polygonIds = [];
@@ -306,9 +320,15 @@ export class CapacitorGoogleMapsWeb extends WebPlugin {
         });
     }
     async disableClustering(_args) {
-        var _a;
-        (_a = this.maps[_args.id].markerClusterer) === null || _a === void 0 ? void 0 : _a.setMap(null);
-        this.maps[_args.id].markerClusterer = undefined;
+        const mapInstance = this.maps[_args.id];
+        if (mapInstance.markerClusterer) {
+            const markers = Object.values(mapInstance.markers);
+            mapInstance.markerClusterer.setMap(null);
+            mapInstance.markerClusterer = undefined;
+            for (const marker of markers) {
+                marker.map = mapInstance.map;
+            }
+        }
     }
     async onScroll() {
         throw new Error('Method not supported on web.');
@@ -322,8 +342,13 @@ export class CapacitorGoogleMapsWeb extends WebPlugin {
     async create(_args) {
         console.log(`Create map: ${_args.id}`);
         await this.importGoogleLib(_args.apiKey, _args.region, _args.language);
+        // Ensure we have a Map ID for Advanced Markers
+        const config = Object.assign({}, _args.config);
+        if (!config.mapId) {
+            config.mapId = `capacitor_map_${this.currMapId++}`;
+        }
         this.maps[_args.id] = {
-            map: new window.google.maps.Map(_args.element, Object.assign({}, _args.config)),
+            map: new window.google.maps.Map(_args.element, config),
             element: _args.element,
             markers: {},
             polygons: {},
@@ -413,49 +438,55 @@ export class CapacitorGoogleMapsWeb extends WebPlugin {
     }
     async setMarkerListeners(mapId, markerId, marker) {
         marker.addListener('click', () => {
-            var _a, _b;
+            var _a;
+            const position = marker.position;
             this.notifyListeners('onMarkerClick', {
                 mapId: mapId,
                 markerId: markerId,
-                latitude: (_a = marker.getPosition()) === null || _a === void 0 ? void 0 : _a.lat(),
-                longitude: (_b = marker.getPosition()) === null || _b === void 0 ? void 0 : _b.lng(),
-                title: marker.getTitle(),
+                latitude: position.lat,
+                longitude: position.lng,
+                title: (_a = marker.title) !== null && _a !== void 0 ? _a : '',
                 snippet: '',
             });
         });
-        marker.addListener('dragstart', () => {
-            var _a, _b;
-            this.notifyListeners('onMarkerDragStart', {
-                mapId: mapId,
-                markerId: markerId,
-                latitude: (_a = marker.getPosition()) === null || _a === void 0 ? void 0 : _a.lat(),
-                longitude: (_b = marker.getPosition()) === null || _b === void 0 ? void 0 : _b.lng(),
-                title: marker.getTitle(),
-                snippet: '',
+        if (marker.gmpDraggable) {
+            marker.addListener('dragstart', () => {
+                var _a;
+                const position = marker.position;
+                this.notifyListeners('onMarkerDragStart', {
+                    mapId: mapId,
+                    markerId: markerId,
+                    latitude: position.lat,
+                    longitude: position.lng,
+                    title: (_a = marker.title) !== null && _a !== void 0 ? _a : '',
+                    snippet: '',
+                });
             });
-        });
-        marker.addListener('drag', () => {
-            var _a, _b;
-            this.notifyListeners('onMarkerDrag', {
-                mapId: mapId,
-                markerId: markerId,
-                latitude: (_a = marker.getPosition()) === null || _a === void 0 ? void 0 : _a.lat(),
-                longitude: (_b = marker.getPosition()) === null || _b === void 0 ? void 0 : _b.lng(),
-                title: marker.getTitle(),
-                snippet: '',
+            marker.addListener('drag', () => {
+                var _a;
+                const position = marker.position;
+                this.notifyListeners('onMarkerDrag', {
+                    mapId: mapId,
+                    markerId: markerId,
+                    latitude: position.lat,
+                    longitude: position.lng,
+                    title: (_a = marker.title) !== null && _a !== void 0 ? _a : '',
+                    snippet: '',
+                });
             });
-        });
-        marker.addListener('dragend', () => {
-            var _a, _b;
-            this.notifyListeners('onMarkerDragEnd', {
-                mapId: mapId,
-                markerId: markerId,
-                latitude: (_a = marker.getPosition()) === null || _a === void 0 ? void 0 : _a.lat(),
-                longitude: (_b = marker.getPosition()) === null || _b === void 0 ? void 0 : _b.lng(),
-                title: marker.getTitle(),
-                snippet: '',
+            marker.addListener('dragend', () => {
+                var _a;
+                const position = marker.position;
+                this.notifyListeners('onMarkerDragEnd', {
+                    mapId: mapId,
+                    markerId: markerId,
+                    latitude: position.lat,
+                    longitude: position.lng,
+                    title: (_a = marker.title) !== null && _a !== void 0 ? _a : '',
+                    snippet: '',
+                });
             });
-        });
+        }
     }
     async setMapListeners(mapId) {
         const map = this.maps[mapId].map;
@@ -519,29 +550,38 @@ export class CapacitorGoogleMapsWeb extends WebPlugin {
     }
     buildMarkerOpts(marker, map) {
         var _a;
-        let iconImage = undefined;
-        if (marker.iconUrl) {
-            iconImage = {
-                url: marker.iconUrl,
-                scaledSize: marker.iconSize ? new google.maps.Size(marker.iconSize.width, marker.iconSize.height) : null,
-                anchor: marker.iconAnchor
-                    ? new google.maps.Point(marker.iconAnchor.x, marker.iconAnchor.y)
-                    : new google.maps.Point(0, 0),
-                origin: marker.iconOrigin
-                    ? new google.maps.Point(marker.iconOrigin.x, marker.iconOrigin.y)
-                    : new google.maps.Point(0, 0),
-            };
+        if (!this.AdvancedMarkerElement || !this.PinElement) {
+            throw new Error('Marker library not loaded');
         }
-        const opts = {
+        let content = undefined;
+        if (marker.iconUrl) {
+            const img = document.createElement('img');
+            img.src = marker.iconUrl;
+            if (marker.iconSize) {
+                img.style.width = `${marker.iconSize.width}px`;
+                img.style.height = `${marker.iconSize.height}px`;
+            }
+            content = img;
+        }
+        else {
+            const pinOptions = {
+                scale: (_a = marker.opacity) !== null && _a !== void 0 ? _a : 1,
+                glyph: marker.title,
+                background: marker.tintColor
+                    ? `rgb(${marker.tintColor.r}, ${marker.tintColor.g}, ${marker.tintColor.b})`
+                    : undefined,
+            };
+            const pin = new this.PinElement(pinOptions);
+            content = pin.element;
+        }
+        const advancedMarker = new this.AdvancedMarkerElement({
             position: marker.coordinate,
             map: map,
-            opacity: marker.opacity,
+            content: content,
             title: marker.title,
-            icon: iconImage,
-            draggable: marker.draggable,
-            zIndex: (_a = marker.zIndex) !== null && _a !== void 0 ? _a : 0,
-        };
-        return opts;
+            gmpDraggable: marker.draggable,
+        });
+        return advancedMarker;
     }
 }
 //# sourceMappingURL=web.js.map

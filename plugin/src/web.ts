@@ -305,20 +305,21 @@ export class CapacitorGoogleMapsWeb extends WebPlugin implements CapacitorGoogle
   }
 
   async updateMarkerIcon(args: UpdateMarkerIconArgs): Promise<void> {
-    // ToDo fix wrong conversion to deprecated Marker, in runtime it's probably AdvancedMarkerElement without getIcon and setIcon
-    const marker = this.maps[args.id].markers[args.markerId] as unknown as google.maps.Marker;
+    const marker = this.maps[args.id].markers[args.markerId];
 
     if (marker) {
-      let iconImage: google.maps.Icon | undefined = undefined;
-      
-      iconImage = {
-        url: args.iconUrl,
-        scaledSize: (marker.getIcon() as google.maps.Icon).size,
-        anchor: (marker.getIcon() as google.maps.Icon).anchor,
-        origin: (marker.getIcon() as google.maps.Icon).origin
-      };
-    
-      marker.setIcon(iconImage);
+      // Clone the existing size/anchor/origin from the current icon if needed
+      const iconUrl = args.iconUrl;
+
+      const existingIcon = marker.content as HTMLImageElement | null;
+
+      const img = document.createElement('img');
+      img.src = iconUrl;
+      img.style.width = existingIcon?.style.width ?? '32px';
+      img.style.height = existingIcon?.style.height ?? '32px';
+
+      // Replace content
+      marker.content = img;
     }
   }
 
