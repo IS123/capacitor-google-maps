@@ -395,6 +395,8 @@ export interface Marker {
    *
    */
   iconId?: string;
+
+  mId: string;
 }
 
 /**
@@ -412,6 +414,7 @@ export interface MarkerCallbackData {
   longitude: number;
   title: string;
   snippet: string;
+  mId: string;
 }
 
 export interface PolylineCallbackData {

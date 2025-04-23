@@ -386,10 +386,10 @@ export class GoogleMap {
     return res.id;
   }
 
-  async updateMarkerIcon(id: string, iconId: string, iconUrl: string): Promise<void> {
+  async updateMarkerIcon(mId: string, iconId: string, iconUrl: string): Promise<void> {
     return CapacitorGoogleMaps.updateMarkerIcon({
       id: this.id,
-      markerId: id,
+      mId: mId,
       iconId,
       iconUrl
     });

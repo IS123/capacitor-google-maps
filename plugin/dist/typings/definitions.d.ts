@@ -351,6 +351,7 @@ export interface Marker {
      *
      */
     iconId?: string;
+    mId: string;
 }
 /**
  * The callback function to be called when map events are emitted.
@@ -365,6 +366,7 @@ export interface MarkerCallbackData {
     longitude: number;
     title: string;
     snippet: string;
+    mId: string;
 }
 export interface PolylineCallbackData {
     polylineId: string;

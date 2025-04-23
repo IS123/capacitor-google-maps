@@ -1,6 +1,6 @@
 import { WebPlugin } from '@capacitor/core';
 import { LatLngBounds } from './definitions';
-import { AddMarkerArgs, CameraArgs, AddMarkersArgs, CapacitorGoogleMapsPlugin, CreateMapArgs, CurrentLocArgs, DestroyMapArgs, MapTypeArgs, PaddingArgs, RemoveMarkerArgs, TrafficLayerArgs, RemoveMarkersArgs, MapBoundsContainsArgs, EnableClusteringArgs, FitBoundsArgs, MapBoundsExtendArgs, AddPolygonsArgs, RemovePolygonsArgs, AddCirclesArgs, RemoveCirclesArgs, AddPolylinesArgs, RemovePolylinesArgs, GroundOverlayArgs, UpdateMarkerArgs, UpdateMarkerIconArgs } from './implementation';
+import { type AddMarkerArgs, type CameraArgs, type AddMarkersArgs, type CapacitorGoogleMapsPlugin, type CreateMapArgs, type CurrentLocArgs, type DestroyMapArgs, type MapTypeArgs, type PaddingArgs, type RemoveMarkerArgs, type TrafficLayerArgs, type RemoveMarkersArgs, type MapBoundsContainsArgs, type EnableClusteringArgs, type FitBoundsArgs, type MapBoundsExtendArgs, type AddPolygonsArgs, type RemovePolygonsArgs, type AddCirclesArgs, type RemoveCirclesArgs, type AddPolylinesArgs, type RemovePolylinesArgs, type GroundOverlayArgs, type UpdateMarkerArgs, type UpdateMarkerIconArgs, type RemoveMarkerBymIdArgs, type RemoveMarkersBymIdArgs, UpdateMarkerBymIdArgs } from './implementation';
 export declare class CapacitorGoogleMapsWeb extends WebPlugin implements CapacitorGoogleMapsPlugin {
     private gMapsRef;
     private maps;
@@ -47,6 +47,14 @@ export declare class CapacitorGoogleMapsWeb extends WebPlugin implements Capacit
     updateMarkerIcon(args: UpdateMarkerIconArgs): Promise<void>;
     removeMarkers(_args: RemoveMarkersArgs): Promise<void>;
     removeMarker(_args: RemoveMarkerArgs): Promise<void>;
+    removeMarkerBymId(args: RemoveMarkerBymIdArgs): Promise<void>;
+    removeMarkersBymId(args: RemoveMarkersBymIdArgs): Promise<void>;
+    getMarkersIds(args: {
+        id: string;
+    }): Promise<Record<string, string>>;
+    updateMarkerBymId(args: UpdateMarkerBymIdArgs): Promise<{
+        id: string;
+    }>;
     addPolygons(args: AddPolygonsArgs): Promise<{
         ids: string[];
     }>;
@@ -94,7 +102,7 @@ export declare class CapacitorGoogleMapsWeb extends WebPlugin implements Capacit
     setCircleListeners(mapId: string, circleId: string, circle: google.maps.Circle): Promise<void>;
     setPolygonListeners(mapId: string, polygonId: string, polygon: google.maps.Polygon): Promise<void>;
     setPolylineListeners(mapId: string, polylineId: string, polyline: google.maps.Polyline): Promise<void>;
-    setMarkerListeners(mapId: string, markerId: string, marker: google.maps.Marker): Promise<void>;
+    setMarkerListeners(mapId: string, markerId: string, mId: string, marker: google.maps.Marker): Promise<void>;
     setMapListeners(mapId: string): Promise<void>;
     private buildMarkerOpts;
 }

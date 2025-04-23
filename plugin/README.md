@@ -1109,6 +1109,7 @@ A marker is an icon placed at a particular point on the map's surface.
 | **`draggable`**  | <code>boolean</code>                                         | Controls whether this marker can be dragged interactively                                                                                                                                 | <code>false</code> |       |
 | **`zIndex`**     | <code>number</code>                                          | Specifies the stack order of this marker, relative to other markers on the map. A marker with a high z-index is drawn on top of markers with lower z-indexes                              | <code>0</code>     |       |
 | **`iconId`**     | <code>string</code>                                          | Icon id that`s using for caching purposes.                                                                                                                                                |                    |       |
+| **`mId`**        | <code>string</code>                                          |                                                                                                                                                                                           |                    |       |
 
 
 #### Size
@@ -1253,6 +1254,7 @@ Controls for setting padding on the 'visible' region of the view.
 | **`longitude`** | <code>number</code> |
 | **`title`**     | <code>string</code> |
 | **`snippet`**   | <code>string</code> |
+| **`mId`**       | <code>string</code> |
 
 
 #### MarkerClickCallbackData
@@ -1332,6 +1334,18 @@ https://tools.ietf.org/html/rfc7946#section-3.1.1
 Array should contain between two and three elements.
 The previous GeoJSON specification allowed more elements (e.g., which could be used to represent M values),
 but the current specification only allows X, Y, and (optionally) Z to be defined.
+
+Note: the type will not be narrowed down to `[number, number] | [number, number, number]` due to
+marginal benefits and the large impact of breaking change.
+
+See previous discussions on the type narrowing:
+- {@link https://github.com/DefinitelyTyped/DefinitelyTyped/pull/21590|Nov 2017}
+- {@link https://github.com/DefinitelyTyped/DefinitelyTyped/discussions/67773|Dec 2023}
+- {@link https://github.com/DefinitelyTyped/DefinitelyTyped/discussions/71441| Dec 2024}
+
+One can use a
+{@link https://www.typescriptlang.org/docs/handbook/2/narrowing.html#using-type-predicates|user-defined type guard that returns a type predicate}
+to determine if a position is a 2D or 3D position.
 
 <code>number[]</code>
 

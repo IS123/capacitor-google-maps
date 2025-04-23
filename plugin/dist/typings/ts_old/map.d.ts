@@ -152,7 +152,7 @@ export declare class GoogleMap {
      */
     addMarkers(markers: Marker[]): Promise<string[]>;
     updateMarker(id: string, marker: Marker): Promise<string>;
-    updateMarkerIcon(id: string, iconId: string, iconUrl: string): Promise<void>;
+    updateMarkerIcon(mId: string, iconId: string, iconUrl: string): Promise<void>;
     /**
      * Remove marker from the map
      *

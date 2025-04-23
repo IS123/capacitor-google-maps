@@ -4,32 +4,35 @@ import { MarkerClusterer, SuperClusterAlgorithm } from '@googlemaps/markercluste
 
 import type { Marker } from './definitions';
 import { MapType, LatLngBounds } from './definitions';
-import type {
-  AddMarkerArgs,
-  CameraArgs,
-  AddMarkersArgs,
-  CapacitorGoogleMapsPlugin,
-  CreateMapArgs,
-  CurrentLocArgs,
-  DestroyMapArgs,
-  MapTypeArgs,
-  PaddingArgs,
-  RemoveMarkerArgs,
-  TrafficLayerArgs,
-  RemoveMarkersArgs,
-  MapBoundsContainsArgs,
-  EnableClusteringArgs,
-  FitBoundsArgs,
-  MapBoundsExtendArgs,
-  AddPolygonsArgs,
-  RemovePolygonsArgs,
-  AddCirclesArgs,
-  RemoveCirclesArgs,
-  AddPolylinesArgs,
-  RemovePolylinesArgs,
-  GroundOverlayArgs,
-  UpdateMarkerArgs,
-  UpdateMarkerIconArgs,
+import {
+  type AddMarkerArgs,
+  type CameraArgs,
+  type AddMarkersArgs,
+  type CapacitorGoogleMapsPlugin,
+  type CreateMapArgs,
+  type CurrentLocArgs,
+  type DestroyMapArgs,
+  type MapTypeArgs,
+  type PaddingArgs,
+  type RemoveMarkerArgs,
+  type TrafficLayerArgs,
+  type RemoveMarkersArgs,
+  type MapBoundsContainsArgs,
+  type EnableClusteringArgs,
+  type FitBoundsArgs,
+  type MapBoundsExtendArgs,
+  type AddPolygonsArgs,
+  type RemovePolygonsArgs,
+  type AddCirclesArgs,
+  type RemoveCirclesArgs,
+  type AddPolylinesArgs,
+  type RemovePolylinesArgs,
+  type GroundOverlayArgs,
+  type UpdateMarkerArgs,
+  type UpdateMarkerIconArgs,
+  type RemoveMarkerBymIdArgs,
+  type RemoveMarkersBymIdArgs,
+  UpdateMarkerBymIdArgs,
 } from './implementation';
 
 export class CapacitorGoogleMapsWeb extends WebPlugin implements CapacitorGoogleMapsPlugin {
@@ -38,6 +41,7 @@ export class CapacitorGoogleMapsWeb extends WebPlugin implements CapacitorGoogle
     [id: string]: {
       element: HTMLElement;
       map: google.maps.Map;
+      mIds: Record<string, string>;
       markers: {
         [id: string]: google.maps.Marker;
       };
@@ -260,7 +264,8 @@ export class CapacitorGoogleMapsWeb extends WebPlugin implements CapacitorGoogle
       const id = '' + this.currMarkerId;
 
       map.markers[id] = marker;
-      this.setMarkerListeners(_args.id, id, marker);
+      map.mIds[markerArgs.mId] = id;
+      this.setMarkerListeners(_args.id, id, markerArgs.mId, marker);
 
       markerIds.push(id);
       this.currMarkerId++;
@@ -276,8 +281,10 @@ export class CapacitorGoogleMapsWeb extends WebPlugin implements CapacitorGoogle
 
     const id = '' + this.currMarkerId;
 
+    this.maps[_args.id].mIds[_args.marker.mId] = id;
+
     this.maps[_args.id].markers[id] = marker;
-    this.setMarkerListeners(_args.id, id, marker);
+    this.setMarkerListeners(_args.id, id, _args.marker.mId, marker);
 
     this.currMarkerId++;
 
@@ -294,7 +301,9 @@ export class CapacitorGoogleMapsWeb extends WebPlugin implements CapacitorGoogle
   }
 
   async updateMarkerIcon(args: UpdateMarkerIconArgs): Promise<void> {
-    const marker = this.maps[args.id].markers[args.markerId];
+    const id = this.maps[args.id].mIds[args.mId];
+
+    const marker = this.maps[args.id].markers[id];
 
     if (marker) {
       let iconImage: google.maps.Icon | undefined = undefined;
@@ -322,6 +331,41 @@ export class CapacitorGoogleMapsWeb extends WebPlugin implements CapacitorGoogle
   async removeMarker(_args: RemoveMarkerArgs): Promise<void> {
     this.maps[_args.id].markers[_args.markerId].setMap(null);
     delete this.maps[_args.id].markers[_args.markerId];
+  }
+
+  async removeMarkerBymId(args: RemoveMarkerBymIdArgs): Promise<void> {
+    const map = this.maps[args.id];
+
+    const id = map.mIds[args.mId];
+
+    map.markers[id].setMap(null)
+
+    delete map.markers[id];
+  }
+
+  async removeMarkersBymId(args: RemoveMarkersBymIdArgs): Promise<void> {
+    const map = this.maps[args.id];
+
+    args.mIds.forEach(mId => {
+      const id = map.mIds[mId];
+
+      map.markers[id].setMap(null)
+
+      delete map.markers[id];
+    })
+  }
+
+  async getMarkersIds(args: { id: string; }): Promise<Record<string, string>> {
+    return this.maps[args.id].mIds;
+  }
+
+  async updateMarkerBymId(args: UpdateMarkerBymIdArgs): Promise<{ id: string; }> {
+    await this.removeMarkerBymId({
+      id: args.id,
+      mId: args.mId
+    });
+
+    return (await this.addMarker({id: args.id, marker: args.marker}));
   }
 
   async addPolygons(args: AddPolygonsArgs): Promise<{ ids: string[] }> {
@@ -456,6 +500,7 @@ export class CapacitorGoogleMapsWeb extends WebPlugin implements CapacitorGoogle
       polygons: {},
       circles: {},
       polylines: {},
+      mIds: {}
     };
     this.setMapListeners(_args.id);
   }
@@ -553,7 +598,7 @@ export class CapacitorGoogleMapsWeb extends WebPlugin implements CapacitorGoogle
     });
   }
 
-  async setMarkerListeners(mapId: string, markerId: string, marker: google.maps.Marker): Promise<void> {
+  async setMarkerListeners(mapId: string, markerId: string, mId: string, marker: google.maps.Marker): Promise<void> {
     marker.addListener('click', () => {
       this.notifyListeners('onMarkerClick', {
         mapId: mapId,
@@ -562,6 +607,7 @@ export class CapacitorGoogleMapsWeb extends WebPlugin implements CapacitorGoogle
         longitude: marker.getPosition()?.lng(),
         title: marker.getTitle(),
         snippet: '',
+        mId
       });
     });
 
@@ -573,6 +619,7 @@ export class CapacitorGoogleMapsWeb extends WebPlugin implements CapacitorGoogle
         longitude: marker.getPosition()?.lng(),
         title: marker.getTitle(),
         snippet: '',
+        mId
       });
     });
 
@@ -584,6 +631,7 @@ export class CapacitorGoogleMapsWeb extends WebPlugin implements CapacitorGoogle
         longitude: marker.getPosition()?.lng(),
         title: marker.getTitle(),
         snippet: '',
+        mId
       });
     });
 
@@ -595,6 +643,7 @@ export class CapacitorGoogleMapsWeb extends WebPlugin implements CapacitorGoogle
         longitude: marker.getPosition()?.lng(),
         title: marker.getTitle(),
         snippet: '',
+        mId
       });
     });
   }

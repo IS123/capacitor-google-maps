@@ -46,6 +46,7 @@ class CapacitorGoogleMap(
     private var mapView: MapView
     private var googleMap: GoogleMap? = null
     private val markers = HashMap<String, CapacitorGoogleMapMarker>()
+    private val mIds = HashMap<String, String>()
     private val polygons = HashMap<String, CapacitorGoogleMapsPolygon>()
     private val circles = HashMap<String, CapacitorGoogleMapsCircle>()
     private val polylines = HashMap<String, CapacitorGoogleMapPolyline>()
@@ -186,27 +187,51 @@ class CapacitorGoogleMap(
             val markerIds: MutableList<String> = mutableListOf()
 
             CoroutineScope(Dispatchers.Main).launch {
-                newMarkers.forEach {
-                    val markerOptions: Deferred<MarkerOptions> =
-                        CoroutineScope(Dispatchers.IO).async {
-                            this@CapacitorGoogleMap.buildMarker(it)
-                        }
-                    val googleMapMarker = googleMap?.addMarker(markerOptions.await())
-                    it.googleMapMarker = googleMapMarker
+                val (existingMarkers, freshMarkers) = newMarkers.partition { mIds[it.mId] != null }
 
-                    if (googleMapMarker != null) {
-                        if (clusterManager != null) {
-                            googleMapMarker.remove()
-                        }
+                // Immediately update existing markers
+                existingMarkers.forEach { marker ->
+                    val m = markers[mIds[marker.mId]]
 
-                        markers[googleMapMarker.id] = it
-                        markerIds.add(googleMapMarker.id)
+                    if (m != null) {
+                        m.googleMapMarker?.position = marker.position
                     }
                 }
 
-                if (clusterManager != null) {
-                    clusterManager?.addItems(newMarkers)
-                    clusterManager?.cluster()
+                // Chunk only the new ones for processing
+                val chunks = freshMarkers.chunked(100)
+
+                for (chunk in chunks) {
+                    // Build MarkerOptions in parallel
+                    val deferredMarkers = chunk.map { marker ->
+                        async(Dispatchers.IO) {
+                            val options = buildMarker(marker)
+                            marker to options
+                        }
+                    }
+
+                    val builtMarkers = deferredMarkers.awaitAll()
+
+                    // Add to map on Main thread
+                    builtMarkers.forEach { (marker, options) ->
+                        val googleMapMarker = googleMap?.addMarker(options)
+                        marker.googleMapMarker = googleMapMarker
+
+                        if (googleMapMarker != null) {
+                            if (clusterManager != null) {
+                                googleMapMarker.remove()
+                            }
+
+                            mIds[marker.mId] = googleMapMarker.id
+                            markers[googleMapMarker.id] = marker
+                            markerIds.add(googleMapMarker.id)
+                        }
+                    }
+                }
+
+                clusterManager?.let {
+                    it.addItems(newMarkers)
+                    it.cluster()
                 }
 
                 callback(Result.success(markerIds))
@@ -222,26 +247,34 @@ class CapacitorGoogleMap(
 
             var markerId: String
 
-            CoroutineScope(Dispatchers.Main).launch {
-                val markerOptions: Deferred<MarkerOptions> =
-                    CoroutineScope(Dispatchers.IO).async {
-                        this@CapacitorGoogleMap.buildMarker(marker)
-                    }
-                val googleMapMarker = googleMap?.addMarker(markerOptions.await())
-
-                marker.googleMapMarker = googleMapMarker
-
-                if (clusterManager != null) {
-                    googleMapMarker?.remove()
-                    clusterManager?.addItem(marker)
-                    clusterManager?.cluster()
+            if (mIds[marker.mId] != null) {
+                CoroutineScope(Dispatchers.Main).launch {
+                    updateMarkerBymId(marker.mId, marker, callback)
                 }
+            } else {
+                CoroutineScope(Dispatchers.Main).launch {
+                    val markerOptions: Deferred<MarkerOptions> =
+                        CoroutineScope(Dispatchers.IO).async {
+                            this@CapacitorGoogleMap.buildMarker(marker)
+                        }
+                    val googleMapMarker = googleMap?.addMarker(markerOptions.await())
 
-                markers[googleMapMarker!!.id] = marker
+                    marker.googleMapMarker = googleMapMarker
 
-                markerId = googleMapMarker.id
+                    if (clusterManager != null) {
+                        googleMapMarker?.remove()
+                        clusterManager?.addItem(marker)
+                        clusterManager?.cluster()
+                    }
 
-                callback(Result.success(markerId))
+                    mIds[marker.mId] = googleMapMarker!!.id
+
+                    markers[googleMapMarker.id] = marker
+
+                    markerId = googleMapMarker.id
+
+                    callback(Result.success(markerId))
+                }
             }
         } catch (e: GoogleMapsError) {
             callback(Result.failure(e))
@@ -437,6 +470,30 @@ class CapacitorGoogleMap(
         }
     }
 
+    fun removeMarkerBymId(mId: String, callback: (error: GoogleMapsError?) -> Unit) {
+        try {
+            googleMap ?: throw GoogleMapNotAvailable()
+
+            val marker = markers[mIds[mId]];
+            marker ?: throw MarkerNotFoundError()
+
+            CoroutineScope(Dispatchers.Main).launch {
+                if (clusterManager != null) {
+                    clusterManager?.removeItem(marker)
+                    clusterManager?.cluster()
+                }
+
+                marker.googleMapMarker?.remove()
+                mIds.remove(mId)
+                markers.remove(mIds[mId])
+
+                callback(null)
+            }
+        } catch (e: GoogleMapsError) {
+            callback(e)
+        }
+    }
+
     fun removeMarker(id: String, callback: (error: GoogleMapsError?) -> Unit) {
         try {
             googleMap ?: throw GoogleMapNotAvailable()
@@ -452,6 +509,36 @@ class CapacitorGoogleMap(
 
                 marker.googleMapMarker?.remove()
                 markers.remove(id)
+
+                callback(null)
+            }
+        } catch (e: GoogleMapsError) {
+            callback(e)
+        }
+    }
+
+    fun removeMarkersBymId(ids: List<String>, callback: (error: GoogleMapsError?) -> Unit) {
+        try {
+            googleMap ?: throw GoogleMapNotAvailable()
+
+            CoroutineScope(Dispatchers.Main).launch {
+                val deletedMarkers: MutableList<CapacitorGoogleMapMarker> = mutableListOf()
+
+                ids.forEach {
+                    val marker = markers[mIds[it]]
+                    if (marker != null) {
+                        marker.googleMapMarker?.remove()
+                        markers.remove(mIds[it])
+                        mIds.remove(it)
+
+                        deletedMarkers.add(marker)
+                    }
+                }
+
+                if (clusterManager != null) {
+                    clusterManager?.removeItems(deletedMarkers)
+                    clusterManager?.cluster()
+                }
 
                 callback(null)
             }
@@ -545,11 +632,47 @@ class CapacitorGoogleMap(
         }
     }
 
-    fun updateMarkerIcon(id: String, iconId: String, iconUrl: String) {
+    fun updateMarkerBymId(mId: String, marker: CapacitorGoogleMapMarker, callback: (result: Result<String>) -> Unit) {
         try {
             googleMap ?: throw GoogleMapNotAvailable()
 
-            val marker = markers[id]
+            mIds[mId]?.let {
+                this.removeMarker(it) { err ->
+                    if (err != null) {
+                        throw err
+                    }
+
+                    this.addMarker(marker, callback);
+                }
+            }
+
+        } catch (e: GoogleMapsError) {
+        }
+    }
+
+    fun updateMarkersBymId(ids: List<String>, markers: List<CapacitorGoogleMapMarker>, callback: (result: List<String>) -> Unit) {
+        try {
+            googleMap ?: throw GoogleMapNotAvailable()
+
+            val res: MutableList<String> = mutableListOf()
+
+            ids.forEach { it ->
+                val id = it;
+                markers.find { it.mId == id }?.let { it1 -> this.updateMarkerBymId(id, it1) {
+                    result -> res.add(result.getOrThrow())
+                } }
+            }
+
+            callback(res)
+        } catch (e: GoogleMapsError) {
+        }
+    }
+
+    fun updateMarkerIcon(mId: String, iconId: String, iconUrl: String) {
+        try {
+            googleMap ?: throw GoogleMapNotAvailable()
+
+            val marker = markers[mIds[mId]]
             marker ?: throw MarkerNotFoundError()
 
             if (!iconId.isNullOrEmpty()) {
@@ -576,6 +699,14 @@ class CapacitorGoogleMap(
         }
     }
 
+    fun getMarkersIds(callback: (ids: Result<HashMap<String, String>>?) -> Unit) {
+        try {
+            callback(Result.success(mIds))
+        } catch (e: GoogleMapsError) {
+            callback(null)
+        }
+    }
+
     fun takeSnapshot(
 		format: CompressFormat,
 		quality: Int,
@@ -598,7 +729,6 @@ class CapacitorGoogleMap(
         } catch (e: GoogleMapsError) {
             callback("", e)
         }
-
     }
 
     private fun bitmapToBase64(bitmap: Bitmap, format: Bitmap.CompressFormat = Bitmap.CompressFormat.PNG, quality: Int = 100): String {
@@ -1121,6 +1251,7 @@ class CapacitorGoogleMap(
     override fun onMarkerClick(marker: Marker): Boolean {
         val data = JSObject()
         data.put("mapId", this@CapacitorGoogleMap.id)
+        data.put("mId", mIds.entries.find { it.value == marker.id }?.key)
         data.put("markerId", marker.id)
         data.put("latitude", marker.position.latitude)
         data.put("longitude", marker.position.longitude)
@@ -1141,6 +1272,7 @@ class CapacitorGoogleMap(
     override fun onMarkerDrag(marker: Marker) {
         val data = JSObject()
         data.put("mapId", this@CapacitorGoogleMap.id)
+        data.put("mId", mIds.entries.find { it.value == marker.id }?.key )
         data.put("markerId", marker.id)
         data.put("latitude", marker.position.latitude)
         data.put("longitude", marker.position.longitude)
@@ -1152,6 +1284,7 @@ class CapacitorGoogleMap(
     override fun onMarkerDragStart(marker: Marker) {
         val data = JSObject()
         data.put("mapId", this@CapacitorGoogleMap.id)
+        data.put("mId", mIds.entries.find { it.value == marker.id }?.key )
         data.put("markerId", marker.id)
         data.put("latitude", marker.position.latitude)
         data.put("longitude", marker.position.longitude)
@@ -1163,6 +1296,7 @@ class CapacitorGoogleMap(
     override fun onMarkerDragEnd(marker: Marker) {
         val data = JSObject()
         data.put("mapId", this@CapacitorGoogleMap.id)
+        data.put("mId", mIds.entries.find { it.value == marker.id }?.key )
         data.put("markerId", marker.id)
         data.put("latitude", marker.position.latitude)
         data.put("longitude", marker.position.longitude)
