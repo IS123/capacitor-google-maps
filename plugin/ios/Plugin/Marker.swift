@@ -67,6 +67,7 @@ public struct Marker {
 		self.iconAnchor = iconAnchor
 		self.color = tintColor
 		self.zIndex = Int32((fromJSObject["zIndex"] as? Int) ?? 0)
+		self.mId = fromJSObject["mId"] as? String
 
 		if let iconId = self.iconId, let cachedIcon = imageCache.object(forKey: iconId as NSString) {
 			self.icon = cachedIcon
