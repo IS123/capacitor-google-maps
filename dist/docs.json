@@ -968,14 +968,14 @@
         {
           "name": "region",
           "tags": [],
-          "docs": "The region parameter alters your application to serve different map tiles or bias the application (such as biasing geocoding results towards the region).\r\n\r\nOnly available for web.",
+          "docs": "The region parameter alters your application to serve different map tiles or bias the application (such as biasing geocoding results towards the region).\n\nOnly available for web.",
           "complexTypes": [],
           "type": "string | undefined"
         },
         {
           "name": "language",
           "tags": [],
-          "docs": "The language parameter affects the names of controls, copyright notices, driving directions, and control labels, as well as the responses to service requests.\r\n\r\nOnly available for web.",
+          "docs": "The language parameter affects the names of controls, copyright notices, driving directions, and control labels, as well as the responses to service requests.\n\nOnly available for web.",
           "complexTypes": [],
           "type": "string | undefined"
         }
@@ -984,7 +984,7 @@
     {
       "name": "GoogleMapConfig",
       "slug": "googlemapconfig",
-      "docs": "For web, all the javascript Google Maps options are available as\r\nGoogleMapConfig extends google.maps.MapOptions.\r\nFor iOS and Android only the config options declared on GoogleMapConfig are available.",
+      "docs": "For web, all the javascript Google Maps options are available as\nGoogleMapConfig extends google.maps.MapOptions.\nFor iOS and Android only the config options declared on GoogleMapConfig are available.",
       "tags": [],
       "methods": [],
       "properties": [
@@ -1059,7 +1059,7 @@
               "name": "since"
             }
           ],
-          "docs": "Styles to apply to each of the default map types. Note that for\r\nsatellite, hybrid and terrain modes,\r\nthese styles will only apply to labels and geometry.",
+          "docs": "Styles to apply to each of the default map types. Note that for\nsatellite, hybrid and terrain modes,\nthese styles will only apply to labels and geometry.",
           "complexTypes": [
             "google"
           ],
@@ -1073,7 +1073,7 @@
               "name": "since"
             }
           ],
-          "docs": "A map id associated with a specific map style or feature.\r\n\r\n[Use Map IDs](https://developers.google.com/maps/documentation/get-map-id)\r\n\r\nOnly for Web.",
+          "docs": "A map id associated with a specific map style or feature.\n\n[Use Map IDs](https://developers.google.com/maps/documentation/get-map-id)\n\nOnly for Web.",
           "complexTypes": [],
           "type": "string | undefined"
         },
@@ -1085,7 +1085,7 @@
               "name": "since"
             }
           ],
-          "docs": "A map id associated with a specific map style or feature.\r\n\r\n[Use Map IDs](https://developers.google.com/maps/documentation/get-map-id)\r\n\r\nOnly for Android.",
+          "docs": "A map id associated with a specific map style or feature.\n\n[Use Map IDs](https://developers.google.com/maps/documentation/get-map-id)\n\nOnly for Android.",
           "complexTypes": [],
           "type": "string | undefined"
         },
@@ -1097,7 +1097,7 @@
               "name": "since"
             }
           ],
-          "docs": "A map id associated with a specific map style or feature.\r\n\r\n[Use Map IDs](https://developers.google.com/maps/documentation/get-map-id)\r\n\r\nOnly for iOS.",
+          "docs": "A map id associated with a specific map style or feature.\n\n[Use Map IDs](https://developers.google.com/maps/documentation/get-map-id)\n\nOnly for iOS.",
           "complexTypes": [],
           "type": "string | undefined"
         }
@@ -1200,7 +1200,7 @@
           "name": "iconUrl",
           "tags": [
             {
-              "text": "```typescript\r\n{\r\n...\r\n iconUrl: 'assets/icon/pin.png',\r\n ...\r\n}\r\n```",
+              "text": "```typescript\n{\n...\n iconUrl: 'assets/icon/pin.png',\n ...\n}\n```",
               "name": "usage"
             },
             {
@@ -1208,7 +1208,7 @@
               "name": "since"
             }
           ],
-          "docs": "Path to a marker icon to render. It can be relative to the web app public directory,\r\nor a https url of a remote marker icon.\r\n\r\n**SVGs are not supported on native platforms.**",
+          "docs": "Path to a marker icon to render. It can be relative to the web app public directory,\nor a https url of a remote marker icon.\n\n**SVGs are not supported on native platforms.**",
           "complexTypes": [],
           "type": "string | undefined"
         },
@@ -1262,7 +1262,7 @@
               "name": "since"
             }
           ],
-          "docs": "Customizes the color of the default marker image.  Each value must be between 0 and 255.\r\n\r\nOnly for iOS and Android.",
+          "docs": "Customizes the color of the default marker image.  Each value must be between 0 and 255.\n\nOnly for iOS and Android.",
           "complexTypes": [],
           "type": "{ r: number; g: number; b: number; a: number; } | undefined"
         },
@@ -1286,7 +1286,7 @@
               "name": "default"
             }
           ],
-          "docs": "Specifies the stack order of this marker, relative to other markers on the map.\r\nA marker with a high z-index is drawn on top of markers with lower z-indexes",
+          "docs": "Specifies the stack order of this marker, relative to other markers on the map.\nA marker with a high z-index is drawn on top of markers with lower z-indexes",
           "complexTypes": [],
           "type": "number | undefined"
         },
@@ -1382,7 +1382,7 @@
     {
       "name": "Circle",
       "slug": "circle",
-      "docs": "For web, all the javascript Circle options are available as\r\nPolygon extends google.maps.CircleOptions.\r\nFor iOS and Android only the config options declared on Circle are available.",
+      "docs": "For web, all the javascript Circle options are available as\nPolygon extends google.maps.CircleOptions.\nFor iOS and Android only the config options declared on Circle are available.",
       "tags": [],
       "methods": [],
       "properties": [
@@ -1431,7 +1431,7 @@
         {
           "name": "title",
           "tags": [],
-          "docs": "Title, a short description of the overlay. Some overlays, such as markers, will display the title on the map. The title is also the default accessibility text.\r\n\r\nOnly available on iOS.",
+          "docs": "Title, a short description of the overlay. Some overlays, such as markers, will display the title on the map. The title is also the default accessibility text.\n\nOnly available on iOS.",
           "complexTypes": [],
           "type": "string | undefined"
         },
@@ -1447,7 +1447,7 @@
     {
       "name": "Polyline",
       "slug": "polyline",
-      "docs": "For web, all the javascript Polyline options are available as\r\nPolyline extends google.maps.PolylineOptions.\r\nFor iOS and Android only the config options declared on Polyline are available.",
+      "docs": "For web, all the javascript Polyline options are available as\nPolyline extends google.maps.PolylineOptions.\nFor iOS and Android only the config options declared on Polyline are available.",
       "tags": [],
       "methods": [],
       "properties": [
@@ -1496,7 +1496,7 @@
         {
           "name": "styleSpans",
           "tags": [],
-          "docs": "Used to specify the color of one or more segments of a polyline. The styleSpans property is an array of StyleSpan objects.\r\nSetting the spans property is the preferred way to change the color of a polyline.\r\n\r\nOnly on iOS and Android.",
+          "docs": "Used to specify the color of one or more segments of a polyline. The styleSpans property is an array of StyleSpan objects.\nSetting the spans property is the preferred way to change the color of a polyline.\n\nOnly on iOS and Android.",
           "complexTypes": [
             "StyleSpan"
           ],
@@ -1570,7 +1570,7 @@
               "name": "default"
             }
           ],
-          "docs": "The angle, in degrees, of the camera from the nadir (directly facing the Earth).\r\n\r\nThe only allowed values are 0 and 45.",
+          "docs": "The angle, in degrees, of the camera from the nadir (directly facing the Earth).\n\nThe only allowed values are 0 and 45.",
           "complexTypes": [],
           "type": "number | undefined"
         },
@@ -1798,6 +1798,13 @@
         },
         {
           "name": "snippet",
+          "tags": [],
+          "docs": "",
+          "complexTypes": [],
+          "type": "string"
+        },
+        {
+          "name": "mId",
           "tags": [],
           "docs": "",
           "complexTypes": [],

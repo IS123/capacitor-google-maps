@@ -1254,6 +1254,7 @@ Controls for setting padding on the 'visible' region of the view.
 | **`longitude`** | <code>number</code> |
 | **`title`**     | <code>string</code> |
 | **`snippet`**   | <code>string</code> |
+| **`mId`**       | <code>string</code> |
 
 
 #### MarkerClickCallbackData

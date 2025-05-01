@@ -241,6 +241,11 @@ class GoogleMap {
             }
         });
     }
+    async getMarkersIds() {
+        return CapacitorGoogleMaps.getMarkersIds({
+            id: this.id
+        });
+    }
     /**
      * Enable touch events on native map
      *

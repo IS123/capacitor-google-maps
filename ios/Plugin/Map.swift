@@ -84,6 +84,7 @@ public class Map {
     var circles = [Int: GMSCircle]()
     var polylines = [Int: GMSPolyline]()
     var markerIcons = [String: UIImage]()
+	var mIds = [String: String]()
 
     // swiftlint:disable identifier_name
     public static let MAP_TAG = 99999
@@ -242,6 +243,10 @@ public class Map {
             self.markers[newMarker.hash.hashValue] = newMarker
 
             markerHash = newMarker.hash.hashValue
+			
+			if let mId = marker.mId {
+				self.mIds[String(newMarker.hash.hashValue)] = mId
+			}
         }
 
         return markerHash
@@ -267,7 +272,7 @@ public class Map {
         return
     }
 
-    func addMarkers(markers: [Marker]) throws -> [Int] {
+	func addMarkers(markers: [Marker]) throws -> [Int] {
         var markerHashes: [Int] = []
 
         DispatchQueue.main.sync {
@@ -285,14 +290,18 @@ public class Map {
                 self.markers[newMarker.hash.hashValue] = newMarker
 
                 markerHashes.append(newMarker.hash.hashValue)
+				
+				if let mId = marker.mId {
+					self.mIds[String(newMarker.hash.hashValue)] = mId
+				}
             }
-
+			
             if self.mapViewController.clusteringEnabled {
                 self.mapViewController.addMarkersToCluster(markers: googleMapsMarkers)
             }
         }
 
-        return markerHashes
+		return markerHashes
     }
 
     func addPolygons(polygons: [Polygon]) throws -> [Int] {
@@ -396,6 +405,27 @@ public class Map {
             throw GoogleMapErrors.markerNotFound
         }
     }
+	
+	func removeMarkerBymId(mId: String) throws {
+		guard let markerHash = self.mIds.first(where: { $0.value == mId })?.key,
+			  let markerHash = Int(markerHash) else {
+			throw GoogleMapErrors.markerNotFound
+		}
+		
+		if let marker = self.markers[Int(markerHash)] {
+			DispatchQueue.main.async {
+				if self.mapViewController.clusteringEnabled {
+					self.mapViewController.removeMarkersFromCluster(markers: [marker])
+				}
+
+				marker.map = nil
+				self.markers.removeValue(forKey: markerHash)
+
+			}
+		} else {
+			throw GoogleMapErrors.markerNotFound
+		}
+	}
 
     func removePolygons(ids: [Int]) throws {
         DispatchQueue.main.sync {
@@ -536,6 +566,33 @@ public class Map {
             }
         }
     }
+	
+	func removeMarkersBymId(mIds: [String]) throws {
+		try DispatchQueue.main.sync {
+			var markers: [GMSMarker] = []
+			
+			try mIds.forEach { mId in
+				guard let markerHash = self.mIds.first(where: { $0.value == mId })?.key,
+					  let markerHash = Int(markerHash) else {
+					throw GoogleMapErrors.markerNotFound
+				}
+				
+//				guard let markerHash = Int(markerHash) else {
+//					throw GoogleMapErrors.markerNotFound
+//				}
+//				
+				if let marker = self.markers[markerHash] {
+					marker.map = nil
+					self.markers.removeValue(forKey: markerHash)
+					markers.append(marker)
+				}
+			}
+
+			if self.mapViewController.clusteringEnabled {
+				self.mapViewController.removeMarkersFromCluster(markers: markers)
+			}
+		}
+	}
 
     func getMapLatLngBounds() -> GMSCoordinateBounds? {
         return GMSCoordinateBounds(region: self.mapViewController.GMapView.projection.visibleRegion())

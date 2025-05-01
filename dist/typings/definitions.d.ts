@@ -366,6 +366,7 @@ export interface MarkerCallbackData {
     longitude: number;
     title: string;
     snippet: string;
+    mId: string;
 }
 export interface PolylineCallbackData {
     polylineId: string;

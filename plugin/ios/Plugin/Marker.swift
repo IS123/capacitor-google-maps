@@ -15,6 +15,7 @@ public struct Marker {
 	let color: UIColor?
 	let zIndex: Int32
 	var icon: UIImage?
+	var mId: String?
 
 	init(fromJSObject: JSObject, imageCache: NSCache<NSString, UIImage>) throws {
 		guard let latLngObj = fromJSObject["coordinate"] as? JSObject else {

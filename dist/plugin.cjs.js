@@ -241,6 +241,11 @@ class GoogleMap {
             }
         });
     }
+    async getMarkersIds() {
+        return CapacitorGoogleMaps.getMarkersIds({
+            id: this.id
+        });
+    }
     /**
      * Enable touch events on native map
      *
@@ -1197,7 +1202,7 @@ class CapacitorGoogleMapsWeb extends core.WebPlugin {
             const id = '' + this.currMarkerId;
             map.markers[id] = marker;
             map.mIds[markerArgs.mId] = id;
-            this.setMarkerListeners(_args.id, id, marker);
+            this.setMarkerListeners(_args.id, id, markerArgs.mId, marker);
             markerIds.push(id);
             this.currMarkerId++;
         }
@@ -1209,7 +1214,7 @@ class CapacitorGoogleMapsWeb extends core.WebPlugin {
         const id = '' + this.currMarkerId;
         this.maps[_args.id].mIds[_args.marker.mId] = id;
         this.maps[_args.id].markers[id] = marker;
-        this.setMarkerListeners(_args.id, id, marker);
+        this.setMarkerListeners(_args.id, id, _args.marker.mId, marker);
         this.currMarkerId++;
         return { id: id };
     }
@@ -1457,7 +1462,7 @@ class CapacitorGoogleMapsWeb extends core.WebPlugin {
             });
         });
     }
-    async setMarkerListeners(mapId, markerId, marker) {
+    async setMarkerListeners(mapId, markerId, mId, marker) {
         marker.addListener('click', () => {
             var _a, _b;
             this.notifyListeners('onMarkerClick', {
@@ -1467,6 +1472,7 @@ class CapacitorGoogleMapsWeb extends core.WebPlugin {
                 longitude: (_b = marker.getPosition()) === null || _b === void 0 ? void 0 : _b.lng(),
                 title: marker.getTitle(),
                 snippet: '',
+                mId
             });
         });
         marker.addListener('dragstart', () => {
@@ -1478,6 +1484,7 @@ class CapacitorGoogleMapsWeb extends core.WebPlugin {
                 longitude: (_b = marker.getPosition()) === null || _b === void 0 ? void 0 : _b.lng(),
                 title: marker.getTitle(),
                 snippet: '',
+                mId
             });
         });
         marker.addListener('drag', () => {
@@ -1489,6 +1496,7 @@ class CapacitorGoogleMapsWeb extends core.WebPlugin {
                 longitude: (_b = marker.getPosition()) === null || _b === void 0 ? void 0 : _b.lng(),
                 title: marker.getTitle(),
                 snippet: '',
+                mId
             });
         });
         marker.addListener('dragend', () => {
@@ -1500,6 +1508,7 @@ class CapacitorGoogleMapsWeb extends core.WebPlugin {
                 longitude: (_b = marker.getPosition()) === null || _b === void 0 ? void 0 : _b.lng(),
                 title: marker.getTitle(),
                 snippet: '',
+                mId
             });
         });
     }

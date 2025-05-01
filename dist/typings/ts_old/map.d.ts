@@ -110,6 +110,7 @@ export declare class GoogleMap {
      */
     static create(options: CreateMapArgs, callback?: MapListenerCallback<MapReadyCallbackData>): Promise<GoogleMap>;
     private static getElementBounds;
+    getMarkersIds(): Promise<Record<string, string>>;
     /**
      * Enable touch events on native map
      *

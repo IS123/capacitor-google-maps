@@ -21,6 +21,7 @@ import com.google.maps.android.clustering.ClusterManager
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
 import java.io.ByteArrayOutputStream
+import java.util.concurrent.Executors
 
 
 class CapacitorGoogleMap(
@@ -52,6 +53,7 @@ class CapacitorGoogleMap(
     private val polylines = HashMap<String, CapacitorGoogleMapPolyline>()
     private val markerIcons = HashMap<String, Bitmap>()
     private var clusterManager: ClusterManager<CapacitorGoogleMapMarker>? = null
+    private val markerDispatcher = Executors.newFixedThreadPool(8).asCoroutineDispatcher()
 
     private val isReadyChannel = Channel<Boolean>()
     private var debounceJob: Job? = null
@@ -170,6 +172,7 @@ class CapacitorGoogleMap(
                         ((bridge.webView.parent) as ViewGroup).removeView(viewToRemove)
                     }
                     mapView.onDestroy()
+                    markerDispatcher.close()
                     googleMap = null
                     clusterManager = null
                 }
@@ -184,57 +187,57 @@ class CapacitorGoogleMap(
     ) {
         try {
             googleMap ?: throw GoogleMapNotAvailable()
+
             val markerIds: MutableList<String> = mutableListOf()
 
-            CoroutineScope(Dispatchers.Main).launch {
+            CoroutineScope(markerDispatcher).launch {
                 val (existingMarkers, freshMarkers) = newMarkers.partition { mIds[it.mId] != null }
 
-                // Immediately update existing markers
-                existingMarkers.forEach { marker ->
-                    val m = markers[mIds[marker.mId]]
-
-                    if (m != null) {
-                        m.googleMapMarker?.position = marker.position
+                // Update existing markers (still done on Main since we touch GoogleMap objects)
+                withContext(Dispatchers.Main) {
+                    existingMarkers.forEach { marker ->
+                        val existing = markers[mIds[marker.mId]]
+                        existing?.googleMapMarker?.position = marker.position
                     }
                 }
 
-                // Chunk only the new ones for processing
                 val chunks = freshMarkers.chunked(100)
 
                 for (chunk in chunks) {
-                    // Build MarkerOptions in parallel
-                    val deferredMarkers = chunk.map { marker ->
-                        async(Dispatchers.IO) {
-                            val options = buildMarker(marker)
+                    val builtMarkers = chunk.map { marker ->
+                        async {
+                            val options = buildMarker(marker) // decode base64 here
                             marker to options
                         }
-                    }
+                    }.awaitAll()
 
-                    val builtMarkers = deferredMarkers.awaitAll()
+                    // Only UI code here
+                    withContext(Dispatchers.Main) {
+                        builtMarkers.forEach { (marker, options) ->
+                            val googleMapMarker = googleMap?.addMarker(options)
+                            marker.googleMapMarker = googleMapMarker
 
-                    // Add to map on Main thread
-                    builtMarkers.forEach { (marker, options) ->
-                        val googleMapMarker = googleMap?.addMarker(options)
-                        marker.googleMapMarker = googleMapMarker
+                            if (googleMapMarker != null) {
+                                if (clusterManager != null) {
+                                    googleMapMarker.remove() // don't use this if not absolutely needed
+                                }
 
-                        if (googleMapMarker != null) {
-                            if (clusterManager != null) {
-                                googleMapMarker.remove()
+                                mIds[marker.mId] = googleMapMarker.id
+                                markers[googleMapMarker.id] = marker
+                                markerIds.add(googleMapMarker.id)
                             }
-
-                            mIds[marker.mId] = googleMapMarker.id
-                            markers[googleMapMarker.id] = marker
-                            markerIds.add(googleMapMarker.id)
                         }
                     }
                 }
 
-                clusterManager?.let {
-                    it.addItems(newMarkers)
-                    it.cluster()
-                }
+                withContext(Dispatchers.Main) {
+                    clusterManager?.let {
+                        it.addItems(newMarkers)
+                        it.cluster()
+                    }
 
-                callback(Result.success(markerIds))
+                    callback(Result.success(markerIds))
+                }
             }
         } catch (e: GoogleMapsError) {
             callback(Result.failure(e))
@@ -1251,7 +1254,7 @@ class CapacitorGoogleMap(
     override fun onMarkerClick(marker: Marker): Boolean {
         val data = JSObject()
         data.put("mapId", this@CapacitorGoogleMap.id)
-        data.put("mId", mIds.entries.find { it.value == marker.id } )
+        data.put("mId", mIds.entries.find { it.value == marker.id }?.key)
         data.put("markerId", marker.id)
         data.put("latitude", marker.position.latitude)
         data.put("longitude", marker.position.longitude)
@@ -1272,7 +1275,7 @@ class CapacitorGoogleMap(
     override fun onMarkerDrag(marker: Marker) {
         val data = JSObject()
         data.put("mapId", this@CapacitorGoogleMap.id)
-        data.put("mId", mIds.entries.find { it.value == marker.id } )
+        data.put("mId", mIds.entries.find { it.value == marker.id }?.key )
         data.put("markerId", marker.id)
         data.put("latitude", marker.position.latitude)
         data.put("longitude", marker.position.longitude)
@@ -1284,7 +1287,7 @@ class CapacitorGoogleMap(
     override fun onMarkerDragStart(marker: Marker) {
         val data = JSObject()
         data.put("mapId", this@CapacitorGoogleMap.id)
-        data.put("mId", mIds.entries.find { it.value == marker.id } )
+        data.put("mId", mIds.entries.find { it.value == marker.id }?.key )
         data.put("markerId", marker.id)
         data.put("latitude", marker.position.latitude)
         data.put("longitude", marker.position.longitude)
@@ -1296,7 +1299,7 @@ class CapacitorGoogleMap(
     override fun onMarkerDragEnd(marker: Marker) {
         val data = JSObject()
         data.put("mapId", this@CapacitorGoogleMap.id)
-        data.put("mId", mIds.entries.find { it.value == marker.id } )
+        data.put("mId", mIds.entries.find { it.value == marker.id }?.key )
         data.put("markerId", marker.id)
         data.put("latitude", marker.position.latitude)
         data.put("longitude", marker.position.longitude)

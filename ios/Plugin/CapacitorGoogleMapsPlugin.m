@@ -4,6 +4,7 @@
 // Define the plugin using the CAP_PLUGIN Macro, and
 // each method the plugin supports using the CAP_PLUGIN_METHOD macro.
 CAP_PLUGIN(CapacitorGoogleMapsPlugin, "CapacitorGoogleMaps",
+   CAP_PLUGIN_METHOD(getMarkersIds, CAPPluginReturnPromise);
    CAP_PLUGIN_METHOD(create, CAPPluginReturnPromise);
    CAP_PLUGIN_METHOD(enableTouch, CAPPluginReturnPromise);
    CAP_PLUGIN_METHOD(disableTouch, CAPPluginReturnPromise);
@@ -13,7 +14,9 @@ CAP_PLUGIN(CapacitorGoogleMapsPlugin, "CapacitorGoogleMaps",
    CAP_PLUGIN_METHOD(addPolylines, CAPPluginReturnPromise);
    CAP_PLUGIN_METHOD(addCircles, CAPPluginReturnPromise);
    CAP_PLUGIN_METHOD(removeMarker, CAPPluginReturnPromise);
+   CAP_PLUGIN_METHOD(removeMarkerBymId, CAPPluginReturnPromise);
    CAP_PLUGIN_METHOD(removeMarkers, CAPPluginReturnPromise);
+   CAP_PLUGIN_METHOD(removeMarkersBymId, CAPPluginReturnPromise);
    CAP_PLUGIN_METHOD(removeCircles, CAPPluginReturnPromise);
    CAP_PLUGIN_METHOD(removePolygons, CAPPluginReturnPromise);
    CAP_PLUGIN_METHOD(removePolylines, CAPPluginReturnPromise);

@@ -298,6 +298,12 @@ export class GoogleMap {
     });
   }
 
+  async getMarkersIds(): Promise<Record<string, string>> {
+    return CapacitorGoogleMaps.getMarkersIds({
+      id: this.id
+    });
+  }
+
   /**
    * Enable touch events on native map
    *

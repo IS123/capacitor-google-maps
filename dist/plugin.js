@@ -219,6 +219,11 @@ var capacitorCapacitorGoogleMaps = (function (exports, core, markerclusterer) {
                 }
             });
         }
+        async getMarkersIds() {
+            return CapacitorGoogleMaps.getMarkersIds({
+                id: this.id
+            });
+        }
         /**
          * Enable touch events on native map
          *
@@ -1175,7 +1180,7 @@ var capacitorCapacitorGoogleMaps = (function (exports, core, markerclusterer) {
                 const id = '' + this.currMarkerId;
                 map.markers[id] = marker;
                 map.mIds[markerArgs.mId] = id;
-                this.setMarkerListeners(_args.id, id, marker);
+                this.setMarkerListeners(_args.id, id, markerArgs.mId, marker);
                 markerIds.push(id);
                 this.currMarkerId++;
             }
@@ -1187,7 +1192,7 @@ var capacitorCapacitorGoogleMaps = (function (exports, core, markerclusterer) {
             const id = '' + this.currMarkerId;
             this.maps[_args.id].mIds[_args.marker.mId] = id;
             this.maps[_args.id].markers[id] = marker;
-            this.setMarkerListeners(_args.id, id, marker);
+            this.setMarkerListeners(_args.id, id, _args.marker.mId, marker);
             this.currMarkerId++;
             return { id: id };
         }
@@ -1435,7 +1440,7 @@ var capacitorCapacitorGoogleMaps = (function (exports, core, markerclusterer) {
                 });
             });
         }
-        async setMarkerListeners(mapId, markerId, marker) {
+        async setMarkerListeners(mapId, markerId, mId, marker) {
             marker.addListener('click', () => {
                 var _a, _b;
                 this.notifyListeners('onMarkerClick', {
@@ -1445,6 +1450,7 @@ var capacitorCapacitorGoogleMaps = (function (exports, core, markerclusterer) {
                     longitude: (_b = marker.getPosition()) === null || _b === void 0 ? void 0 : _b.lng(),
                     title: marker.getTitle(),
                     snippet: '',
+                    mId
                 });
             });
             marker.addListener('dragstart', () => {
@@ -1456,6 +1462,7 @@ var capacitorCapacitorGoogleMaps = (function (exports, core, markerclusterer) {
                     longitude: (_b = marker.getPosition()) === null || _b === void 0 ? void 0 : _b.lng(),
                     title: marker.getTitle(),
                     snippet: '',
+                    mId
                 });
             });
             marker.addListener('drag', () => {
@@ -1467,6 +1474,7 @@ var capacitorCapacitorGoogleMaps = (function (exports, core, markerclusterer) {
                     longitude: (_b = marker.getPosition()) === null || _b === void 0 ? void 0 : _b.lng(),
                     title: marker.getTitle(),
                     snippet: '',
+                    mId
                 });
             });
             marker.addListener('dragend', () => {
@@ -1478,6 +1486,7 @@ var capacitorCapacitorGoogleMaps = (function (exports, core, markerclusterer) {
                     longitude: (_b = marker.getPosition()) === null || _b === void 0 ? void 0 : _b.lng(),
                     title: marker.getTitle(),
                     snippet: '',
+                    mId
                 });
             });
         }

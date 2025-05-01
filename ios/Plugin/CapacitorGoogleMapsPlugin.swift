@@ -84,6 +84,22 @@ public class CapacitorGoogleMapsPlugin: CAPPlugin, GMSMapViewDelegate {
 
         return locationState
     }
+	
+	@objc func getMarkersIds(_ call: CAPPluginCall) {
+		do {
+			guard let id = call.getString("id") else {
+				throw GoogleMapErrors.invalidMapId
+			}
+
+			guard let map = self.maps[id] else {
+				throw GoogleMapErrors.mapNotFound
+			}
+
+			call.resolve(map.mIds)
+		} catch {
+			handleError(call, error: error)
+		}
+	}
 
     @objc func create(_ call: CAPPluginCall) {
         do {
@@ -284,7 +300,6 @@ public class CapacitorGoogleMapsPlugin: CAPPlugin, GMSMapViewDelegate {
             call.resolve(["ids": ids.map({ id in
                 return String(id)
             })])
-
         } catch {
             handleError(call, error: error)
         }
@@ -323,6 +338,32 @@ public class CapacitorGoogleMapsPlugin: CAPPlugin, GMSMapViewDelegate {
             handleError(call, error: error)
         }
     }
+	
+	@objc func removeMarkersBymId(_ call: CAPPluginCall) {
+		do {
+			guard let id = call.getString("id") else {
+				throw GoogleMapErrors.invalidMapId
+			}
+			
+			guard let mIds = call.getArray("mIds") as? [String] else {
+				throw GoogleMapErrors.invalidArguments("mIds are missing")
+			}
+			
+			if mIds.isEmpty {
+				throw GoogleMapErrors.invalidArguments("mIds requires at least one marker id")
+			}
+
+			guard let map = self.maps[id] else {
+				throw GoogleMapErrors.mapNotFound
+			}
+
+			try map.removeMarkersBymId(mIds: mIds)
+
+			call.resolve()
+		} catch {
+			handleError(call, error: error)
+		}
+	}
 
     @objc func removeMarker(_ call: CAPPluginCall) {
         do {
@@ -350,6 +391,29 @@ public class CapacitorGoogleMapsPlugin: CAPPlugin, GMSMapViewDelegate {
             handleError(call, error: error)
         }
     }
+	
+	@objc func removeMarkerBymId(_ call: CAPPluginCall) {
+		do {
+			guard let id = call.getString("id") else {
+				throw GoogleMapErrors.invalidMapId
+			}
+
+			guard let mId = call.getString("mId") else {
+				throw GoogleMapErrors.invalidArguments("mId is missing")
+			}
+
+			guard let map = self.maps[id] else {
+				throw GoogleMapErrors.mapNotFound
+			}
+
+			try map.removeMarkerBymId(mId: mId)
+
+			call.resolve()
+
+		} catch {
+			handleError(call, error: error)
+		}
+	}
 
     @objc func addPolygons(_ call: CAPPluginCall) {
         do {
@@ -1200,9 +1264,18 @@ public class CapacitorGoogleMapsPlugin: CAPPlugin, GMSMapViewDelegate {
                 "items": items
             ])
         } else {
+			let mapId = self.findMapIdByMapView(mapView)
+			let map = self.maps[mapId]
+			var mId = "none"
+			
+			if let map {
+				mId = map.mIds[String(marker.hash.hashValue)] ?? "none"
+			}
+			
             self.notifyListeners("onMarkerClick", data: [
-                "mapId": self.findMapIdByMapView(mapView),
+                "mapId": mapId,
                 "markerId": String(marker.hash.hashValue),
+				"mId": mId,
                 "latitude": marker.position.latitude,
                 "longitude": marker.position.longitude,
                 "title": marker.title ?? "",

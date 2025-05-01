@@ -102,7 +102,7 @@ export declare class CapacitorGoogleMapsWeb extends WebPlugin implements Capacit
     setCircleListeners(mapId: string, circleId: string, circle: google.maps.Circle): Promise<void>;
     setPolygonListeners(mapId: string, polygonId: string, polygon: google.maps.Polygon): Promise<void>;
     setPolylineListeners(mapId: string, polylineId: string, polyline: google.maps.Polyline): Promise<void>;
-    setMarkerListeners(mapId: string, markerId: string, marker: google.maps.Marker): Promise<void>;
+    setMarkerListeners(mapId: string, markerId: string, mId: string, marker: google.maps.Marker): Promise<void>;
     setMapListeners(mapId: string): Promise<void>;
     private buildMarkerOpts;
 }
