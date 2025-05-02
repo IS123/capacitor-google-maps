@@ -727,12 +727,12 @@ public class Map {
 
         // If icon (base64) is already set, assign it directly
         if let base64Icon = marker.icon {
-			newMarker.icon = getResizedIcon(base64Icon, marker)
+			newMarker.icon = getResizedIcon(base64Icon, marker.iconSize)
 		}
 		// Otherwise, proceed with the URL or color options
 		else if let iconUrl = marker.iconUrl {
             if let iconImage = self.markerIcons[iconUrl] {
-                newMarker.icon = getResizedIcon(iconImage, marker)
+				newMarker.icon = getResizedIcon(iconImage, marker.iconSize)
             } else {
                 if iconUrl.starts(with: "https:") {
                     if let url = URL(string: iconUrl) {
@@ -740,14 +740,14 @@ public class Map {
                             DispatchQueue.main.async {
                                 if let data = data, let iconImage = UIImage(data: data) {
                                     self.markerIcons[iconUrl] = iconImage
-                                    newMarker.icon = getResizedIcon(iconImage, marker)
+									newMarker.icon = getResizedIcon(iconImage, marker.iconSize)
                                 }
                             }
                         }.resume()
                     }
                 } else if let iconImage = UIImage(named: "public/\(iconUrl)") {
                     self.markerIcons[iconUrl] = iconImage
-                    newMarker.icon = getResizedIcon(iconImage, marker)
+					newMarker.icon = getResizedIcon(iconImage, marker.iconSize)
                 } else {
                     var detailedMessage = ""
 
@@ -766,10 +766,51 @@ public class Map {
 
         return newMarker
     }
+	
+	func updateMarkerIcon(mId: String, iconId: String, iconUrl: String) -> Void {
+		guard let markerHash = self.mIds.first(where: { $0.value == mId })?.key,
+			  let markerHash = Int(markerHash),
+			  let marker = self.markers[markerHash] else {
+			print("updateMarkerIcon(): Marker not found")
+			
+			return
+		}
+		
+		DispatchQueue.main.sync {
+			let iconSize = CGSize(width: 30, height: 38)
+			if let iconImage = self.markerIcons[iconUrl] {
+				marker.icon = getResizedIcon(iconImage, iconSize)
+			} else {
+				if iconUrl.starts(with: "https:") {
+					if let url = URL(string: iconUrl) {
+						URLSession.shared.dataTask(with: url) { (data, _, _) in
+							DispatchQueue.main.async {
+								if let data = data, let iconImage = UIImage(data: data) {
+									self.markerIcons[iconUrl] = iconImage
+									marker.icon = getResizedIcon(iconImage, iconSize)
+								}
+							}
+						}.resume()
+					}
+				} else if let iconImage = UIImage(named: "public/\(iconUrl)") {
+					self.markerIcons[iconUrl] = iconImage
+					marker.icon = getResizedIcon(iconImage, iconSize)
+				} else {
+					var detailedMessage = ""
+
+					if iconUrl.hasSuffix(".svg") {
+						detailedMessage = "SVG not supported."
+					}
+
+					print("CapacitorGoogleMaps Warning: could not load image '\(iconUrl)'. \(detailedMessage)  Using default marker icon.")
+				}
+			}
+		}
+	}
 }
 
-private func getResizedIcon(_ iconImage: UIImage, _ marker: Marker) -> UIImage? {
-    if let iconSize = marker.iconSize {
+private func getResizedIcon(_ iconImage: UIImage, _ iconSize: CGSize?) -> UIImage? {
+    if let iconSize = iconSize {
         return iconImage.resizeImageTo(size: iconSize)
     } else {
         return iconImage

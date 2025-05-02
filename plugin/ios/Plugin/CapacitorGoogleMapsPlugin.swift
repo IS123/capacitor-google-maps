@@ -269,6 +269,144 @@ public class CapacitorGoogleMapsPlugin: CAPPlugin, GMSMapViewDelegate {
             handleError(call, error: error)
         }
     }
+	
+	@objc func updateMarker(_ call: CAPPluginCall) {
+		do {
+			guard let id = call.getString("id") else {
+				throw GoogleMapErrors.invalidMapId
+			}
+			
+			guard let markerId = call.getString("markerId"),
+				  let markerId = Int(markerId) else {
+				throw GoogleMapErrors.invalidArguments("markerId is missing")
+			}
+
+			guard let markerObj = call.getObject("marker") else {
+				throw GoogleMapErrors.invalidArguments("marker object is missing")
+			}
+
+			let marker = try Marker(fromJSObject: markerObj, imageCache: imageCache)
+
+			guard let map = self.maps[id] else {
+				throw GoogleMapErrors.mapNotFound
+			}
+			
+			try map.removeMarker(id: markerId)
+			
+			let markerHash = try map.addMarker(marker: marker)
+
+			call.resolve(["id": String(markerHash)])
+
+		} catch {
+			handleError(call, error: error)
+		}
+	}
+	
+	@objc func updateMarkerBymId(_ call: CAPPluginCall) {
+		do {
+			guard let id = call.getString("id") else {
+				throw GoogleMapErrors.invalidMapId
+			}
+			
+			guard let mId = call.getString("mId") else {
+				throw GoogleMapErrors.invalidArguments("mId is missing")
+			}
+
+			guard let markerObj = call.getObject("marker") else {
+				throw GoogleMapErrors.invalidArguments("marker object is missing")
+			}
+
+			let marker = try Marker(fromJSObject: markerObj, imageCache: imageCache)
+
+			guard let map = self.maps[id] else {
+				throw GoogleMapErrors.mapNotFound
+			}
+			
+			guard let markerHash = map.mIds.first(where: { $0.value == mId })?.key,
+				  let markerHash = Int(markerHash) else {
+				throw GoogleMapErrors.markerNotFound
+			}
+			
+			try map.removeMarker(id: markerHash)
+			
+			let markerId = try map.addMarker(marker: marker)
+
+			call.resolve(["id": String(markerId)])
+
+		} catch {
+			handleError(call, error: error)
+		}
+	}
+	
+	@objc func updateMarkersBymId(_ call: CAPPluginCall) {
+		do {
+			guard let id = call.getString("id") else {
+				throw GoogleMapErrors.invalidMapId
+			}
+			
+			guard let mId = call.getString("mId") else {
+				throw GoogleMapErrors.invalidArguments("mId is missing")
+			}
+
+			guard let markerObj = call.getObject("marker") else {
+				throw GoogleMapErrors.invalidArguments("marker object is missing")
+			}
+
+			let marker = try Marker(fromJSObject: markerObj, imageCache: imageCache)
+
+			guard let map = self.maps[id] else {
+				throw GoogleMapErrors.mapNotFound
+			}
+			
+			guard let markerHash = map.mIds.first(where: { $0.value == mId })?.key,
+				  let markerHash = Int(markerHash) else {
+				throw GoogleMapErrors.markerNotFound
+			}
+			
+			try map.removeMarker(id: markerHash)
+			
+			let markerId = try map.addMarker(marker: marker)
+
+			call.resolve(["id": String(markerId)])
+
+		} catch {
+			handleError(call, error: error)
+		}
+	}
+	
+	@objc func updateMarkerIcon(_ call: CAPPluginCall) {
+		do {
+			guard let id = call.getString("id") else {
+				throw GoogleMapErrors.invalidMapId
+			}
+			
+			guard let mId = call.getString("mId") else {
+				throw GoogleMapErrors.invalidArguments("mId is missing")
+			}
+			
+			guard let iconId = call.getString("iconId") else {
+				throw GoogleMapErrors.invalidArguments("iconId is missing")
+			}
+			
+			guard let iconUrl = call.getString("iconId") else {
+				throw GoogleMapErrors.invalidArguments("iconUrl is missing")
+			}
+
+			guard let map = self.maps[id] else {
+				throw GoogleMapErrors.mapNotFound
+			}
+			
+			guard let markerHash = map.mIds.first(where: { $0.value == mId })?.key,
+				  let markerHash = Int(markerHash) else {
+				throw GoogleMapErrors.markerNotFound
+			}
+			
+			try map.updateMarkerIcon(mId: mId, iconId: iconId, iconUrl: iconUrl)
+		} catch {
+			handleError(call, error: error)
+		}
+	}
+
 
     @objc func addMarkers(_ call: CAPPluginCall) {
         do {
