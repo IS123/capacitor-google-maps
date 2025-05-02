@@ -137,6 +137,52 @@
         "slug": "updatemarker"
       },
       {
+        "name": "updateMarkerBymId",
+        "signature": "(mId: string, marker: Marker) => Promise<string>",
+        "parameters": [
+          {
+            "name": "mId",
+            "docs": "",
+            "type": "string"
+          },
+          {
+            "name": "marker",
+            "docs": "",
+            "type": "Marker"
+          }
+        ],
+        "returns": "Promise<string>",
+        "tags": [],
+        "docs": "",
+        "complexTypes": [
+          "Marker"
+        ],
+        "slug": "updatemarkerbymid"
+      },
+      {
+        "name": "updateMarkersBymId",
+        "signature": "(mId: string, marker: Marker) => Promise<string>",
+        "parameters": [
+          {
+            "name": "mId",
+            "docs": "",
+            "type": "string"
+          },
+          {
+            "name": "marker",
+            "docs": "",
+            "type": "Marker"
+          }
+        ],
+        "returns": "Promise<string>",
+        "tags": [],
+        "docs": "",
+        "complexTypes": [
+          "Marker"
+        ],
+        "slug": "updatemarkersbymid"
+      },
+      {
         "name": "updateMarkerIcon",
         "signature": "(id: string, iconId: string, iconUrl: string) => Promise<void>",
         "parameters": [
@@ -179,6 +225,22 @@
         "slug": "removemarker"
       },
       {
+        "name": "removeMarkerBymId",
+        "signature": "(mId: string) => Promise<void>",
+        "parameters": [
+          {
+            "name": "mId",
+            "docs": "",
+            "type": "string"
+          }
+        ],
+        "returns": "Promise<void>",
+        "tags": [],
+        "docs": "",
+        "complexTypes": [],
+        "slug": "removemarkerbymid"
+      },
+      {
         "name": "removeMarkers",
         "signature": "(ids: string[]) => Promise<void>",
         "parameters": [
@@ -193,6 +255,22 @@
         "docs": "",
         "complexTypes": [],
         "slug": "removemarkers"
+      },
+      {
+        "name": "removeMarkersBymId",
+        "signature": "(mIds: string[]) => Promise<void>",
+        "parameters": [
+          {
+            "name": "mIds",
+            "docs": "",
+            "type": "string[]"
+          }
+        ],
+        "returns": "Promise<void>",
+        "tags": [],
+        "docs": "",
+        "complexTypes": [],
+        "slug": "removemarkersbymid"
       },
       {
         "name": "addPolygons",

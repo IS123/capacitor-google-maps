@@ -33,6 +33,7 @@ import {
   type RemoveMarkerBymIdArgs,
   type RemoveMarkersBymIdArgs,
   UpdateMarkerBymIdArgs,
+  UpdateMarkersBymIdArgs,
 } from './implementation';
 
 export class CapacitorGoogleMapsWeb extends WebPlugin implements CapacitorGoogleMapsPlugin {
@@ -338,7 +339,7 @@ export class CapacitorGoogleMapsWeb extends WebPlugin implements CapacitorGoogle
 
     const id = map.mIds[args.mId];
 
-    map.markers[id].setMap(null)
+    map.markers[id].setMap(null);
 
     delete map.markers[id];
   }
@@ -349,10 +350,10 @@ export class CapacitorGoogleMapsWeb extends WebPlugin implements CapacitorGoogle
     args.mIds.forEach(mId => {
       const id = map.mIds[mId];
 
-      map.markers[id].setMap(null)
+      map.markers[id].setMap(null);
 
       delete map.markers[id];
-    })
+    });
   }
 
   async getMarkersIds(args: { id: string; }): Promise<Record<string, string>> {
@@ -366,6 +367,15 @@ export class CapacitorGoogleMapsWeb extends WebPlugin implements CapacitorGoogle
     });
 
     return (await this.addMarker({id: args.id, marker: args.marker}));
+  }
+
+  async updateMarkersBymId(args: UpdateMarkersBymIdArgs): Promise<{ ids: string[]; }> {
+    await this.removeMarkersBymId({
+      id: args.id,
+      mIds: args.mIds
+    });
+
+    return (await this.addMarkers({id: args.id, markers: args.markers}));
   }
 
   async addPolygons(args: AddPolygonsArgs): Promise<{ ids: string[] }> {

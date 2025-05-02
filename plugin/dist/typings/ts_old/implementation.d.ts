@@ -71,6 +71,11 @@ export interface UpdateMarkerBymIdArgs {
     mId: string;
     marker: Marker;
 }
+export interface UpdateMarkersBymIdArgs {
+    id: string;
+    mIds: string[];
+    markers: Marker[];
+}
 export interface UpdateMarkerIconArgs {
     id: string;
     mId: string;
@@ -253,6 +258,9 @@ export interface CapacitorGoogleMapsPlugin extends Plugin {
     }>;
     updateMarkerBymId(args: UpdateMarkerBymIdArgs): Promise<{
         id: string;
+    }>;
+    updateMarkersBymId(args: UpdateMarkersBymIdArgs): Promise<{
+        ids: string[];
     }>;
     updateMarkerIcon(args: UpdateMarkerIconArgs): Promise<void>;
     getMarkersIds(args: {

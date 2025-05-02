@@ -1,6 +1,6 @@
 import { WebPlugin } from '@capacitor/core';
 import { LatLngBounds } from './definitions';
-import { type AddMarkerArgs, type CameraArgs, type AddMarkersArgs, type CapacitorGoogleMapsPlugin, type CreateMapArgs, type CurrentLocArgs, type DestroyMapArgs, type MapTypeArgs, type PaddingArgs, type RemoveMarkerArgs, type TrafficLayerArgs, type RemoveMarkersArgs, type MapBoundsContainsArgs, type EnableClusteringArgs, type FitBoundsArgs, type MapBoundsExtendArgs, type AddPolygonsArgs, type RemovePolygonsArgs, type AddCirclesArgs, type RemoveCirclesArgs, type AddPolylinesArgs, type RemovePolylinesArgs, type GroundOverlayArgs, type UpdateMarkerArgs, type UpdateMarkerIconArgs, type RemoveMarkerBymIdArgs, type RemoveMarkersBymIdArgs, UpdateMarkerBymIdArgs } from './implementation';
+import { type AddMarkerArgs, type CameraArgs, type AddMarkersArgs, type CapacitorGoogleMapsPlugin, type CreateMapArgs, type CurrentLocArgs, type DestroyMapArgs, type MapTypeArgs, type PaddingArgs, type RemoveMarkerArgs, type TrafficLayerArgs, type RemoveMarkersArgs, type MapBoundsContainsArgs, type EnableClusteringArgs, type FitBoundsArgs, type MapBoundsExtendArgs, type AddPolygonsArgs, type RemovePolygonsArgs, type AddCirclesArgs, type RemoveCirclesArgs, type AddPolylinesArgs, type RemovePolylinesArgs, type GroundOverlayArgs, type UpdateMarkerArgs, type UpdateMarkerIconArgs, type RemoveMarkerBymIdArgs, type RemoveMarkersBymIdArgs, UpdateMarkerBymIdArgs, UpdateMarkersBymIdArgs } from './implementation';
 export declare class CapacitorGoogleMapsWeb extends WebPlugin implements CapacitorGoogleMapsPlugin {
     private gMapsRef;
     private maps;
@@ -54,6 +54,9 @@ export declare class CapacitorGoogleMapsWeb extends WebPlugin implements Capacit
     }): Promise<Record<string, string>>;
     updateMarkerBymId(args: UpdateMarkerBymIdArgs): Promise<{
         id: string;
+    }>;
+    updateMarkersBymId(args: UpdateMarkersBymIdArgs): Promise<{
+        ids: string[];
     }>;
     addPolygons(args: AddPolygonsArgs): Promise<{
         ids: string[];

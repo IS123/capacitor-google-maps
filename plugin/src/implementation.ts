@@ -95,6 +95,12 @@ export interface UpdateMarkerBymIdArgs {
   marker: Marker;
 }
 
+export interface UpdateMarkersBymIdArgs {
+  id: string;
+  mIds: string[];
+  markers: Marker[];
+}
+
 export interface UpdateMarkerIconArgs {
   id: string;
   mId: string;
@@ -247,6 +253,7 @@ export interface CapacitorGoogleMapsPlugin extends Plugin {
   hasIcon(args: { id: string, iconId: string }): Promise<{ hasIcon: boolean}>;
   updateMarker(args: UpdateMarkerArgs): Promise<{ id: string}>;
   updateMarkerBymId(args: UpdateMarkerBymIdArgs): Promise<{ id: string}>;
+  updateMarkersBymId(args: UpdateMarkersBymIdArgs): Promise<{ ids: string[]}>;
   updateMarkerIcon(args: UpdateMarkerIconArgs): Promise<void>;
   getMarkersIds(args: { id: string }): Promise<Record<string, string>>;
 }

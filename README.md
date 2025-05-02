@@ -310,9 +310,13 @@ export default MyMap;
 * [`addMarker(...)`](#addmarker)
 * [`addMarkers(...)`](#addmarkers)
 * [`updateMarker(...)`](#updatemarker)
+* [`updateMarkerBymId(...)`](#updatemarkerbymid)
+* [`updateMarkersBymId(...)`](#updatemarkersbymid)
 * [`updateMarkerIcon(...)`](#updatemarkericon)
 * [`removeMarker(...)`](#removemarker)
+* [`removeMarkerBymId(...)`](#removemarkerbymid)
 * [`removeMarkers(...)`](#removemarkers)
+* [`removeMarkersBymId(...)`](#removemarkersbymid)
 * [`addPolygons(...)`](#addpolygons)
 * [`removePolygons(...)`](#removepolygons)
 * [`addCircles(...)`](#addcircles)
@@ -464,6 +468,38 @@ updateMarker(id: string, marker: Marker) => Promise<string>
 --------------------
 
 
+### updateMarkerBymId(...)
+
+```typescript
+updateMarkerBymId(mId: string, marker: Marker) => Promise<string>
+```
+
+| Param        | Type                                      |
+| ------------ | ----------------------------------------- |
+| **`mId`**    | <code>string</code>                       |
+| **`marker`** | <code><a href="#marker">Marker</a></code> |
+
+**Returns:** <code>Promise&lt;string&gt;</code>
+
+--------------------
+
+
+### updateMarkersBymId(...)
+
+```typescript
+updateMarkersBymId(mId: string, marker: Marker) => Promise<string>
+```
+
+| Param        | Type                                      |
+| ------------ | ----------------------------------------- |
+| **`mId`**    | <code>string</code>                       |
+| **`marker`** | <code><a href="#marker">Marker</a></code> |
+
+**Returns:** <code>Promise&lt;string&gt;</code>
+
+--------------------
+
+
 ### updateMarkerIcon(...)
 
 ```typescript
@@ -492,6 +528,19 @@ removeMarker(id: string) => Promise<void>
 --------------------
 
 
+### removeMarkerBymId(...)
+
+```typescript
+removeMarkerBymId(mId: string) => Promise<void>
+```
+
+| Param     | Type                |
+| --------- | ------------------- |
+| **`mId`** | <code>string</code> |
+
+--------------------
+
+
 ### removeMarkers(...)
 
 ```typescript
@@ -501,6 +550,19 @@ removeMarkers(ids: string[]) => Promise<void>
 | Param     | Type                  |
 | --------- | --------------------- |
 | **`ids`** | <code>string[]</code> |
+
+--------------------
+
+
+### removeMarkersBymId(...)
+
+```typescript
+removeMarkersBymId(mIds: string[]) => Promise<void>
+```
+
+| Param      | Type                  |
+| ---------- | --------------------- |
+| **`mIds`** | <code>string[]</code> |
 
 --------------------
 

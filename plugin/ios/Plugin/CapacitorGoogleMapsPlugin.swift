@@ -344,30 +344,47 @@ public class CapacitorGoogleMapsPlugin: CAPPlugin, GMSMapViewDelegate {
 				throw GoogleMapErrors.invalidMapId
 			}
 			
-			guard let mId = call.getString("mId") else {
-				throw GoogleMapErrors.invalidArguments("mId is missing")
+			guard let mIds = call.getArray("mIds") as? [String] else {
+				throw GoogleMapErrors.invalidArguments("mIds is missing")
 			}
 
-			guard let markerObj = call.getObject("marker") else {
-				throw GoogleMapErrors.invalidArguments("marker object is missing")
+			guard let markersObj = call.getArray("markers") as? [JSObject] else {
+				throw GoogleMapErrors.invalidArguments("markers is missing")
+			}
+			
+			if markersObj.isEmpty {
+				throw GoogleMapErrors.invalidArguments("markers requires at least one marker")
 			}
 
-			let marker = try Marker(fromJSObject: markerObj, imageCache: imageCache)
+			var markers: [Marker] = []
+
+			try markersObj.forEach { markerObj in
+				let marker = try Marker(fromJSObject: markerObj, imageCache: imageCache)
+				markers.append(marker)
+			}
 
 			guard let map = self.maps[id] else {
 				throw GoogleMapErrors.mapNotFound
 			}
+
+			var markerHashes: [String] = []
 			
-			guard let markerHash = map.mIds.first(where: { $0.value == mId })?.key,
-				  let markerHash = Int(markerHash) else {
-				throw GoogleMapErrors.markerNotFound
+			for mId in mIds {
+				guard let markerHash = map.mIds.first(where: { $0.value == mId })?.key,
+					  let markerHash = Int(markerHash),
+					  let marker = markers.first(where: { $0.mId == mId }) else {
+					print("updateMarkersBymId(): Marker not found \(mId)")
+					return
+				}
+				
+				try map.removeMarker(id: markerHash)
+				
+				let markerId = try map.addMarker(marker: marker)
+				
+				markerHashes.append(String(markerHash))
 			}
 			
-			try map.removeMarker(id: markerHash)
-			
-			let markerId = try map.addMarker(marker: marker)
-
-			call.resolve(["id": String(markerId)])
+			call.resolve(["ids": markerHashes])
 
 		} catch {
 			handleError(call, error: error)

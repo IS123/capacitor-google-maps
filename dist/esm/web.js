@@ -251,6 +251,13 @@ export class CapacitorGoogleMapsWeb extends WebPlugin {
         });
         return (await this.addMarker({ id: args.id, marker: args.marker }));
     }
+    async updateMarkersBymId(args) {
+        await this.removeMarkersBymId({
+            id: args.id,
+            mIds: args.mIds
+        });
+        return (await this.addMarkers({ id: args.id, markers: args.markers }));
+    }
     async addPolygons(args) {
         const polygonIds = [];
         const map = this.maps[args.id];
