@@ -825,13 +825,13 @@ class CapacitorGoogleMapsPlugin : Plugin(), OnMapsSdkInitializedCallback {
             map ?: throw MapNotFoundError()
 
             map.getMarkersIds { result -> {
-                    val ids = result.getOrThrow()
+                    val ids = result?.getOrThrow()
 
                     val res = JSObject()
 
-                    ids.forEach {
-                        res.put(it.key, it.value)
-                    }
+                ids?.forEach {
+                    res.put(it.key, it.value)
+                }
 
                     call.resolve(res)
                 }
