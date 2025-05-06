@@ -20,6 +20,9 @@ import com.google.maps.android.clustering.Cluster
 import com.google.maps.android.clustering.ClusterManager
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.asFlow
+import kotlinx.coroutines.flow.mapNotNull
+import kotlinx.coroutines.flow.toList
 import java.io.ByteArrayOutputStream
 import java.util.concurrent.Executors
 
@@ -181,6 +184,7 @@ class CapacitorGoogleMap(
         }
     }
 
+    @OptIn(ExperimentalCoroutinesApi::class)
     fun addMarkers(
         newMarkers: List<CapacitorGoogleMapMarker>,
         callback: (ids: Result<List<String>>) -> Unit
@@ -188,30 +192,25 @@ class CapacitorGoogleMap(
         try {
             googleMap ?: throw GoogleMapNotAvailable()
 
-            val markerIds: MutableList<String> = mutableListOf()
+            val markerIds = mutableListOf<String>()
 
             CoroutineScope(markerDispatcher).launch {
-                val (existingMarkers, freshMarkers) = newMarkers.partition { mIds[it.mId] != null }
+                try {
+                    val builtMarkers = newMarkers.asFlow()
+                        .mapNotNull { marker ->
+                            val existingId = mIds[marker.mId]
+                            if (existingId != null) {
+                                withContext(Dispatchers.Main) {
+                                    markers[existingId]?.googleMapMarker?.position = marker.position
+                                }
+                                return@mapNotNull null
+                            }
 
-                // Update existing markers (still done on Main since we touch GoogleMap objects)
-                withContext(Dispatchers.Main) {
-                    existingMarkers.forEach { marker ->
-                        val existing = markers[mIds[marker.mId]]
-                        existing?.googleMapMarker?.position = marker.position
-                    }
-                }
-
-                val chunks = freshMarkers.chunked(100)
-
-                for (chunk in chunks) {
-                    val builtMarkers = chunk.map { marker ->
-                        async {
-                            val options = buildMarker(marker) // decode base64 here
+                            val options = buildMarker(marker)
                             marker to options
                         }
-                    }.awaitAll()
+                        .toList() // collect all before switching context
 
-                    // Only UI code here
                     withContext(Dispatchers.Main) {
                         builtMarkers.forEach { (marker, options) ->
                             val googleMapMarker = googleMap?.addMarker(options)
@@ -219,7 +218,7 @@ class CapacitorGoogleMap(
 
                             if (googleMapMarker != null) {
                                 if (clusterManager != null) {
-                                    googleMapMarker.remove() // don't use this if not absolutely needed
+                                    googleMapMarker.remove()
                                 }
 
                                 mIds[marker.mId] = googleMapMarker.id
@@ -227,16 +226,20 @@ class CapacitorGoogleMap(
                                 markerIds.add(googleMapMarker.id)
                             }
                         }
-                    }
-                }
 
-                withContext(Dispatchers.Main) {
-                    clusterManager?.let {
-                        it.addItems(newMarkers)
-                        it.cluster()
-                    }
+                        clusterManager?.apply {
+                            addItems(newMarkers)
+                            cluster()
+                        }
 
-                    callback(Result.success(markerIds))
+                        callback(Result.success(markerIds))
+                    }
+                } catch (e: CancellationException) {
+                    // Skip callback
+                } catch (e: Exception) {
+                    withContext(Dispatchers.Main) {
+                        callback(Result.failure(e))
+                    }
                 }
             }
         } catch (e: GoogleMapsError) {
