@@ -67,6 +67,7 @@ android {
     dependencies {
         implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:$kotlinxCoroutinesVersion")
         implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:$kotlinxCoroutinesVersion")
+        implementation("com.caverock:androidsvg:1.4")
     }
 }
 
