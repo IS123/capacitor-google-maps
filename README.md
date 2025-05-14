@@ -26,7 +26,8 @@ npm install @capacitor/google-maps@git+file:///Users/username/path/to/plugin-rep
 
 ### When ready to deploy.
 - Build the dist `pnpm run build`
-- Create a git tag with name v<semver_version> `git tag -a v6.0.0`
+- Create a git tag with name v<semver_version> `git tag -a v7.0.0-rc.0`
+- Notice `-rc.0` in tag name (or any other meaningful suffix) - it's required to not clash with upstream repo tags
 - Push changes to master branch, or create a PR to master.
 - Push tag to remote `git push origin --tags`
 
