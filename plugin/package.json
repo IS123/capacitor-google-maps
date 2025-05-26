@@ -1,6 +1,6 @@
 {
   "name": "@capacitor/google-maps",
-  "version": "5.4.2",
+  "version": "7.0.1",
   "description": "Fork of Ionic Team Capacitor Google Maps",
   "main": "dist/plugin.cjs.js",
   "module": "dist/esm/index.js",
@@ -55,10 +55,10 @@
     "unittest:android": "cd ./unit-tests/android && ./gradlew testDebugUnitTest"
   },
   "devDependencies": {
-    "@capacitor/android": "^5.2.2",
-    "@capacitor/core": "^5.0.0",
-    "@capacitor/docgen": "0.2.2",
-    "@capacitor/ios": "^5.0.0",
+    "@capacitor/android": "^7.0.1",
+    "@capacitor/core": "^7.0.1",
+    "@capacitor/docgen": "0.3.0",
+    "@capacitor/ios": "^7.0.1",
     "@ionic/prettier-config": "^1.0.1",
     "@types/resize-observer-browser": "^0.1.7",
     "@types/supercluster": "^7.1.0",
@@ -76,7 +76,7 @@
     "typescript": "^5.4.2"
   },
   "peerDependencies": {
-    "@capacitor/core": "^5.0.0"
+    "@capacitor/core": ">=7.0.0"
   },
   "capacitor": {
     "ios": {
@@ -90,8 +90,8 @@
     "access": "public"
   },
   "dependencies": {
-    "@googlemaps/js-api-loader": "~1.13.7",
-    "@googlemaps/markerclusterer": "~2.0.7",
-    "@types/google.maps": "~3.50.5"
+    "@googlemaps/js-api-loader": "~1.16.8",
+    "@googlemaps/markerclusterer": "~2.5.3",
+    "@types/google.maps": "~3.58.1"
   }
 }

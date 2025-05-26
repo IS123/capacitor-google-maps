@@ -3,11 +3,14 @@ import { LatLngBounds } from './definitions';
 import { type AddMarkerArgs, type CameraArgs, type AddMarkersArgs, type CapacitorGoogleMapsPlugin, type CreateMapArgs, type CurrentLocArgs, type DestroyMapArgs, type MapTypeArgs, type PaddingArgs, type RemoveMarkerArgs, type TrafficLayerArgs, type RemoveMarkersArgs, type MapBoundsContainsArgs, type EnableClusteringArgs, type FitBoundsArgs, type MapBoundsExtendArgs, type AddPolygonsArgs, type RemovePolygonsArgs, type AddCirclesArgs, type RemoveCirclesArgs, type AddPolylinesArgs, type RemovePolylinesArgs, type GroundOverlayArgs, type UpdateMarkerArgs, type UpdateMarkerIconArgs, type RemoveMarkerBymIdArgs, type RemoveMarkersBymIdArgs, UpdateMarkerBymIdArgs, UpdateMarkersBymIdArgs } from './implementation';
 export declare class CapacitorGoogleMapsWeb extends WebPlugin implements CapacitorGoogleMapsPlugin {
     private gMapsRef;
+    private AdvancedMarkerElement;
+    private PinElement;
     private maps;
     private currMarkerId;
     private currPolygonId;
     private currCircleId;
     private currPolylineId;
+    private currMapId;
     private onClusterClickHandler;
     private getIdFromMap;
     private getIdFromMarker;
@@ -105,7 +108,7 @@ export declare class CapacitorGoogleMapsWeb extends WebPlugin implements Capacit
     setCircleListeners(mapId: string, circleId: string, circle: google.maps.Circle): Promise<void>;
     setPolygonListeners(mapId: string, polygonId: string, polygon: google.maps.Polygon): Promise<void>;
     setPolylineListeners(mapId: string, polylineId: string, polyline: google.maps.Polyline): Promise<void>;
-    setMarkerListeners(mapId: string, markerId: string, mId: string, marker: google.maps.Marker): Promise<void>;
+    setMarkerListeners(mapId: string, markerId: string, mId: string, marker: google.maps.marker.AdvancedMarkerElement): Promise<void>;
     setMapListeners(mapId: string): Promise<void>;
     private buildMarkerOpts;
 }

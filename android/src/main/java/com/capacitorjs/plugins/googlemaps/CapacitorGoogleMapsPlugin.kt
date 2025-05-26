@@ -1102,7 +1102,7 @@ class CapacitorGoogleMapsPlugin : Plugin(), OnMapsSdkInitializedCallback {
                     } else {
                         this.bridge.webView.onTouchEvent(event)
                     }
-                    events.removeFirst()
+                    events.removeAt(0)
                 }
             }
 
