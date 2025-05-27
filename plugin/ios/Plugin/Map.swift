@@ -85,7 +85,7 @@ public class Map {
 	var circles = [Int: GMSCircle]()
 	var polylines = [Int: GMSPolyline]()
 	var markerIcons = [String: UIImage]()
-	var mIds = [String: String]()
+	var mIds = [String: Int]()
 
 	// swiftlint:disable identifier_name
 	public static let MAP_TAG = 99999
@@ -229,10 +229,19 @@ public class Map {
 		}
 	}
 
-	func addMarker(marker: Marker) throws -> Int {
+	func addMarker(marker: Marker, clearAllMarkers: Bool = true) throws -> Int {
 		var markerHash = 0
 
 		DispatchQueue.main.sync {
+			if clearAllMarkers == true {
+				let markerIds = Array(self.markers.keys)
+				do {
+					try self.removeMarkers(ids: markerIds)
+				} catch {
+					print("addMarker(): Error: \(error)")
+				}
+			}
+			
 			let newMarker = self.buildMarker(marker: marker)
 
 			if self.mapViewController.clusteringEnabled {
@@ -246,7 +255,7 @@ public class Map {
 			markerHash = newMarker.hash.hashValue
 			
 			if let mId = marker.mId {
-				self.mIds[String(newMarker.hash.hashValue)] = mId
+				self.mIds[mId] = newMarker.hash.hashValue
 			}
 		}
 
@@ -280,6 +289,13 @@ public class Map {
 			var googleMapsMarkers: [GMSMarker] = []
 
 			markers.forEach { marker in
+				if let mId = marker.mId,
+				   let markerId = self.mIds[mId] {
+					self.updateMarker(markerId: markerId, marker: marker)
+					
+					return
+				}
+				
 				let newMarker = self.buildMarker(marker: marker)
 
 				if self.mapViewController.clusteringEnabled {
@@ -293,7 +309,7 @@ public class Map {
 				markerHashes.append(newMarker.hash.hashValue)
 				
 				if let mId = marker.mId {
-					self.mIds[String(newMarker.hash.hashValue)] = mId
+					self.mIds[mId] = newMarker.hash.hashValue
 				}
 			}
 			
@@ -303,6 +319,18 @@ public class Map {
 		}
 
 		return markerHashes
+	}
+	
+	func updateMarker(markerId: Int, marker: Marker) -> Void {
+		DispatchQueue.main.async {
+			do {
+				try self.removeMarker(id: markerId);
+				
+				_ = try self.addMarker(marker: marker, clearAllMarkers: false);
+			} catch {
+				print("updateMarker(): Error: \(error)")
+			}
+		}
 	}
 
 	func addPolygons(polygons: [Polygon]) throws -> [Int] {
@@ -408,8 +436,7 @@ public class Map {
 	}
 	
 	func removeMarkerBymId(mId: String) throws {
-		guard let markerHash = self.mIds.first(where: { $0.value == mId })?.key,
-			  let markerHash = Int(markerHash) else {
+		guard let markerHash = self.mIds[mId] else {
 			throw GoogleMapErrors.markerNotFound
 		}
 		
@@ -569,28 +596,27 @@ public class Map {
 	}
 	
 	func removeMarkersBymId(mIds: [String]) throws {
-		try DispatchQueue.main.sync {
-			var markers: [GMSMarker] = []
-			
-			try mIds.forEach { mId in
-				guard let markerHash = self.mIds.first(where: { $0.value == mId })?.key,
-					  let markerHash = Int(markerHash) else {
-					throw GoogleMapErrors.markerNotFound
-				}
+		DispatchQueue.main.sync {
+			do {
+				var markers: [GMSMarker] = []
 				
-//				guard let markerHash = Int(markerHash) else {
-//					throw GoogleMapErrors.markerNotFound
-//				}
-//
-				if let marker = self.markers[markerHash] {
-					marker.map = nil
-					self.markers.removeValue(forKey: markerHash)
-					markers.append(marker)
+				for mId in mIds {
+					guard let markerHash = self.mIds.first(where: { $0.key == mId })?.value else {
+						throw GoogleMapErrors.markerNotFound
+					}
+					
+					if let marker = self.markers[markerHash] {
+						marker.map = nil
+						self.markers.removeValue(forKey: markerHash)
+						markers.append(marker)
+					}
 				}
-			}
 
-			if self.mapViewController.clusteringEnabled {
-				self.mapViewController.removeMarkersFromCluster(markers: markers)
+				if self.mapViewController.clusteringEnabled {
+					self.mapViewController.removeMarkersFromCluster(markers: markers)
+				}
+			} catch {
+				print(error)
 			}
 		}
 	}
@@ -783,8 +809,7 @@ public class Map {
 	}
 	
 	func updateMarkerIcon(mId: String, iconId: String, iconUrl: String) -> Void {
-		guard let markerHash = self.mIds.first(where: { $0.value == mId })?.key,
-			  let markerHash = Int(markerHash),
+		guard let markerHash = self.mIds.first(where: { $0.key == mId })?.value,
 			  let marker = self.markers[markerHash] else {
 			print("updateMarkerIcon(): Marker not found")
 			

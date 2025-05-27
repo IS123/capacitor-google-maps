@@ -323,8 +323,7 @@ public class CapacitorGoogleMapsPlugin: CAPPlugin, GMSMapViewDelegate {
 				throw GoogleMapErrors.mapNotFound
 			}
 			
-			guard let markerHash = map.mIds.first(where: { $0.value == mId })?.key,
-				  let markerHash = Int(markerHash) else {
+			guard let markerHash = map.mIds[mId] else {
 				throw GoogleMapErrors.markerNotFound
 			}
 			
@@ -371,8 +370,7 @@ public class CapacitorGoogleMapsPlugin: CAPPlugin, GMSMapViewDelegate {
 			var markerHashes: [String] = []
 			
 			for mId in mIds {
-				guard let markerHash = map.mIds.first(where: { $0.value == mId })?.key,
-					  let markerHash = Int(markerHash),
+				guard let markerHash = map.mIds[mId],
 					  let marker = markers.first(where: { $0.mId == mId }) else {
 					print("updateMarkersBymId(): Marker not found \(mId)")
 					return
@@ -414,8 +412,7 @@ public class CapacitorGoogleMapsPlugin: CAPPlugin, GMSMapViewDelegate {
 				throw GoogleMapErrors.mapNotFound
 			}
 			
-			guard let markerHash = map.mIds.first(where: { $0.value == mId })?.key,
-				  let markerHash = Int(markerHash) else {
+			guard let markerHash = map.mIds[mId] else {
 				throw GoogleMapErrors.markerNotFound
 			}
 			
@@ -1427,7 +1424,7 @@ public class CapacitorGoogleMapsPlugin: CAPPlugin, GMSMapViewDelegate {
 			var mId = "none"
 			
 			if let map {
-				mId = map.mIds[String(marker.hash.hashValue)] ?? "none"
+				let mId = map.mIds.first(where: { $0.value == marker.hash.hashValue })?.key ?? "none"
 			}
 			
             self.notifyListeners("onMarkerClick", data: [
