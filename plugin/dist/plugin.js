@@ -1255,18 +1255,39 @@ var capacitorCapacitorGoogleMaps = (function (exports, core, markerclusterer) {
         async addMarkers(_args) {
             const markerIds = [];
             const map = this.maps[_args.id];
+            const currentMids = [];
             for (const markerArgs of _args.markers) {
+                if (map.mIds[markerArgs.mId]) {
+                    const markerId = map.mIds[markerArgs.mId];
+                    currentMids.push(markerArgs.mId);
+                    this.updateMarker({
+                        id: _args.id,
+                        markerId: markerId,
+                        marker: markerArgs
+                    });
+                    continue;
+                }
                 const advancedMarker = this.buildMarkerOpts(markerArgs, map.map);
                 const id = '' + this.currMarkerId;
                 map.markers[id] = advancedMarker;
                 map.mIds[markerArgs.mId] = id;
+                currentMids.push(markerArgs.mId);
                 await this.setMarkerListeners(_args.id, id, markerArgs.mId, advancedMarker);
                 markerIds.push(id);
                 this.currMarkerId++;
             }
+            const markersToRemove = Object.keys(map.mIds).filter(id => !currentMids.includes(id));
+            this.removeMarkersBymId({
+                id: _args.id,
+                mIds: markersToRemove
+            });
             return { ids: markerIds };
         }
         async addMarker(_args) {
+            // clearAllMarkers = undefined by default, if you need to leave all markers you need to pass clearAllMarkers: false
+            if (_args.clearAllMarkers || typeof _args.clearAllMarkers === 'undefined') {
+                this.removeAllMarkers(_args.id);
+            }
             const advancedMarker = this.buildMarkerOpts(_args.marker, this.maps[_args.id].map);
             const id = '' + this.currMarkerId;
             this.maps[_args.id].mIds[_args.marker.mId] = id;
@@ -1280,7 +1301,11 @@ var capacitorCapacitorGoogleMaps = (function (exports, core, markerclusterer) {
                 id: args.id,
                 markerId: args.markerId
             });
-            return (await this.addMarker({ id: args.id, marker: args.marker }));
+            return (await this.addMarker({
+                id: args.id,
+                marker: args.marker,
+                clearAllMarkers: false
+            }));
         }
         async updateMarkerIcon(args) {
             var _a, _b;
@@ -1316,14 +1341,14 @@ var capacitorCapacitorGoogleMaps = (function (exports, core, markerclusterer) {
         async removeMarkerBymId(args) {
             const map = this.maps[args.id];
             const id = map.mIds[args.mId];
-            map.markers[id].map = null;
+            map.markers[id] && (map.markers[id].map = null);
             delete map.markers[id];
         }
         async removeMarkersBymId(args) {
             const map = this.maps[args.id];
             args.mIds.forEach(mId => {
                 const id = map.mIds[mId];
-                map.markers[id].map = null;
+                map.markers[id] && (map.markers[id].map = null);
                 delete map.markers[id];
             });
         }
@@ -1693,6 +1718,14 @@ var capacitorCapacitorGoogleMaps = (function (exports, core, markerclusterer) {
                 gmpDraggable: marker.draggable,
             });
             return advancedMarker;
+        }
+        removeAllMarkers(mapId) {
+            const map = this.maps[mapId];
+            const markerIds = Object.keys(map.markers);
+            this.removeMarkers({
+                id: mapId,
+                markerIds: markerIds
+            });
         }
     }
 

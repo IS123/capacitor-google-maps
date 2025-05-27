@@ -388,7 +388,7 @@ export class CapacitorGoogleMapsWeb extends WebPlugin implements CapacitorGoogle
 
     const id = map.mIds[args.mId];
 
-    map.markers[id].map = null;
+    map.markers[id] && (map.markers[id].map = null);
 
     delete map.markers[id];
   }
@@ -399,7 +399,7 @@ export class CapacitorGoogleMapsWeb extends WebPlugin implements CapacitorGoogle
     args.mIds.forEach(mId => {
       const id = map.mIds[mId];
 
-      map.markers[id].map = null;
+      map.markers[id] && (map.markers[id].map = null);
 
       delete map.markers[id];
     });

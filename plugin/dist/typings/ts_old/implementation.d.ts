@@ -60,6 +60,7 @@ export interface RemoveMarkersBymIdArgs {
 export interface AddMarkerArgs {
     id: string;
     marker: Marker;
+    clearAllMarkers?: boolean;
 }
 export interface UpdateMarkerArgs {
     id: string;
