@@ -111,4 +111,5 @@ export declare class CapacitorGoogleMapsWeb extends WebPlugin implements Capacit
     setMarkerListeners(mapId: string, markerId: string, mId: string, marker: google.maps.marker.AdvancedMarkerElement): Promise<void>;
     setMapListeners(mapId: string): Promise<void>;
     private buildMarkerOpts;
+    private removeAllMarkers;
 }

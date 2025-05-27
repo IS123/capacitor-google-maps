@@ -257,13 +257,22 @@ export class CapacitorGoogleMapsWeb extends WebPlugin {
             if (map.markers[id]) {
                 map.markers[id].map = null;
                 delete map.markers[id];
+                const mId = Object.values(map.mIds).find((markerId) => markerId === id);
+                if (mId) {
+                    delete map.mIds[mId];
+                }
             }
         }
     }
     async removeMarker(_args) {
-        if (this.maps[_args.id].markers[_args.markerId]) {
-            this.maps[_args.id].markers[_args.markerId].map = null;
-            delete this.maps[_args.id].markers[_args.markerId];
+        const map = this.maps[_args.id];
+        if (map.markers[_args.markerId]) {
+            map.markers[_args.markerId].map = null;
+            const mId = Object.values(map.mIds).find((markerId) => markerId === _args.markerId);
+            delete map.markers[_args.markerId];
+            if (mId) {
+                delete map.mIds[mId];
+            }
         }
     }
     async removeMarkerBymId(args) {
@@ -271,6 +280,7 @@ export class CapacitorGoogleMapsWeb extends WebPlugin {
         const id = map.mIds[args.mId];
         map.markers[id] && (map.markers[id].map = null);
         delete map.markers[id];
+        delete map.mIds[args.mId];
     }
     async removeMarkersBymId(args) {
         const map = this.maps[args.id];
@@ -278,6 +288,7 @@ export class CapacitorGoogleMapsWeb extends WebPlugin {
             const id = map.mIds[mId];
             map.markers[id] && (map.markers[id].map = null);
             delete map.markers[id];
+            delete map.mIds[mId];
         });
     }
     async getMarkersIds(args) {

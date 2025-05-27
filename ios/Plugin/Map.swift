@@ -85,7 +85,7 @@ public class Map {
 	var circles = [Int: GMSCircle]()
 	var polylines = [Int: GMSPolyline]()
 	var markerIcons = [String: UIImage]()
-	var mIds = [String: String]()
+	var mIds = [String: Int]()
 
 	// swiftlint:disable identifier_name
 	public static let MAP_TAG = 99999
@@ -229,10 +229,14 @@ public class Map {
 		}
 	}
 
-	func addMarker(marker: Marker) throws -> Int {
+	func addMarker(marker: Marker, cleanAllMarkers: Bool = true) throws -> Int {
 		var markerHash = 0
 
-		DispatchQueue.main.sync {
+		runOnMainThread {
+			if cleanAllMarkers == true {
+				self.removeAllMarkers()
+			}
+			
 			let newMarker = self.buildMarker(marker: marker)
 
 			if self.mapViewController.clusteringEnabled {
@@ -246,7 +250,7 @@ public class Map {
 			markerHash = newMarker.hash.hashValue
 			
 			if let mId = marker.mId {
-				self.mIds[String(newMarker.hash.hashValue)] = mId
+				self.mIds[mId] = markerHash
 			}
 		}
 
@@ -275,11 +279,21 @@ public class Map {
 
 	func addMarkers(markers: [Marker]) throws -> [Int] {
 		var markerHashes: [Int] = []
+		var currentMids: [String] = []
 
 		DispatchQueue.main.sync {
 			var googleMapsMarkers: [GMSMarker] = []
 
-			markers.forEach { marker in
+			for marker in markers {
+				if let mId = marker.mId,
+				   let markerHash = self.mIds[mId] {
+					currentMids.append(mId)
+					
+					self.updateMarker(markerId: markerHash, marker: marker)
+					
+					continue
+				}
+				
 				let newMarker = self.buildMarker(marker: marker)
 
 				if self.mapViewController.clusteringEnabled {
@@ -293,18 +307,38 @@ public class Map {
 				markerHashes.append(newMarker.hash.hashValue)
 				
 				if let mId = marker.mId {
-					self.mIds[String(newMarker.hash.hashValue)] = mId
+					currentMids.append(mId)
+					self.mIds[mId] = newMarker.hash.hashValue
 				}
 			}
 			
 			if self.mapViewController.clusteringEnabled {
 				self.mapViewController.addMarkersToCluster(markers: googleMapsMarkers)
 			}
+			
+			let difference = Set(self.mIds.keys).subtracting(currentMids)
+							
+			let mIdsToRemove = Array(difference)
+							
+			do {
+				try self.removeMarkersBymId(mIds: mIdsToRemove)
+			} catch {
+				print("addMarkers() Error \(error)")
+			}
 		}
 
 		return markerHashes
 	}
-
+	
+	func updateMarker(markerId: Int, marker: Marker) -> Void {
+		do {
+			try self.removeMarker(id: markerId)
+			
+			try _ = self.addMarker(marker: marker, cleanAllMarkers: false)
+		} catch {
+			print("updateMarker(): Error \(error)")
+		}
+	}
 	func addPolygons(polygons: [Polygon]) throws -> [Int] {
 		var polygonHashes: [Int] = []
 
@@ -397,6 +431,10 @@ public class Map {
 				if self.mapViewController.clusteringEnabled {
 					self.mapViewController.removeMarkersFromCluster(markers: [marker])
 				}
+				
+				if let mId = self.mIds.first(where: {$0.value == id})?.key {
+					self.mIds.removeValue(forKey: mId)
+				}
 
 				marker.map = nil
 				self.markers.removeValue(forKey: id)
@@ -408,8 +446,7 @@ public class Map {
 	}
 	
 	func removeMarkerBymId(mId: String) throws {
-		guard let markerHash = self.mIds.first(where: { $0.value == mId })?.key,
-			  let markerHash = Int(markerHash) else {
+		guard let markerHash = self.mIds[mId] else {
 			throw GoogleMapErrors.markerNotFound
 		}
 		
@@ -554,9 +591,14 @@ public class Map {
 	func removeMarkers(ids: [Int]) throws {
 		DispatchQueue.main.sync {
 			var markers: [GMSMarker] = []
-			ids.forEach { id in
+			for id in ids {
 				if let marker = self.markers[id] {
 					marker.map = nil
+					
+					if let mId = self.mIds.first(where: {$0.value == id})?.key {
+						self.mIds.removeValue(forKey: mId)
+					}
+					
 					self.markers.removeValue(forKey: id)
 					markers.append(marker)
 				}
@@ -569,22 +611,21 @@ public class Map {
 	}
 	
 	func removeMarkersBymId(mIds: [String]) throws {
-		try DispatchQueue.main.sync {
+		runOnMainThread {
 			var markers: [GMSMarker] = []
 			
-			try mIds.forEach { mId in
-				guard let markerHash = self.mIds.first(where: { $0.value == mId })?.key,
-					  let markerHash = Int(markerHash) else {
-					throw GoogleMapErrors.markerNotFound
+			for mId in mIds {
+				guard let markerHash = self.mIds[mId] else {
+					print("_removeMarkersBymId(): Error: no marker found with mId: \(mId)")
+					continue
 				}
 				
-//				guard let markerHash = Int(markerHash) else {
-//					throw GoogleMapErrors.markerNotFound
-//				}
-//
 				if let marker = self.markers[markerHash] {
 					marker.map = nil
+					
 					self.markers.removeValue(forKey: markerHash)
+					self.mIds.removeValue(forKey: mId)
+					
 					markers.append(marker)
 				}
 			}
@@ -783,8 +824,7 @@ public class Map {
 	}
 	
 	func updateMarkerIcon(mId: String, iconId: String, iconUrl: String) -> Void {
-		guard let markerHash = self.mIds.first(where: { $0.value == mId })?.key,
-			  let markerHash = Int(markerHash),
+		guard let markerHash = self.mIds[mId],
 			  let marker = self.markers[markerHash] else {
 			print("updateMarkerIcon(): Marker not found")
 			
@@ -821,6 +861,23 @@ public class Map {
 				}
 			}
 		}
+	}
+	
+	func removeAllMarkers() -> Void {
+		let allMarkers = Array(self.markers.values)
+		
+		if self.mapViewController.clusteringEnabled {
+			self.mapViewController.removeMarkersFromCluster(markers: allMarkers)
+		}
+		
+		for markerId in self.mIds.values {
+			if let marker = self.markers[markerId] {
+				marker.map = nil
+			}
+		}
+		
+		self.markers.removeAll()
+		self.mIds.removeAll()
 	}
 }
 
@@ -913,5 +970,15 @@ func svgToImage(svgString: String, size: CGSize? = nil) -> UIImage? {
 		return svgImage.uiImage.resizeImageTo(size: size)
 	} else {
 		return svgImage.uiImage
+	}
+}
+
+func runOnMainThread(_ block: @escaping () -> Void) {
+	if Thread.isMainThread {
+		block()
+	} else {
+		DispatchQueue.main.sync {
+			block()
+		}
 	}
 }
