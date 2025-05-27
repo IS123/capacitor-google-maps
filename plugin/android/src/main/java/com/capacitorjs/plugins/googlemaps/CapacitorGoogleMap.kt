@@ -705,7 +705,7 @@ class CapacitorGoogleMap(
 						if (base64Data.isNotEmpty()) {
 							val bitmap = svgBase64ToBitmap(base64Data, marker.iconSize!!.width, marker.iconSize!!.height)
 							this.markerIcons[marker.iconId!!] = bitmap as Bitmap
-							marker.googleMapMarker?.setIcon(getResizedIcon(bitmap, marker)
+							marker.googleMapMarker?.setIcon(getResizedIcon(bitmap, marker))
 						} else {
 							Log.w(
 								"CapacitorGoogleMaps",
@@ -722,7 +722,7 @@ class CapacitorGoogleMap(
 
 							// Cache the bitmap for future use
 							this.markerIcons[marker.iconId!!] = bitmap
-							marker.googleMapMarker?.setIcon(getResizedIcon(bitmap, marker)
+							marker.googleMapMarker?.setIcon(getResizedIcon(bitmap, marker))
 						} else {
 							Log.w(
 								"CapacitorGoogleMaps",
