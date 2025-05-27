@@ -1424,7 +1424,7 @@ public class CapacitorGoogleMapsPlugin: CAPPlugin, GMSMapViewDelegate {
 			var mId = "none"
 			
 			if let map {
-				let mId = map.mIds.first(where: { $0.value == marker.hash.hashValue })?.key ?? "none"
+				mId = map.mIds.first(where: { $0.value == marker.hash.hashValue })?.key ?? "none"
 			}
 			
             self.notifyListeners("onMarkerClick", data: [
