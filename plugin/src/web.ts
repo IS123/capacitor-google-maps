@@ -271,24 +271,52 @@ export class CapacitorGoogleMapsWeb extends WebPlugin implements CapacitorGoogle
   async addMarkers(_args: AddMarkersArgs): Promise<{ ids: string[] }> {
     const markerIds: string[] = [];
     const map = this.maps[_args.id];
+    const currentMids: string[] = [];
 
     for (const markerArgs of _args.markers) {
+      if (map.mIds[markerArgs.mId]) {
+        const markerId = map.mIds[markerArgs.mId];
+
+        currentMids.push(markerArgs.mId);
+
+        this.updateMarker({
+          id: _args.id,
+          markerId: markerId,
+          marker: markerArgs
+        });
+
+        continue;
+      }
+
       const advancedMarker = this.buildMarkerOpts(markerArgs, map.map);
 
       const id = '' + this.currMarkerId;
 
       map.markers[id] = advancedMarker;
       map.mIds[markerArgs.mId] = id;
+      currentMids.push(markerArgs.mId);
       await this.setMarkerListeners(_args.id, id, markerArgs.mId, advancedMarker);
 
       markerIds.push(id);
       this.currMarkerId++;
     }
 
+    const markersToRemove = Object.keys(map.mIds).filter(id => !currentMids.includes(id));
+
+    this.removeMarkersBymId({
+      id: _args.id,
+      mIds: markersToRemove
+    });
+
     return { ids: markerIds };
   }
 
   async addMarker(_args: AddMarkerArgs): Promise<{ id: string }> {
+    // clearAllMarkers = undefined by default, if you need to leave all markers you need to pass clearAllMarkers: false
+    if (_args.clearAllMarkers || typeof _args.clearAllMarkers === 'undefined') {
+      this.removeAllMarkers(_args.id);
+    }
+
     const advancedMarker = this.buildMarkerOpts(_args.marker, this.maps[_args.id].map);
 
     const id = '' + this.currMarkerId;
@@ -309,7 +337,11 @@ export class CapacitorGoogleMapsWeb extends WebPlugin implements CapacitorGoogle
       markerId: args.markerId
     });
 
-    return (await this.addMarker({id: args.id, marker: args.marker}));
+    return (await this.addMarker({
+      id: args.id,
+      marker: args.marker,
+      clearAllMarkers: false
+    }));
   }
 
   async updateMarkerIcon(args: UpdateMarkerIconArgs): Promise<void> {
@@ -383,7 +415,7 @@ export class CapacitorGoogleMapsWeb extends WebPlugin implements CapacitorGoogle
       mId: args.mId
     });
 
-    return (await this.addMarker({id: args.id, marker: args.marker}));
+    return (await this.addMarker({ id: args.id, marker: args.marker }));
   }
 
   async updateMarkersBymId(args: UpdateMarkersBymIdArgs): Promise<{ ids: string[]; }> {
@@ -392,7 +424,7 @@ export class CapacitorGoogleMapsWeb extends WebPlugin implements CapacitorGoogle
       mIds: args.mIds
     });
 
-    return (await this.addMarkers({id: args.id, markers: args.markers}));
+    return (await this.addMarkers({ id: args.id, markers: args.markers }));
   }
 
   async addPolygons(args: AddPolygonsArgs): Promise<{ ids: string[] }> {
@@ -582,9 +614,9 @@ export class CapacitorGoogleMapsWeb extends WebPlugin implements CapacitorGoogle
     return { bounds: result };
   }
 
-  async takeSnapshot(_args: { id: string; format?: string; quality?: number  }): Promise<{ snapshot: string | HTMLElement }> {
+  async takeSnapshot(_args: { id: string; format?: string; quality?: number }): Promise<{ snapshot: string | HTMLElement }> {
     const snapshot = this.maps[_args.id].map.getDiv();
-    return {snapshot: snapshot};
+    return { snapshot: snapshot };
   }
 
   async addGroundOverlay(_args: GroundOverlayArgs): Promise<void> {
@@ -665,7 +697,7 @@ export class CapacitorGoogleMapsWeb extends WebPlugin implements CapacitorGoogle
           title: marker.title ?? '',
           snippet: '',
           mId
-      });
+        });
       });
 
       marker.addListener('drag', () => {
@@ -678,7 +710,7 @@ export class CapacitorGoogleMapsWeb extends WebPlugin implements CapacitorGoogle
           title: marker.title ?? '',
           snippet: '',
           mId
-      });
+        });
       });
 
       marker.addListener('dragend', () => {
@@ -691,7 +723,7 @@ export class CapacitorGoogleMapsWeb extends WebPlugin implements CapacitorGoogle
           title: marker.title ?? '',
           snippet: '',
           mId
-      });
+        });
       });
     }
   }
@@ -797,5 +829,16 @@ export class CapacitorGoogleMapsWeb extends WebPlugin implements CapacitorGoogle
     });
 
     return advancedMarker;
+  }
+
+  private removeAllMarkers(mapId: string): void {
+    const map = this.maps[mapId];
+
+    const markerIds = Object.keys(map.markers);
+
+    this.removeMarkers({
+      id: mapId,
+      markerIds: markerIds
+    });
   }
 }
