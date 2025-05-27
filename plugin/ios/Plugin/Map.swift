@@ -284,37 +284,52 @@ public class Map {
 
 	func addMarkers(markers: [Marker]) throws -> [Int] {
 		var markerHashes: [Int] = []
+		var currentMids: [String] = []
 
 		DispatchQueue.main.sync {
-			var googleMapsMarkers: [GMSMarker] = []
+			do {
+				var googleMapsMarkers: [GMSMarker] = []
 
-			markers.forEach { marker in
-				if let mId = marker.mId,
-				   let markerId = self.mIds[mId] {
-					self.updateMarker(markerId: markerId, marker: marker)
+				for marker in markers {
+					if let mId = marker.mId,
+					   let markerId = self.mIds[mId] {
+						self.updateMarker(markerId: markerId, marker: marker)
+						
+						currentMids.append(mId)
+						
+						continue
+					}
 					
-					return
+					let newMarker = self.buildMarker(marker: marker)
+
+					if self.mapViewController.clusteringEnabled {
+						googleMapsMarkers.append(newMarker)
+					} else {
+						newMarker.map = self.mapViewController.GMapView
+					}
+
+					self.markers[newMarker.hash.hashValue] = newMarker
+
+					markerHashes.append(newMarker.hash.hashValue)
+					
+					if let mId = marker.mId {
+						self.mIds[mId] = newMarker.hash.hashValue
+						
+						currentMids.append(mId)
+					}
 				}
 				
-				let newMarker = self.buildMarker(marker: marker)
-
 				if self.mapViewController.clusteringEnabled {
-					googleMapsMarkers.append(newMarker)
-				} else {
-					newMarker.map = self.mapViewController.GMapView
+					self.mapViewController.addMarkersToCluster(markers: googleMapsMarkers)
 				}
-
-				self.markers[newMarker.hash.hashValue] = newMarker
-
-				markerHashes.append(newMarker.hash.hashValue)
 				
-				if let mId = marker.mId {
-					self.mIds[mId] = newMarker.hash.hashValue
-				}
-			}
-			
-			if self.mapViewController.clusteringEnabled {
-				self.mapViewController.addMarkersToCluster(markers: googleMapsMarkers)
+				let difference = Set(self.mIds.keys).subtracting(currentMids)
+				
+				let mIdsToRemove = Array(difference)
+				
+				try self.removeMarkersBymId(mIds: mIdsToRemove)
+			} catch {
+				print("addMarkers(): Error: \(error)")
 			}
 		}
 
@@ -424,6 +439,10 @@ public class Map {
 			DispatchQueue.main.async {
 				if self.mapViewController.clusteringEnabled {
 					self.mapViewController.removeMarkersFromCluster(markers: [marker])
+				}
+				
+				if let mId = self.mIds.first(where: { $0.value == id })?.key {
+					self.mIds.removeValue(forKey: mId)
 				}
 
 				marker.map = nil
@@ -582,6 +601,10 @@ public class Map {
 		DispatchQueue.main.sync {
 			var markers: [GMSMarker] = []
 			ids.forEach { id in
+				if let mId = self.mIds.first(where: { $0.value == id })?.key {
+					self.mIds.removeValue(forKey: mId)
+				}
+				
 				if let marker = self.markers[id] {
 					marker.map = nil
 					self.markers.removeValue(forKey: id)
@@ -601,7 +624,7 @@ public class Map {
 				var markers: [GMSMarker] = []
 				
 				for mId in mIds {
-					guard let markerHash = self.mIds.first(where: { $0.key == mId })?.value else {
+					guard let markerHash = self.mIds[mId] else {
 						throw GoogleMapErrors.markerNotFound
 					}
 					
