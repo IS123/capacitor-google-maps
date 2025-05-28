@@ -193,37 +193,40 @@ class CapacitorGoogleMap(
         try {
             googleMap ?: throw GoogleMapNotAvailable()
 
-            val markerIds = mutableListOf<String>()
-
             CoroutineScope(markerDispatcher).launch {
+                val markerIds = mutableListOf<String>()
+                val currentMids = mutableSetOf<String>()
+
                 try {
-                    val builtMarkers = newMarkers.asFlow()
-                        .mapNotNull { marker ->
-                            val existingId = mIds[marker.mId]
-                            if (existingId != null) {
-                                withContext(Dispatchers.Main) {
-                                    if (markers[existingId]?.iconId !== marker.iconId) {
-										updateMarkerIcon(marker.mId, marker.iconId.toString(), marker.iconUrl.toString())
-									}
+                    // Build new or update existing markers
+                    val markersToAdd = newMarkers.mapNotNull { marker ->
+                        currentMids += marker.mId
 
-                                    markers[existingId]?.googleMapMarker?.position = marker.position
+                        val existingId = mIds[marker.mId]
+                        if (existingId != null) {
+                            withContext(Dispatchers.Main) {
+                                val existingMarker = markers[existingId]
+                                if (existingMarker != null && existingMarker.iconId != marker.iconId) {
+                                    updateMarkerIcon(marker.mId, marker.iconId.toString(), marker.iconUrl.toString())
                                 }
-                                return@mapNotNull null
+                                existingMarker?.googleMapMarker?.position = marker.position
                             }
-
-                            val options = buildMarker(marker)
-                            marker to options
+                            return@mapNotNull null
                         }
-                        .toList() // collect all before switching context
 
+                        val options = buildMarker(marker)
+                        marker to options
+                    }
+
+                    // Switch to Main thread to add markers
                     withContext(Dispatchers.Main) {
-                        builtMarkers.forEach { (marker, options) ->
+                        markersToAdd.forEach { (marker, options) ->
                             val googleMapMarker = googleMap?.addMarker(options)
                             marker.googleMapMarker = googleMapMarker
 
                             if (googleMapMarker != null) {
                                 if (clusterManager != null) {
-                                    googleMapMarker.remove()
+                                    googleMapMarker.remove() // handled by cluster manager
                                 }
 
                                 mIds[marker.mId] = googleMapMarker.id
@@ -232,14 +235,12 @@ class CapacitorGoogleMap(
                             }
                         }
 
-                        val ids = newMarkers.map { it.mId }
+                        // Remove markers not in new list
+                        val toRemove = mIds.keys - currentMids
 
-						mIds.forEach {
-							if(!ids.contains(it.key)) {
-								removeMarkerBymId(it.key) {  }
-							}
-						}
+                        removeMarkersBymId(toRemove.toList()) { }
 
+                        // Cluster update
                         clusterManager?.apply {
                             addItems(newMarkers)
                             cluster()
@@ -247,8 +248,9 @@ class CapacitorGoogleMap(
 
                         callback(Result.success(markerIds))
                     }
+
                 } catch (e: CancellationException) {
-                    // Skip callback
+                    // Don't call callback
                 } catch (e: Exception) {
                     withContext(Dispatchers.Main) {
                         callback(Result.failure(e))
@@ -691,48 +693,47 @@ class CapacitorGoogleMap(
         try {
             googleMap ?: throw GoogleMapNotAvailable()
 
-            val marker = markers[mIds[mId]]
-            marker ?: throw MarkerNotFoundError()
+            val markerId = mIds[mId] ?: throw MarkerNotFoundError("No marker ID found for mId: $mId")
+            val marker = markers[markerId] ?: throw MarkerNotFoundError("No marker object for markerId: $markerId")
 
-            if (!iconId.isNullOrEmpty()) {
+            if (iconId.isNotEmpty()) {
                 if (this.markerIcons.contains(iconId)) {
                     val cachedBitmap = this.markerIcons[iconId]
                     marker.googleMapMarker?.setIcon(cachedBitmap?.let { getResizedIcon(it, marker) })
                 } else {
-                    val base64Data = iconUrl!!.substringAfter("base64,", "")
+                    val base64Data = iconUrl.substringAfter("base64,", "")
 
-                    if (marker.iconUrl!!.startsWith("data:image/svg+xml")) {
-						if (base64Data.isNotEmpty()) {
-							val bitmap = svgBase64ToBitmap(base64Data, marker.iconSize!!.width, marker.iconSize!!.height)
-							this.markerIcons[marker.iconId!!] = bitmap as Bitmap
-							marker.googleMapMarker?.setIcon(getResizedIcon(bitmap, marker))
-						} else {
-							Log.w(
-								"CapacitorGoogleMaps",
-								"Invalid Base64 data URL: ${marker.iconUrl}. Using default marker icon."
-							)
-						}
-					} else {
-						// Check if Data URL has a valid base64 part
-						if (base64Data.isNotEmpty()) {
-							// Decode the Base64 string into a Bitmap
-							val decodedString = Base64.decode(base64Data, Base64.DEFAULT)
-							val bitmap =
-								BitmapFactory.decodeByteArray(decodedString, 0, decodedString.size)
+                    if (marker.iconUrl?.startsWith("data:image/svg+xml") == true) {
+                        if (base64Data.isNotEmpty()) {
+                            val bitmap = svgBase64ToBitmap(base64Data, marker.iconSize!!.width, marker.iconSize!!.height)
+                            if (bitmap != null) {
+                                this.markerIcons[marker.iconId!!] = bitmap
+                                marker.googleMapMarker?.setIcon(getResizedIcon(bitmap, marker))
+                            } else {
+                                Log.w("CapacitorGoogleMaps", "Failed to decode SVG icon for mId=${marker.mId}, iconId=${marker.iconId}")
+                            }
+                        } else {
+                            Log.w("CapacitorGoogleMaps", "Invalid Base64 SVG data for marker: ${marker.iconUrl}")
+                        }
+                    } else {
+                        if (base64Data.isNotEmpty()) {
+                            val decodedString = Base64.decode(base64Data, Base64.DEFAULT)
+                            val bitmap = BitmapFactory.decodeByteArray(decodedString, 0, decodedString.size)
+                            if (marker.iconId.toBoolean()) {
+                                this.markerIcons[marker.iconId!!] = bitmap
+                                marker.googleMapMarker?.setIcon(getResizedIcon(bitmap, marker))
+                            }
 
-							// Cache the bitmap for future use
-							this.markerIcons[marker.iconId!!] = bitmap
-							marker.googleMapMarker?.setIcon(getResizedIcon(bitmap, marker))
-						} else {
-							Log.w(
-								"CapacitorGoogleMaps",
-								"Invalid Base64 data URL: ${marker.iconUrl}. Using default marker icon."
-							)
-						}
-					}
+                        } else {
+                            Log.w("CapacitorGoogleMaps", "Invalid Base64 bitmap data for marker: ${marker.iconUrl}")
+                        }
+                    }
                 }
             }
         } catch (e: GoogleMapsError) {
+            Log.e("CapacitorGoogleMaps", "GoogleMapsError in updateMarkerIcon", e)
+        } catch (e: Exception) {
+            Log.e("CapacitorGoogleMaps", "Unexpected error in updateMarkerIcon", e)
         }
     }
 
