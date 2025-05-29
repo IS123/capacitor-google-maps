@@ -286,10 +286,11 @@ public class Map {
 
 			for marker in markers {
 				if let mId = marker.mId,
-				   let markerHash = self.mIds[mId] {
+				   let markerHash = self.mIds[mId],
+				   let existingMarker = self.markers[markerHash] {
 					currentMids.append(mId)
-					
-					self.updateMarker(markerId: markerHash, marker: marker)
+
+					self.updateMarker(markerId: markerHash, newMarker: marker)
 					
 					continue
 				}
@@ -330,15 +331,46 @@ public class Map {
 		return markerHashes
 	}
 	
-	func updateMarker(markerId: Int, marker: Marker) -> Void {
-		do {
-			try self.removeMarker(id: markerId)
+	func isCoordinatesDifferent(coords1: LatLng, coords2: CLLocationCoordinate2D) -> Bool {
+		let newLat = Double(coords1.lat)
+		let newLng = Double(coords1.lng)
+		let existingLat = coords2.latitude
+		let existingLng = coords2.longitude
+
+		if existingLat != newLat || existingLng != newLng {
+			return true
+		}
+
+		return false
+	}
+	
+	func updateMarker(markerId: Int, newMarker: Marker) -> Void {
+		guard let marker = self.markers[markerId] else {
+			print("updateMarker(): no marker found for \(markerId) id")
 			
-			try _ = self.addMarker(marker: marker, cleanAllMarkers: false)
-		} catch {
-			print("updateMarker(): Error \(error)")
+			return
+		}
+		
+		DispatchQueue.main.async {
+			if self.isCoordinatesDifferent(
+				coords1: newMarker.coordinate,
+				coords2: marker.position
+			) {
+				marker.position = CLLocationCoordinate2D(
+					latitude: newMarker.coordinate.lat,
+					longitude: newMarker.coordinate.lng
+				)
+			}
+			
+			if let userData = marker.userData as? String,
+			   let iconUrl = newMarker.iconUrl,
+				userData != iconUrl {
+				print("updateMarkerIcon \(markerId)")
+				self.updateMarkerIcon(markerId: markerId, iconUrl: iconUrl)
+			}
 		}
 	}
+	
 	func addPolygons(polygons: [Polygon]) throws -> [Int] {
 		var polygonHashes: [Int] = []
 
@@ -775,12 +807,14 @@ public class Map {
 		}
 		// Otherwise, proceed with the URL or color options
 		else if let iconUrl = marker.iconUrl {
+			newMarker.userData = iconUrl
 			if let iconImage = self.markerIcons[iconUrl] {
 				newMarker.icon = getResizedIcon(iconImage, marker.iconSize)
 			} else {
 				if iconUrl.starts(with: "data:image/svg+xml;base64,") {
 					let base64String = iconUrl.replacingOccurrences(of: "data:image/svg+xml;base64,", with: "")
 
+					DispatchQueue.main.async {
 						if let svgData = Data(base64Encoded: base64String),
 						   let svgString = String(data: svgData, encoding: .utf8),
 						   let svgImage = svgToImage(svgString: svgString, size: marker.iconSize) {
@@ -789,6 +823,7 @@ public class Map {
 						} else {
 							print("Failed to decode SVG Base64 or render image")
 						}
+					}
 				}
 				else if iconUrl.starts(with: "https:") {
 					if let url = URL(string: iconUrl) {
@@ -823,20 +858,44 @@ public class Map {
 		return newMarker
 	}
 	
-	func updateMarkerIcon(mId: String, iconId: String, iconUrl: String) -> Void {
-		guard let markerHash = self.mIds[mId],
-			  let marker = self.markers[markerHash] else {
-			print("updateMarkerIcon(): Marker not found")
+	func updateMarkerIcon(mId: String? = nil, markerId: Int? = nil, iconUrl: String) -> Void {
+		runOnMainThread {
+			var marker: GMSMarker?
+			if let mId = mId,
+			   let markerHash = self.mIds[mId] {
+				marker = self.markers[markerHash] ?? nil
+			} else if let markerId = markerId {
+				marker = self.markers[markerId] ?? nil
+			} else {
+				print("updateMarkerIcon(): You should pass mId or markerId")
+				return
+			}
 			
-			return
-		}
-		
-		DispatchQueue.main.sync {
+			guard let marker = marker else {
+				print("updateMarkerIcon(): Marker not found, mId: \(mId), markerId: \(markerId)")
+				return
+			}
+			
+			marker.userData = iconUrl
+			
 			let iconSize = CGSize(width: 30, height: 38)
 			if let iconImage = self.markerIcons[iconUrl] {
 				marker.icon = getResizedIcon(iconImage, iconSize)
 			} else {
-				if iconUrl.starts(with: "https:") {
+				if iconUrl.starts(with: "data:image/svg+xml;base64,") {
+					let base64String = iconUrl.replacingOccurrences(of: "data:image/svg+xml;base64,", with: "")
+
+					DispatchQueue.main.async {
+						if let svgData = Data(base64Encoded: base64String),
+						   let svgString = String(data: svgData, encoding: .utf8),
+						   let svgImage = svgToImage(svgString: svgString, size: iconSize) {
+							self.markerIcons[iconUrl] = svgImage
+							marker.icon = svgImage
+						} else {
+							print("Failed to decode SVG Base64 or render image")
+						}
+					}
+				} else if iconUrl.starts(with: "https:") {
 					if let url = URL(string: iconUrl) {
 						URLSession.shared.dataTask(with: url) { (data, _, _) in
 							DispatchQueue.main.async {

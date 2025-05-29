@@ -39,7 +39,7 @@ class CapacitorGoogleMapMarker(fromJSONObject: JSONObject): ClusterItem {
             throw InvalidArgumentsError("Marker object is missing the required 'mId' property")
         }
 
-        mId = fromJSONObject.optString("mID")
+        mId = fromJSONObject.optString("mId")
         coordinate = LatLng(latLngObj.getDouble("lat"), latLngObj.getDouble("lng"))
         title = fromJSONObject.optString("title")
         opacity = fromJSONObject.optDouble("opacity", 1.0).toFloat()
