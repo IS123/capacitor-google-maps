@@ -286,10 +286,13 @@ public class Map {
 
 			for marker in markers {
 				if let mId = marker.mId,
-				   let markerHash = self.mIds[mId] {
+				   let markerHash = self.mIds[mId],
+				   let existingMarker = self.markers[markerHash] {
 					currentMids.append(mId)
-					
-					self.updateMarker(markerId: markerHash, marker: marker)
+
+					if isCoordinatesDifferent(coords1: marker.coordinate, coords2: existingMarker.position) {
+						self.updateMarker(markerId: markerHash, coords: marker.coordinate)
+					}
 					
 					continue
 				}
@@ -330,15 +333,32 @@ public class Map {
 		return markerHashes
 	}
 	
-	func updateMarker(markerId: Int, marker: Marker) -> Void {
-		do {
-			try self.removeMarker(id: markerId)
-			
-			try _ = self.addMarker(marker: marker, cleanAllMarkers: false)
-		} catch {
-			print("updateMarker(): Error \(error)")
+	func isCoordinatesDifferent(coords1: LatLng, coords2: CLLocationCoordinate2D) -> Bool {
+		let newLat = Double(coords1.lat)
+		let newLng = Double(coords1.lng)
+		let existingLat = coords2.latitude
+		let existingLng = coords2.longitude
+
+		if existingLat != newLat || existingLng != newLng {
+			return true
 		}
+
+		return false
 	}
+	
+	func updateMarker(markerId: Int, coords: LatLng) -> Void {
+		guard let marker = self.markers[markerId] else {
+			print("updateMarker(): no marker found for \(markerId) id")
+			
+			return
+		}
+		
+		marker.position = CLLocationCoordinate2D(
+			latitude: coords.lat,
+			longitude: coords.lng
+		)
+	}
+	
 	func addPolygons(polygons: [Polygon]) throws -> [Int] {
 		var polygonHashes: [Int] = []
 
