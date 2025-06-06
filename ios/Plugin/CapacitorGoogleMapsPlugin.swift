@@ -400,10 +400,6 @@ public class CapacitorGoogleMapsPlugin: CAPPlugin, GMSMapViewDelegate {
 				throw GoogleMapErrors.invalidArguments("mId is missing")
 			}
 			
-			guard let iconId = call.getString("iconId") else {
-				throw GoogleMapErrors.invalidArguments("iconId is missing")
-			}
-			
 			guard let iconUrl = call.getString("iconId") else {
 				throw GoogleMapErrors.invalidArguments("iconUrl is missing")
 			}
@@ -412,11 +408,7 @@ public class CapacitorGoogleMapsPlugin: CAPPlugin, GMSMapViewDelegate {
 				throw GoogleMapErrors.mapNotFound
 			}
 			
-			guard let markerHash = map.mIds[mId] else {
-				throw GoogleMapErrors.markerNotFound
-			}
-			
-			try map.updateMarkerIcon(mId: mId, iconId: iconId, iconUrl: iconUrl)
+			try map.updateMarkerIcon(mId: mId, iconUrl: iconUrl)
 		} catch {
 			handleError(call, error: error)
 		}
@@ -448,11 +440,12 @@ public class CapacitorGoogleMapsPlugin: CAPPlugin, GMSMapViewDelegate {
                 markers.append(marker)
             }
 
-            let ids = try map.addMarkers(markers: markers)
-
-            call.resolve(["ids": ids.map({ id in
-                return String(id)
-            })])
+			map.addMarkers(markers: markers) { markerHashes in
+				call.resolve(["ids": markerHashes.map({ id in
+					return String(id)
+				})])
+			}
+            
         } catch {
             handleError(call, error: error)
         }

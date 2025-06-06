@@ -277,58 +277,77 @@ public class Map {
 		return
 	}
 
-	func addMarkers(markers: [Marker]) throws -> [Int] {
-		var markerHashes: [Int] = []
+	func addMarkers(markers: [Marker], completion: @escaping ([Int]) -> Void) {
+		var index = 0
+		let total = markers.count
+		let batchSize = 10
+		let delay = 0.01
+
 		var currentMids: [String] = []
+		var googleMapsMarkers: [GMSMarker] = []
+		var markerHashes: [Int] = []
 
-		DispatchQueue.main.sync {
-			var googleMapsMarkers: [GMSMarker] = []
-
-			for marker in markers {
-				if let mId = marker.mId,
-				   let markerHash = self.mIds[mId],
-				   let existingMarker = self.markers[markerHash] {
-					currentMids.append(mId)
-
-					self.updateMarker(markerId: markerHash, newMarker: marker)
-					
-					continue
-				}
-				
-				let newMarker = self.buildMarker(marker: marker)
-
+		func addNextBatch() {
+			if index >= total {
 				if self.mapViewController.clusteringEnabled {
-					googleMapsMarkers.append(newMarker)
-				} else {
-					newMarker.map = self.mapViewController.GMapView
+					self.mapViewController.addMarkersToCluster(markers: googleMapsMarkers)
 				}
 
-				self.markers[newMarker.hash.hashValue] = newMarker
+				let difference = Set(self.mIds.keys).subtracting(currentMids)
+				let mIdsToRemove = Array(difference)
 
-				markerHashes.append(newMarker.hash.hashValue)
+				do {
+					try self.removeMarkersBymId(mIds: mIdsToRemove)
+				} catch {
+					print("addMarkersInBatches() cleanup error: \(error)")
+				}
 				
-				if let mId = marker.mId {
-					currentMids.append(mId)
-					self.mIds[mId] = newMarker.hash.hashValue
+				completion(markerHashes)
+
+				return
+			}
+
+			let batchEnd = min(index + batchSize, total)
+
+			DispatchQueue.main.async {
+				for i in index..<batchEnd {
+					let markerData = markers[i]
+
+					if let mId = markerData.mId,
+					   let markerHash = self.mIds[mId],
+					   let _ = self.markers[markerHash] {
+						currentMids.append(mId)
+						self.updateMarker(markerId: markerHash, newMarker: markerData)
+						continue
+					}
+
+					let newMarker = self.buildMarker(marker: markerData)
+
+					if self.mapViewController.clusteringEnabled {
+						googleMapsMarkers.append(newMarker)
+					} else {
+						newMarker.map = self.mapViewController.GMapView
+					}
+
+					let hash = newMarker.hash.hashValue
+					self.markers[hash] = newMarker
+					markerHashes.append(hash)
+
+					if let mId = markerData.mId {
+						currentMids.append(mId)
+						self.mIds[mId] = hash
+					}
 				}
-			}
-			
-			if self.mapViewController.clusteringEnabled {
-				self.mapViewController.addMarkersToCluster(markers: googleMapsMarkers)
-			}
-			
-			let difference = Set(self.mIds.keys).subtracting(currentMids)
-							
-			let mIdsToRemove = Array(difference)
-							
-			do {
-				try self.removeMarkersBymId(mIds: mIdsToRemove)
-			} catch {
-				print("addMarkers() Error \(error)")
+
+				index = batchEnd
+
+				DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+					addNextBatch()
+				}
 			}
 		}
 
-		return markerHashes
+		addNextBatch()
 	}
 	
 	func isCoordinatesDifferent(coords1: LatLng, coords2: CLLocationCoordinate2D) -> Bool {

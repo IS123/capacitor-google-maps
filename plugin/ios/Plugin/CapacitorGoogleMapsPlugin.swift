@@ -440,11 +440,12 @@ public class CapacitorGoogleMapsPlugin: CAPPlugin, GMSMapViewDelegate {
                 markers.append(marker)
             }
 
-            let ids = try map.addMarkers(markers: markers)
-
-            call.resolve(["ids": ids.map({ id in
-                return String(id)
-            })])
+			map.addMarkers(markers: markers) { markerHashes in
+				call.resolve(["ids": markerHashes.map({ id in
+					return String(id)
+				})])
+			}
+            
         } catch {
             handleError(call, error: error)
         }
