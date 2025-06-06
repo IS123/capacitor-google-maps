@@ -198,7 +198,9 @@ class CapacitorGoogleMap(
                 val currentMids = mutableSetOf<String>()
 
                 try {
-                    // Build new or update existing markers
+                    // Make snapshot of current keys before any modification
+                    val existingMIdsSnapshot = mIds.keys.toSet()
+
                     val markersToAdd = newMarkers.mapNotNull { marker ->
                         currentMids += marker.mId
 
@@ -218,15 +220,15 @@ class CapacitorGoogleMap(
                         marker to options
                     }
 
-                    // Switch to Main thread to add markers
                     withContext(Dispatchers.Main) {
                         markersToAdd.forEach { (marker, options) ->
                             val googleMapMarker = googleMap?.addMarker(options)
                             marker.googleMapMarker = googleMapMarker
 
                             if (googleMapMarker != null) {
-                                if (clusterManager != null) {
-                                    googleMapMarker.remove() // handled by cluster manager
+                                // Let clusterManager handle marker removal
+                                if (clusterManager == null) {
+                                    googleMapMarker.remove()
                                 }
 
                                 mIds[marker.mId] = googleMapMarker.id
@@ -235,12 +237,11 @@ class CapacitorGoogleMap(
                             }
                         }
 
-                        // Remove markers not in new list
-                        val toRemove = mIds.keys - currentMids
-
+                        // Compute diff using snapshot
+                        val toRemove = existingMIdsSnapshot - currentMids
                         removeMarkersBymId(toRemove.toList()) { }
 
-                        // Cluster update
+                        // Update clustering if needed
                         clusterManager?.apply {
                             addItems(newMarkers)
                             cluster()
@@ -248,9 +249,8 @@ class CapacitorGoogleMap(
 
                         callback(Result.success(markerIds))
                     }
-
                 } catch (e: CancellationException) {
-                    // Don't call callback
+                    // Intentionally skip callback on coroutine cancellation
                 } catch (e: Exception) {
                     withContext(Dispatchers.Main) {
                         callback(Result.failure(e))
