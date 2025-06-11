@@ -288,11 +288,9 @@ public class Map {
 		var markerHashes: [Int] = []
 
 		func addNextBatch() {
+			var _markers: [GMSMarker] = []
+			
 			if index >= total {
-				if self.mapViewController.clusteringEnabled {
-					self.mapViewController.addMarkersToCluster(markers: googleMapsMarkers)
-				}
-
 				let difference = Set(self.mIds.keys).subtracting(currentMids)
 				let mIdsToRemove = Array(difference)
 
@@ -324,6 +322,7 @@ public class Map {
 					let newMarker = self.buildMarker(marker: markerData)
 
 					if self.mapViewController.clusteringEnabled {
+						_markers.append(newMarker)
 						googleMapsMarkers.append(newMarker)
 					} else {
 						newMarker.map = self.mapViewController.GMapView
@@ -337,6 +336,10 @@ public class Map {
 						currentMids.append(mId)
 						self.mIds[mId] = hash
 					}
+				}
+				
+				if self.mapViewController.clusteringEnabled {
+					self.mapViewController.addMarkersToCluster(markers: _markers)
 				}
 
 				index = batchEnd
