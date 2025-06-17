@@ -294,16 +294,7 @@ class CapacitorGoogleMapsPlugin : Plugin(), OnMapsSdkInitializedCallback {
                 markers.add(marker)
             }
 
-            map.addMarkers(markers) { result ->
-                val ids = result.getOrThrow()
-
-                val jsonIDs = JSONArray()
-                ids.forEach { jsonIDs.put(it) }
-
-                val res = JSObject()
-                res.put("ids", jsonIDs)
-                call.resolve(res)
-            }
+            map.addMarkers(markers, call)
         } catch (e: GoogleMapsError) {
             handleError(call, e)
         } catch (e: Exception) {
