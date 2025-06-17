@@ -33,6 +33,8 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import org.json.JSONArray
 import java.util.concurrent.ConcurrentHashMap
 
@@ -68,6 +70,7 @@ class CapacitorGoogleMap(
     private var clusterManager: ClusterManager<CapacitorGoogleMapMarker>? = null
     private val markerDispatcher = Executors.newFixedThreadPool(8).asCoroutineDispatcher()
 	private val markerUpdates = MutableSharedFlow<List<CapacitorGoogleMapMarker>>(extraBufferCapacity = 1)
+	private val markerMutex = Mutex()
 
     private val isReadyChannel = Channel<Boolean>()
     private var debounceJob: Job? = null
@@ -220,24 +223,20 @@ class CapacitorGoogleMap(
 		markerUpdates.tryEmit(markers)
 	}
 
-	@OptIn(ExperimentalCoroutinesApi::class)
 	fun addMarkersReactive(
 		newMarkersFlow: Flow<List<CapacitorGoogleMapMarker>>
 	): Flow<Result<List<String>>> =
 		newMarkersFlow
 			.flatMapLatest { newMarkers ->
 				flow {
-					ensureMapAvailable()
+					markerMutex.withLock {
+						ensureMapAvailable()
 
-					val markerIds = mutableListOf<String>()
-					val currentMIds = mutableSetOf<String>()
+						val markerIds = mutableListOf<String>()
+						val currentMIds = mutableSetOf<String>()
+						val existingMIdsSnapshot = mIds.keys.toSet()
 
-					// Snapshot current keys in a thread‑safe way
-					val existingMIdsSnapshot = mIds.keys.toSet()
-
-					/* ---------- Build / Update ---------- */
-					val markersToAdd =
-						newMarkers.mapNotNull { marker ->
+						val markersToAdd = newMarkers.mapNotNull { marker ->
 							currentMIds += marker.mId
 
 							val existingId = mIds[marker.mId]
@@ -253,43 +252,40 @@ class CapacitorGoogleMap(
 									}
 									existingMarker?.googleMapMarker?.position = marker.position
 								}
-								return@mapNotNull null // nothing to add
+								return@mapNotNull null
 							} else {
 								marker.markerOptions = buildMarker(marker)
 								marker
 							}
 						}
 
-					/* ---------- Apply to GoogleMap (Main thread) ---------- */
-					withContext(Dispatchers.Main) {
-						markersToAdd.forEach { marker ->
-							val googleMapMarker = googleMap?.addMarker(marker.markerOptions!!)
-							marker.googleMapMarker = googleMapMarker
+						withContext(Dispatchers.Main) {
+							val toRemove = existingMIdsSnapshot - currentMIds
+							removeMarkersBymId(toRemove.toList()) {
+								markersToAdd.forEach { marker ->
+									val googleMapMarker = googleMap?.addMarker(marker.markerOptions!!)
+									marker.googleMapMarker = googleMapMarker
 
-							googleMapMarker?.let { gm ->
-								// Let clusterManager handle removal if available
-								if (clusterManager != null) {
-									googleMapMarker.remove()
+									googleMapMarker?.let { gm ->
+										if (clusterManager != null) {
+											googleMapMarker.remove()
+										}
+
+										mIds[marker.mId] = gm.id
+										markers[gm.id] = marker
+										markerIds += gm.id
+									}
 								}
 
-								mIds[marker.mId] = gm.id
-								markers[gm.id] = marker
-								markerIds += gm.id
+								clusterManager?.apply {
+									addItems(markersToAdd)
+									cluster()
+								}
 							}
 						}
 
-						// Remove markers no longer needed
-						val toRemove = existingMIdsSnapshot - currentMIds
-						removeMarkersBymId(toRemove.toList()) {
-							clusterManager?.apply {
-								addItems(markersToAdd)
-								cluster()
-							}
-						}
-
+						emit(Result.success(markerIds))
 					}
-
-					emit(Result.success(markerIds))
 				}.catch { e ->
 					emit(Result.failure(e))
 				}.flowOn(markerDispatcher)
@@ -476,37 +472,49 @@ class CapacitorGoogleMap(
         }
     }
 
-    @SuppressLint("PotentialBehaviorOverride")
-    fun disableClustering(callback: (error: GoogleMapsError?) -> Unit) {
-        try {
-            googleMap ?: throw GoogleMapNotAvailable()
+	fun disableClustering(callback: (error: GoogleMapsError?) -> Unit) {
+		try {
+			googleMap ?: throw GoogleMapNotAvailable()
 
-            CoroutineScope(Dispatchers.Main).launch {
-                clusterManager?.clearItems()
-                clusterManager?.cluster()
-                clusterManager = null
+			CoroutineScope(Dispatchers.Main).launch {
+				markerMutex.withLock {
+					clusterManager?.clearItems()
+					clusterManager?.cluster()
+					clusterManager = null
 
-                googleMap?.setOnMarkerClickListener(this@CapacitorGoogleMap)
+					googleMap?.setOnMarkerClickListener(this@CapacitorGoogleMap)
 
-                // add existing markers back to the map
-                if (markers.isNotEmpty()) {
-                    val copyMap = HashMap(markers);
-                    for ((_, marker) in copyMap) {
-                        val markerOptions: Deferred<MarkerOptions> =
-                            CoroutineScope(Dispatchers.IO).async {
-                                this@CapacitorGoogleMap.buildMarker(marker)
-                            }
-                        val googleMapMarker = googleMap?.addMarker(markerOptions.await())
-                        marker.googleMapMarker = googleMapMarker
-                    }
-                }
+					val copyMap = synchronized(markers) { HashMap(markers) }
 
-                callback(null)
-            }
-        } catch (e: GoogleMapsError) {
-            callback(e)
-        }
-    }
+					mIds.clear()
+					markers.clear()
+
+					val markerOptionPairs = withContext(Dispatchers.IO) {
+						copyMap.values.map { marker ->
+							async {
+								val opts = buildMarker(marker)
+								marker to opts
+							}
+						}.awaitAll()
+					}
+
+					markerOptionPairs.forEach { (marker, options) ->
+						val googleMapMarker = googleMap?.addMarker(options)
+						marker.googleMapMarker = googleMapMarker
+
+						googleMapMarker?.let { gm ->
+							mIds[marker.mId] = gm.id
+							markers[gm.id] = marker
+						}
+					}
+				}
+
+				callback(null)
+			}
+		} catch (e: GoogleMapsError) {
+			callback(e)
+		}
+	}
 
     fun removePolygons(ids: List<String>, callback: (error: GoogleMapsError?) -> Unit) {
         try {
@@ -596,9 +604,10 @@ class CapacitorGoogleMap(
                 if (clusterManager != null) {
                     clusterManager?.removeItems(deletedMarkers)
                     clusterManager?.cluster()
-                }
-
-                callback(null)
+					callback(null)
+                } else {
+					callback(null)
+				}
             }
         } catch (e: GoogleMapsError) {
             callback(e)
