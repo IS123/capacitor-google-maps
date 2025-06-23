@@ -1,6 +1,7 @@
 package com.capacitorjs.plugins.googlemaps
 
 import android.annotation.SuppressLint
+import android.content.res.Resources
 import android.graphics.*
 import android.graphics.Bitmap.CompressFormat
 import android.location.Location
@@ -37,6 +38,9 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import org.json.JSONArray
 import java.util.concurrent.ConcurrentHashMap
+import androidx.core.graphics.createBitmap
+import kotlin.math.roundToInt
+import androidx.core.graphics.scale
 
 @OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
 class CapacitorGoogleMap(
@@ -66,7 +70,6 @@ class CapacitorGoogleMap(
     private val polygons = HashMap<String, CapacitorGoogleMapsPolygon>()
     private val circles = HashMap<String, CapacitorGoogleMapsCircle>()
     private val polylines = HashMap<String, CapacitorGoogleMapPolyline>()
-    private val markerIcons = HashMap<String, Bitmap>()
     private var clusterManager: ClusterManager<CapacitorGoogleMapMarker>? = null
     private val markerDispatcher = Executors.newFixedThreadPool(8).asCoroutineDispatcher()
 	private val markerUpdates = MutableSharedFlow<List<CapacitorGoogleMapMarker>>(extraBufferCapacity = 1)
@@ -743,8 +746,8 @@ class CapacitorGoogleMap(
             val marker = markers[markerId] ?: throw MarkerNotFoundError("No marker object for markerId: $markerId")
 
             if (iconId.isNotEmpty()) {
-                if (this.markerIcons.contains(iconId)) {
-                    val cachedBitmap = this.markerIcons[iconId]
+                if (this.delegate.markerIcons.contains(iconId)) {
+                    val cachedBitmap = this.delegate.markerIcons[iconId]
                     marker.googleMapMarker?.setIcon(cachedBitmap?.let { getResizedIcon(it, marker) })
                 } else {
                     val base64Data = iconUrl.substringAfter("base64,", "")
@@ -753,7 +756,7 @@ class CapacitorGoogleMap(
                         if (base64Data.isNotEmpty()) {
                             val bitmap = svgBase64ToBitmap(base64Data, marker.iconSize!!.width, marker.iconSize!!.height)
                             if (bitmap != null) {
-                                this.markerIcons[marker.iconId!!] = bitmap
+								this.delegate.markerIcons[marker.iconId!!] = bitmap
                                 marker.googleMapMarker?.setIcon(getResizedIcon(bitmap, marker))
                             } else {
                                 Log.w("CapacitorGoogleMaps", "Failed to decode SVG icon for mId=${marker.mId}, iconId=${marker.iconId}")
@@ -766,7 +769,7 @@ class CapacitorGoogleMap(
                             val decodedString = Base64.decode(base64Data, Base64.DEFAULT)
                             val bitmap = BitmapFactory.decodeByteArray(decodedString, 0, decodedString.size)
                             if (marker.iconId.toBoolean()) {
-                                this.markerIcons[marker.iconId!!] = bitmap
+								this.delegate.markerIcons[marker.iconId!!] = bitmap
                                 marker.googleMapMarker?.setIcon(getResizedIcon(bitmap, marker))
                             }
 
@@ -883,7 +886,7 @@ class CapacitorGoogleMap(
     }
 
     fun hasIcon(iconId: String): Boolean {
-        return this@CapacitorGoogleMap.markerIcons.contains(iconId);
+        return this@CapacitorGoogleMap.delegate.markerIcons.contains(iconId);
     }
 
     fun setCamera(config: GoogleMapCameraConfig, callback: (error: GoogleMapsError?) -> Unit) {
@@ -1138,25 +1141,32 @@ class CapacitorGoogleMap(
         return polylineOptions
     }
 
-    fun svgBase64ToBitmap(base64Svg: String, width: Int, height: Int): Bitmap? {
-        return try {
-            val decodedBytes = Base64.decode(base64Svg, Base64.DEFAULT)
-            val svgString = String(decodedBytes, Charsets.UTF_8)
+	private fun svgBase64ToBitmap(
+		base64Data: String,
+		logicalW: Int,
+		logicalH: Int
+	): Bitmap {
+		val bytes = Base64.decode(base64Data, Base64.DEFAULT)
+		val svgString = String(bytes, Charsets.UTF_8)
 
-            val svg = SVG.getFromString(svgString)
-            svg.setDocumentWidth("100%")
-            svg.setDocumentHeight("100%")
+		// 1️⃣ work out physical pixel size
+		val density = Resources.getSystem().displayMetrics.density
+		val pxW = (logicalW * density).roundToInt()
+		val pxH = (logicalH * density).roundToInt()
 
-            val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-            val canvas = Canvas(bitmap)
+		// 2️⃣ render SVG on a high-res bitmap
+		val highRes = createBitmap(pxW, pxH)
+		val canvas = Canvas(highRes)
 
-            svg.renderToCanvas(canvas)
-            bitmap
-        } catch (e: Exception) {
-            e.printStackTrace()
-            null
-        }
-    }
+		val svg = SVG.getFromString(svgString)
+		svg.renderDPI = 300f
+		svg.setDocumentWidth(pxW.toFloat())
+		svg.setDocumentHeight(pxH.toFloat())
+		svg.renderToCanvas(canvas, RectF(0f, 0f, pxW.toFloat(), pxH.toFloat()))
+
+		// 3️⃣ scale ⟶ logical size with bilinear filtering
+		return highRes
+	}
 
     private fun buildMarker(marker: CapacitorGoogleMapMarker): MarkerOptions {
         val markerOptions = MarkerOptions()
@@ -1174,8 +1184,8 @@ class CapacitorGoogleMap(
 
         // Check if there's an icon URL (assumed to be a Data URL in this case)
         if (!marker.iconId.isNullOrEmpty()) {
-            if (this.markerIcons.contains(marker.iconId)) {
-                val cachedBitmap = this.markerIcons[marker.iconId]
+            if (this.delegate.markerIcons.contains(marker.iconId)) {
+                val cachedBitmap = this.delegate.markerIcons[marker.iconId]
                 markerOptions.icon(getResizedIcon(cachedBitmap!!, marker))
             } else {
                 try {
@@ -1184,7 +1194,7 @@ class CapacitorGoogleMap(
                     if (marker.iconUrl!!.startsWith("data:image/svg+xml")) {
                         if (base64Data.isNotEmpty()) {
                             val bitmap = svgBase64ToBitmap(base64Data, marker.iconSize!!.width, marker.iconSize!!.height)
-                            this.markerIcons[marker.iconId!!] = bitmap as Bitmap
+							this.delegate.markerIcons[marker.iconId!!] = bitmap as Bitmap
                             markerOptions.icon(getResizedIcon(bitmap, marker))
                         } else {
                             Log.w(
@@ -1201,7 +1211,7 @@ class CapacitorGoogleMap(
                                 BitmapFactory.decodeByteArray(decodedString, 0, decodedString.size)
 
                             // Cache the bitmap for future use
-                            this.markerIcons[marker.iconId!!] = bitmap
+							this.delegate.markerIcons[marker.iconId!!] = bitmap
                             markerOptions.icon(getResizedIcon(bitmap, marker))
                         } else {
                             Log.w(

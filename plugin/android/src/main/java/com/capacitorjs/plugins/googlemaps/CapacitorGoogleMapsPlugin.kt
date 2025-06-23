@@ -36,6 +36,7 @@ class CapacitorGoogleMapsPlugin : Plugin(), OnMapsSdkInitializedCallback {
     private var cachedTouchEvents: HashMap<String, MutableList<MotionEvent>> = HashMap()
     private val tag: String = "CAP-GOOGLE-MAPS"
     private var touchEnabled: HashMap<String, Boolean> = HashMap()
+	internal val markerIcons = HashMap<String, Bitmap>()
 
     companion object {
         const val LOCATION = "location"
