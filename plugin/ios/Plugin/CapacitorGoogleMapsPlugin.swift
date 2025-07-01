@@ -262,7 +262,7 @@ public class CapacitorGoogleMapsPlugin: CAPPlugin, GMSMapViewDelegate {
                 throw GoogleMapErrors.mapNotFound
             }
 
-            let markerId = try map.addMarker(marker: marker)
+            let markerId = try map.addMarker(marker: marker, cleanAllMarkers: marker.clearAllMarkers)
 
             call.resolve(["id": String(markerId)])
 

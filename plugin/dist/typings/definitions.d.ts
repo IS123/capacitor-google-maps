@@ -351,7 +351,16 @@ export interface Marker {
      *
      */
     iconId?: string;
+    /**
+    * Marker's alternative id
+    *
+    */
     mId: string;
+    /**
+    * Is remove all other markers from map when use addMarker() function
+    *
+    */
+    clearAllMarkers: boolean;
 }
 /**
  * The callback function to be called when map events are emitted.

@@ -396,7 +396,17 @@ export interface Marker {
    */
   iconId?: string;
 
+   /**
+   * Marker's alternative id
+   *
+   */
   mId: string;
+
+   /**
+   * Is remove all other markers from map when use addMarker() function
+   *
+   */
+  clearAllMarkers: boolean;
 }
 
 /**
