@@ -406,7 +406,7 @@ export interface Marker {
    * Is remove all other markers from map when use addMarker() function
    *
    */
-  clearAllMarkers: boolean;
+  clearAllMarkers?: boolean;
 }
 
 /**
