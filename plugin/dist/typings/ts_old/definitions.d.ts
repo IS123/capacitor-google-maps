@@ -360,7 +360,7 @@ export interface Marker {
     * Is remove all other markers from map when use addMarker() function
     *
     */
-    clearAllMarkers: boolean;
+    clearAllMarkers?: boolean;
 }
 /**
  * The callback function to be called when map events are emitted.

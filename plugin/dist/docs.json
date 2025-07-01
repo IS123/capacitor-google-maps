@@ -1387,7 +1387,7 @@
           "tags": [],
           "docs": "Is remove all other markers from map when use addMarker() function",
           "complexTypes": [],
-          "type": "boolean"
+          "type": "boolean | undefined"
         }
       ]
     },
