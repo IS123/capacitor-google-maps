@@ -26,7 +26,8 @@ npm install @capacitor/google-maps@git+file:///Users/username/path/to/plugin-rep
 
 ### When ready to deploy.
 - Build the dist `pnpm run build`
-- Create a git tag with name v<semver_version> `git tag -a v6.0.0`
+- Create a git tag with name v<semver_version> `git tag -a v7.0.0-rc.0`
+- Notice `-rc.0` in tag name (or any other meaningful suffix) - it's required to not clash with upstream repo tags
 - Push changes to master branch, or create a PR to master.
 - Push tag to remote `git push origin --tags`
 
@@ -42,6 +43,20 @@ The Google Maps SDK supports the use of showing the users current location via `
 
 Read about [Configuring `Info.plist`](https://capacitorjs.com/docs/ios/configuration#configuring-infoplist) in the [iOS Guide](https://capacitorjs.com/docs/ios) for more information on setting iOS permissions in Xcode.
 
+### Minimum Deployment Target
+
+Version 6 of this plugin has a minimum deployment target of iOS 14.0. You will need to edit `ios/App/Podfile` and change the following line from 13.0 to 14.0:
+```
+platform :ios, '14.0'
+```
+
+Additionally, you will need to open your project in XCode and in the `Build Settings` tab for your `Project` and for each `Target` set the `iOS Deployment Target` to `iOS 14.0` or higher.
+
+### Typescript Configuration
+
+Your project will also need have `skipLibCheck` set to `true` in `tsconfig.json`.
+
+### Migrating from older versions
 > The main Google Maps SDK now supports running on simulators on Apple Silicon Macs, but make sure you have the latest version of [Google-Maps-iOS-Utils](https://github.com/googlemaps/google-maps-ios-utils) installed.
 
 If you added the previous workaround for getting the unreleased version, you can delete it now by removing this line from `ios/App/Podfile`:
@@ -1333,7 +1348,26 @@ Array should contain between two and three elements.
 The previous GeoJSON specification allowed more elements (e.g., which could be used to represent M values),
 but the current specification only allows X, Y, and (optionally) Z to be defined.
 
+Note: the type will not be narrowed down to `[number, number] | [number, number, number]` due to
+marginal benefits and the large impact of breaking change.
+
+See previous discussions on the type narrowing:
+- {@link https://github.com/DefinitelyTyped/DefinitelyTyped/pull/21590|Nov 2017}
+- {@link https://github.com/DefinitelyTyped/DefinitelyTyped/discussions/67773|Dec 2023}
+- {@link https://github.com/DefinitelyTyped/DefinitelyTyped/discussions/71441| Dec 2024}
+
+One can use a
+{@link https://www.typescriptlang.org/docs/handbook/2/narrowing.html#using-type-predicates|user-defined type guard that returns a type predicate}
+to determine if a position is a 2D or 3D position.
+
 <code>number[]</code>
+
+
+#### Marker
+
+Supports markers of either either "legacy" or "advanced" types.
+
+<code>google.maps.<a href="#marker">Marker</a> | google.maps.marker.AdvancedMarkerElement</code>
 
 
 ### Enums
