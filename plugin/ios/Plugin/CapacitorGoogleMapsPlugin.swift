@@ -262,7 +262,7 @@ public class CapacitorGoogleMapsPlugin: CAPPlugin, GMSMapViewDelegate {
                 throw GoogleMapErrors.mapNotFound
             }
 
-            let markerId = try map.addMarker(marker: marker, cleanAllMarkers: marker.clearAllMarkers ?? true)
+            let markerId = try map.addMarker(marker: marker)
 
             call.resolve(["id": String(markerId)])
 
@@ -1337,9 +1337,9 @@ public class CapacitorGoogleMapsPlugin: CAPPlugin, GMSMapViewDelegate {
         self.notifyListeners("onBoundsChanged", data: data)
         self.notifyListeners("onCameraIdle", data: data)
 
-        // if let map = map {
-        //     _updateVisibleMarkers(mapView: mapView, map: map)
-        // }
+        if let map = map {
+            _updateVisibleMarkers(mapView: mapView, map: map)
+        }
     }
 
     // onCameraMoveStarted
