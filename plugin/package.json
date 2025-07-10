@@ -1,7 +1,7 @@
 {
   "name": "@capacitor/google-maps",
-  "version": "7.0.1",
-  "description": "Fork of Ionic Team Capacitor Google Maps",
+  "version": "7.0.2",
+  "description": "Google maps on Capacitor",
   "main": "dist/plugin.cjs.js",
   "module": "dist/esm/index.js",
   "typings": "dist/typings/index.d.ts",
