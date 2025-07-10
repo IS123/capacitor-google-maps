@@ -324,9 +324,13 @@ export default MyMap;
 * [`addMarker(...)`](#addmarker)
 * [`addMarkers(...)`](#addmarkers)
 * [`updateMarker(...)`](#updatemarker)
+* [`updateMarkerBymId(...)`](#updatemarkerbymid)
+* [`updateMarkersBymId(...)`](#updatemarkersbymid)
 * [`updateMarkerIcon(...)`](#updatemarkericon)
 * [`removeMarker(...)`](#removemarker)
+* [`removeMarkerBymId(...)`](#removemarkerbymid)
 * [`removeMarkers(...)`](#removemarkers)
+* [`removeMarkersBymId(...)`](#removemarkersbymid)
 * [`addPolygons(...)`](#addpolygons)
 * [`removePolygons(...)`](#removepolygons)
 * [`addCircles(...)`](#addcircles)
@@ -478,6 +482,38 @@ updateMarker(id: string, marker: Marker) => Promise<string>
 --------------------
 
 
+### updateMarkerBymId(...)
+
+```typescript
+updateMarkerBymId(mId: string, marker: Marker) => Promise<string>
+```
+
+| Param        | Type                                      |
+| ------------ | ----------------------------------------- |
+| **`mId`**    | <code>string</code>                       |
+| **`marker`** | <code><a href="#marker">Marker</a></code> |
+
+**Returns:** <code>Promise&lt;string&gt;</code>
+
+--------------------
+
+
+### updateMarkersBymId(...)
+
+```typescript
+updateMarkersBymId(mId: string, marker: Marker) => Promise<string>
+```
+
+| Param        | Type                                      |
+| ------------ | ----------------------------------------- |
+| **`mId`**    | <code>string</code>                       |
+| **`marker`** | <code><a href="#marker">Marker</a></code> |
+
+**Returns:** <code>Promise&lt;string&gt;</code>
+
+--------------------
+
+
 ### updateMarkerIcon(...)
 
 ```typescript
@@ -506,6 +542,19 @@ removeMarker(id: string) => Promise<void>
 --------------------
 
 
+### removeMarkerBymId(...)
+
+```typescript
+removeMarkerBymId(mId: string) => Promise<void>
+```
+
+| Param     | Type                |
+| --------- | ------------------- |
+| **`mId`** | <code>string</code> |
+
+--------------------
+
+
 ### removeMarkers(...)
 
 ```typescript
@@ -515,6 +564,19 @@ removeMarkers(ids: string[]) => Promise<void>
 | Param     | Type                  |
 | --------- | --------------------- |
 | **`ids`** | <code>string[]</code> |
+
+--------------------
+
+
+### removeMarkersBymId(...)
+
+```typescript
+removeMarkersBymId(mIds: string[]) => Promise<void>
+```
+
+| Param      | Type                  |
+| ---------- | --------------------- |
+| **`mIds`** | <code>string[]</code> |
 
 --------------------
 
@@ -1108,21 +1170,23 @@ An interface representing a pair of latitude and longitude coordinates.
 
 A marker is an icon placed at a particular point on the map's surface.
 
-| Prop             | Type                                                         | Description                                                                                                                                                                               | Default            | Since |
-| ---------------- | ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------ | ----- |
-| **`coordinate`** | <code><a href="#latlng">LatLng</a></code>                    | <a href="#marker">Marker</a> position                                                                                                                                                     |                    |       |
-| **`opacity`**    | <code>number</code>                                          | Sets the opacity of the marker, between 0 (completely transparent) and 1 inclusive.                                                                                                       | <code>1</code>     |       |
-| **`title`**      | <code>string</code>                                          | Title, a short description of the overlay.                                                                                                                                                |                    |       |
-| **`snippet`**    | <code>string</code>                                          | Snippet text, shown beneath the title in the info window when selected.                                                                                                                   |                    |       |
-| **`isFlat`**     | <code>boolean</code>                                         | Controls whether this marker should be flat against the Earth's surface or a billboard facing the camera.                                                                                 | <code>false</code> |       |
-| **`iconUrl`**    | <code>string</code>                                          | Path to a marker icon to render. It can be relative to the web app public directory, or a https url of a remote marker icon. **SVGs are not supported on native platforms.**              |                    | 4.2.0 |
-| **`iconSize`**   | <code><a href="#size">Size</a></code>                        | Controls the scaled size of the marker image set in `iconUrl`.                                                                                                                            |                    | 4.2.0 |
-| **`iconOrigin`** | <code><a href="#point">Point</a></code>                      | The position of the image within a sprite, if any. By default, the origin is located at the top left corner of the image .                                                                |                    | 4.2.0 |
-| **`iconAnchor`** | <code><a href="#point">Point</a></code>                      | The position at which to anchor an image in correspondence to the location of the marker on the map. By default, the anchor is located along the center point of the bottom of the image. |                    | 4.2.0 |
-| **`tintColor`**  | <code>{ r: number; g: number; b: number; a: number; }</code> | Customizes the color of the default marker image. Each value must be between 0 and 255. Only for iOS and Android.                                                                         |                    | 4.2.0 |
-| **`draggable`**  | <code>boolean</code>                                         | Controls whether this marker can be dragged interactively                                                                                                                                 | <code>false</code> |       |
-| **`zIndex`**     | <code>number</code>                                          | Specifies the stack order of this marker, relative to other markers on the map. A marker with a high z-index is drawn on top of markers with lower z-indexes                              | <code>0</code>     |       |
-| **`iconId`**     | <code>string</code>                                          | Icon id that`s using for caching purposes.                                                                                                                                                |                    |       |
+| Prop                  | Type                                                         | Description                                                                                                                                                                               | Default            | Since |
+| --------------------- | ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------ | ----- |
+| **`coordinate`**      | <code><a href="#latlng">LatLng</a></code>                    | <a href="#marker">Marker</a> position                                                                                                                                                     |                    |       |
+| **`opacity`**         | <code>number</code>                                          | Sets the opacity of the marker, between 0 (completely transparent) and 1 inclusive.                                                                                                       | <code>1</code>     |       |
+| **`title`**           | <code>string</code>                                          | Title, a short description of the overlay.                                                                                                                                                |                    |       |
+| **`snippet`**         | <code>string</code>                                          | Snippet text, shown beneath the title in the info window when selected.                                                                                                                   |                    |       |
+| **`isFlat`**          | <code>boolean</code>                                         | Controls whether this marker should be flat against the Earth's surface or a billboard facing the camera.                                                                                 | <code>false</code> |       |
+| **`iconUrl`**         | <code>string</code>                                          | Path to a marker icon to render. It can be relative to the web app public directory, or a https url of a remote marker icon. **SVGs are not supported on native platforms.**              |                    | 4.2.0 |
+| **`iconSize`**        | <code><a href="#size">Size</a></code>                        | Controls the scaled size of the marker image set in `iconUrl`.                                                                                                                            |                    | 4.2.0 |
+| **`iconOrigin`**      | <code><a href="#point">Point</a></code>                      | The position of the image within a sprite, if any. By default, the origin is located at the top left corner of the image .                                                                |                    | 4.2.0 |
+| **`iconAnchor`**      | <code><a href="#point">Point</a></code>                      | The position at which to anchor an image in correspondence to the location of the marker on the map. By default, the anchor is located along the center point of the bottom of the image. |                    | 4.2.0 |
+| **`tintColor`**       | <code>{ r: number; g: number; b: number; a: number; }</code> | Customizes the color of the default marker image. Each value must be between 0 and 255. Only for iOS and Android.                                                                         |                    | 4.2.0 |
+| **`draggable`**       | <code>boolean</code>                                         | Controls whether this marker can be dragged interactively                                                                                                                                 | <code>false</code> |       |
+| **`zIndex`**          | <code>number</code>                                          | Specifies the stack order of this marker, relative to other markers on the map. A marker with a high z-index is drawn on top of markers with lower z-indexes                              | <code>0</code>     |       |
+| **`iconId`**          | <code>string</code>                                          | Icon id that`s using for caching purposes.                                                                                                                                                |                    |       |
+| **`mId`**             | <code>string</code>                                          | <a href="#marker">Marker</a>'s alternative id                                                                                                                                             |                    |       |
+| **`clearAllMarkers`** | <code>boolean</code>                                         | Is remove all other markers from map when use addMarker() function                                                                                                                        |                    |       |
 
 
 #### Size
@@ -1267,6 +1331,7 @@ Controls for setting padding on the 'visible' region of the view.
 | **`longitude`** | <code>number</code> |
 | **`title`**     | <code>string</code> |
 | **`snippet`**   | <code>string</code> |
+| **`mId`**       | <code>string</code> |
 
 
 #### MarkerClickCallbackData
@@ -1346,18 +1411,6 @@ https://tools.ietf.org/html/rfc7946#section-3.1.1
 Array should contain between two and three elements.
 The previous GeoJSON specification allowed more elements (e.g., which could be used to represent M values),
 but the current specification only allows X, Y, and (optionally) Z to be defined.
-
-Note: the type will not be narrowed down to `[number, number] | [number, number, number]` due to
-marginal benefits and the large impact of breaking change.
-
-See previous discussions on the type narrowing:
-- {@link https://github.com/DefinitelyTyped/DefinitelyTyped/pull/21590|Nov 2017}
-- {@link https://github.com/DefinitelyTyped/DefinitelyTyped/discussions/67773|Dec 2023}
-- {@link https://github.com/DefinitelyTyped/DefinitelyTyped/discussions/71441| Dec 2024}
-
-One can use a
-{@link https://www.typescriptlang.org/docs/handbook/2/narrowing.html#using-type-predicates|user-defined type guard that returns a type predicate}
-to determine if a position is a 2D or 3D position.
 
 <code>number[]</code>
 

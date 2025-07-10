@@ -14,9 +14,13 @@ export interface GoogleMapInterface {
     addMarker(marker: Marker): Promise<string>;
     addMarkers(markers: Marker[]): Promise<string[]>;
     updateMarker(id: string, marker: Marker): Promise<string>;
+    updateMarkerBymId(mId: string, marker: Marker): Promise<string>;
+    updateMarkersBymId(mId: string, marker: Marker): Promise<string>;
     updateMarkerIcon(id: string, iconId: string, iconUrl: string): Promise<void>;
     removeMarker(id: string): Promise<void>;
+    removeMarkerBymId(mId: string): Promise<void>;
     removeMarkers(ids: string[]): Promise<void>;
+    removeMarkersBymId(mIds: string[]): Promise<void>;
     addPolygons(polygons: Polygon[]): Promise<string[]>;
     removePolygons(ids: string[]): Promise<void>;
     addCircles(circles: Circle[]): Promise<string[]>;
@@ -111,6 +115,12 @@ export declare class GoogleMap {
     static create(options: CreateMapArgs, callback?: MapListenerCallback<MapReadyCallbackData>): Promise<GoogleMap>;
     private static getElementBounds;
     /**
+     * Returns all the markers on the map
+     *
+     * @returns Object of { markerId: mId }
+     */
+    getMarkersIds(): Promise<Record<string, string>>;
+    /**
      * Enable touch events on native map
      *
      * @returns void
@@ -151,8 +161,36 @@ export declare class GoogleMap {
      * @returns array of created marker IDs
      */
     addMarkers(markers: Marker[]): Promise<string[]>;
+    /**
+     * Updates the current marker on the map
+     *
+     * @param marker
+     * @returns marker ID
+     */
     updateMarker(id: string, marker: Marker): Promise<string>;
-    updateMarkerIcon(id: string, iconId: string, iconUrl: string): Promise<void>;
+    /**
+     * Updates the current marker on the map by mId
+     *
+     * @param marker
+     * @returns marker ID
+     */
+    updateMarkerBymId(mId: string, marker: Marker): Promise<string>;
+    /**
+     * Updates the multiple markers on the map by mId
+     *
+     * @param marker
+     * @returns array of created marker IDs
+     */
+    updateMarkersBymId(mIds: string[], markers: Marker[]): Promise<string[]>;
+    /**
+     * Updates the marker icon
+     *
+     * @param mId
+     * @param iconId
+     * @param iconUrl
+     * @returns void
+     */
+    updateMarkerIcon(mId: string, iconId: string, iconUrl: string): Promise<void>;
     /**
      * Remove marker from the map
      *
@@ -161,12 +199,26 @@ export declare class GoogleMap {
      */
     removeMarker(id: string): Promise<void>;
     /**
+     * Remove marker from the map by mId
+     *
+     * @param mId mId of the marker to remove from the map
+     * @returns
+     */
+    removeMarkerBymId(mId: string): Promise<void>;
+    /**
      * Remove markers from the map
      *
      * @param ids array of ids to remove from the map
      * @returns
      */
     removeMarkers(ids: string[]): Promise<void>;
+    /**
+     * Remove markers from the map by mId
+     *
+     * @param mIds array of mIds to remove from the map
+     * @returns
+     */
+    removeMarkersBymId(mIds: string[]): Promise<void>;
     addPolygons(polygons: Polygon[]): Promise<string[]>;
     addPolylines(polylines: Polyline[]): Promise<string[]>;
     removePolygons(ids: string[]): Promise<void>;

@@ -159,6 +159,16 @@ export class GoogleMap {
         });
     }
     /**
+     * Returns all the markers on the map
+     *
+     * @returns Object of { markerId: mId }
+     */
+    async getMarkersIds() {
+        return CapacitorGoogleMaps.getMarkersIds({
+            id: this.id
+        });
+    }
+    /**
      * Enable touch events on native map
      *
      * @returns void
@@ -228,6 +238,12 @@ export class GoogleMap {
         });
         return res.ids;
     }
+    /**
+     * Updates the current marker on the map
+     *
+     * @param marker
+     * @returns marker ID
+     */
     async updateMarker(id, marker) {
         const res = await CapacitorGoogleMaps.updateMarker({
             id: this.id,
@@ -236,10 +252,46 @@ export class GoogleMap {
         });
         return res.id;
     }
-    async updateMarkerIcon(id, iconId, iconUrl) {
+    /**
+     * Updates the current marker on the map by mId
+     *
+     * @param marker
+     * @returns marker ID
+     */
+    async updateMarkerBymId(mId, marker) {
+        const res = await CapacitorGoogleMaps.updateMarkerBymId({
+            id: this.id,
+            mId,
+            marker,
+        });
+        return res.id;
+    }
+    /**
+     * Updates the multiple markers on the map by mId
+     *
+     * @param marker
+     * @returns array of created marker IDs
+     */
+    async updateMarkersBymId(mIds, markers) {
+        const res = await CapacitorGoogleMaps.updateMarkersBymId({
+            id: this.id,
+            mIds,
+            markers,
+        });
+        return res.ids;
+    }
+    /**
+     * Updates the marker icon
+     *
+     * @param mId
+     * @param iconId
+     * @param iconUrl
+     * @returns void
+     */
+    async updateMarkerIcon(mId, iconId, iconUrl) {
         return CapacitorGoogleMaps.updateMarkerIcon({
             id: this.id,
-            markerId: id,
+            mId: mId,
             iconId,
             iconUrl
         });
@@ -257,6 +309,18 @@ export class GoogleMap {
         });
     }
     /**
+     * Remove marker from the map by mId
+     *
+     * @param mId mId of the marker to remove from the map
+     * @returns
+     */
+    async removeMarkerBymId(mId) {
+        return CapacitorGoogleMaps.removeMarkerBymId({
+            id: this.id,
+            mId,
+        });
+    }
+    /**
      * Remove markers from the map
      *
      * @param ids array of ids to remove from the map
@@ -266,6 +330,18 @@ export class GoogleMap {
         return CapacitorGoogleMaps.removeMarkers({
             id: this.id,
             markerIds: ids,
+        });
+    }
+    /**
+     * Remove markers from the map by mId
+     *
+     * @param mIds array of mIds to remove from the map
+     * @returns
+     */
+    async removeMarkersBymId(mIds) {
+        return CapacitorGoogleMaps.removeMarkersBymId({
+            id: this.id,
+            mIds,
         });
     }
     async addPolygons(polygons) {

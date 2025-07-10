@@ -242,6 +242,16 @@ class GoogleMap {
         });
     }
     /**
+     * Returns all the markers on the map
+     *
+     * @returns Object of { markerId: mId }
+     */
+    async getMarkersIds() {
+        return CapacitorGoogleMaps.getMarkersIds({
+            id: this.id
+        });
+    }
+    /**
      * Enable touch events on native map
      *
      * @returns void
@@ -311,6 +321,12 @@ class GoogleMap {
         });
         return res.ids;
     }
+    /**
+     * Updates the current marker on the map
+     *
+     * @param marker
+     * @returns marker ID
+     */
     async updateMarker(id, marker) {
         const res = await CapacitorGoogleMaps.updateMarker({
             id: this.id,
@@ -319,10 +335,46 @@ class GoogleMap {
         });
         return res.id;
     }
-    async updateMarkerIcon(id, iconId, iconUrl) {
+    /**
+     * Updates the current marker on the map by mId
+     *
+     * @param marker
+     * @returns marker ID
+     */
+    async updateMarkerBymId(mId, marker) {
+        const res = await CapacitorGoogleMaps.updateMarkerBymId({
+            id: this.id,
+            mId,
+            marker,
+        });
+        return res.id;
+    }
+    /**
+     * Updates the multiple markers on the map by mId
+     *
+     * @param marker
+     * @returns array of created marker IDs
+     */
+    async updateMarkersBymId(mIds, markers) {
+        const res = await CapacitorGoogleMaps.updateMarkersBymId({
+            id: this.id,
+            mIds,
+            markers,
+        });
+        return res.ids;
+    }
+    /**
+     * Updates the marker icon
+     *
+     * @param mId
+     * @param iconId
+     * @param iconUrl
+     * @returns void
+     */
+    async updateMarkerIcon(mId, iconId, iconUrl) {
         return CapacitorGoogleMaps.updateMarkerIcon({
             id: this.id,
-            markerId: id,
+            mId: mId,
             iconId,
             iconUrl
         });
@@ -340,6 +392,18 @@ class GoogleMap {
         });
     }
     /**
+     * Remove marker from the map by mId
+     *
+     * @param mId mId of the marker to remove from the map
+     * @returns
+     */
+    async removeMarkerBymId(mId) {
+        return CapacitorGoogleMaps.removeMarkerBymId({
+            id: this.id,
+            mId,
+        });
+    }
+    /**
      * Remove markers from the map
      *
      * @param ids array of ids to remove from the map
@@ -349,6 +413,18 @@ class GoogleMap {
         return CapacitorGoogleMaps.removeMarkers({
             id: this.id,
             markerIds: ids,
+        });
+    }
+    /**
+     * Remove markers from the map by mId
+     *
+     * @param mIds array of mIds to remove from the map
+     * @returns
+     */
+    async removeMarkersBymId(mIds) {
+        return CapacitorGoogleMaps.removeMarkersBymId({
+            id: this.id,
+            mIds,
         });
     }
     async addPolygons(polygons) {
@@ -1201,21 +1277,44 @@ class CapacitorGoogleMapsWeb extends core.WebPlugin {
     async addMarkers(_args) {
         const markerIds = [];
         const map = this.maps[_args.id];
+        const currentMids = [];
         for (const markerArgs of _args.markers) {
+            if (map.mIds[markerArgs.mId]) {
+                const markerId = map.mIds[markerArgs.mId];
+                currentMids.push(markerArgs.mId);
+                this.updateMarker({
+                    id: _args.id,
+                    markerId: markerId,
+                    marker: markerArgs
+                });
+                continue;
+            }
             const advancedMarker = this.buildMarkerOpts(markerArgs, map.map);
             const id = '' + this.currMarkerId;
             map.markers[id] = advancedMarker;
-            await this.setMarkerListeners(_args.id, id, advancedMarker);
+            map.mIds[markerArgs.mId] = id;
+            currentMids.push(markerArgs.mId);
+            await this.setMarkerListeners(_args.id, id, markerArgs.mId, advancedMarker);
             markerIds.push(id);
             this.currMarkerId++;
         }
+        const markersToRemove = Object.keys(map.mIds).filter(id => !currentMids.includes(id));
+        this.removeMarkersBymId({
+            id: _args.id,
+            mIds: markersToRemove
+        });
         return { ids: markerIds };
     }
     async addMarker(_args) {
+        // clearAllMarkers = undefined by default, if you need to leave all markers you need to pass clearAllMarkers: false
+        if (_args.clearAllMarkers || typeof _args.clearAllMarkers === 'undefined') {
+            this.removeAllMarkers(_args.id);
+        }
         const advancedMarker = this.buildMarkerOpts(_args.marker, this.maps[_args.id].map);
         const id = '' + this.currMarkerId;
+        this.maps[_args.id].mIds[_args.marker.mId] = id;
         this.maps[_args.id].markers[id] = advancedMarker;
-        await this.setMarkerListeners(_args.id, id, advancedMarker);
+        await this.setMarkerListeners(_args.id, id, _args.marker.mId, advancedMarker);
         this.currMarkerId++;
         return { id: id };
     }
@@ -1224,11 +1323,16 @@ class CapacitorGoogleMapsWeb extends core.WebPlugin {
             id: args.id,
             markerId: args.markerId
         });
-        return (await this.addMarker({ id: args.id, marker: args.marker }));
+        return (await this.addMarker({
+            id: args.id,
+            marker: args.marker,
+            clearAllMarkers: false
+        }));
     }
     async updateMarkerIcon(args) {
         var _a, _b;
-        const marker = this.maps[args.id].markers[args.markerId];
+        const id = this.maps[args.id].mIds[args.mId];
+        const marker = this.maps[args.id].markers[id];
         if (marker) {
             // Clone the existing size/anchor/origin from the current icon if needed
             const iconUrl = args.iconUrl;
@@ -1247,14 +1351,56 @@ class CapacitorGoogleMapsWeb extends core.WebPlugin {
             if (map.markers[id]) {
                 map.markers[id].map = null;
                 delete map.markers[id];
+                const mId = Object.values(map.mIds).find((markerId) => markerId === id);
+                if (mId) {
+                    delete map.mIds[mId];
+                }
             }
         }
     }
     async removeMarker(_args) {
-        if (this.maps[_args.id].markers[_args.markerId]) {
-            this.maps[_args.id].markers[_args.markerId].map = null;
-            delete this.maps[_args.id].markers[_args.markerId];
+        const map = this.maps[_args.id];
+        if (map.markers[_args.markerId]) {
+            map.markers[_args.markerId].map = null;
+            const mId = Object.values(map.mIds).find((markerId) => markerId === _args.markerId);
+            delete map.markers[_args.markerId];
+            if (mId) {
+                delete map.mIds[mId];
+            }
         }
+    }
+    async removeMarkerBymId(args) {
+        const map = this.maps[args.id];
+        const id = map.mIds[args.mId];
+        map.markers[id] && (map.markers[id].map = null);
+        delete map.markers[id];
+        delete map.mIds[args.mId];
+    }
+    async removeMarkersBymId(args) {
+        const map = this.maps[args.id];
+        args.mIds.forEach(mId => {
+            const id = map.mIds[mId];
+            map.markers[id] && (map.markers[id].map = null);
+            delete map.markers[id];
+            delete map.mIds[mId];
+        });
+    }
+    async getMarkersIds(args) {
+        return this.maps[args.id].mIds;
+    }
+    async updateMarkerBymId(args) {
+        await this.removeMarkerBymId({
+            id: args.id,
+            mId: args.mId
+        });
+        return (await this.addMarker({ id: args.id, marker: args.marker }));
+    }
+    async updateMarkersBymId(args) {
+        await this.removeMarkersBymId({
+            id: args.id,
+            mIds: args.mIds
+        });
+        return (await this.addMarkers({ id: args.id, markers: args.markers }));
     }
     async addPolygons(args) {
         const polygonIds = [];
@@ -1372,6 +1518,7 @@ class CapacitorGoogleMapsWeb extends core.WebPlugin {
             polygons: {},
             circles: {},
             polylines: {},
+            mIds: {}
         };
         this.setMapListeners(_args.id);
     }
@@ -1454,7 +1601,7 @@ class CapacitorGoogleMapsWeb extends core.WebPlugin {
             });
         });
     }
-    async setMarkerListeners(mapId, markerId, marker) {
+    async setMarkerListeners(mapId, markerId, mId, marker) {
         marker.addListener('click', () => {
             var _a;
             const position = marker.position;
@@ -1465,6 +1612,7 @@ class CapacitorGoogleMapsWeb extends core.WebPlugin {
                 longitude: position.lng,
                 title: (_a = marker.title) !== null && _a !== void 0 ? _a : '',
                 snippet: '',
+                mId
             });
         });
         if (marker.gmpDraggable) {
@@ -1478,6 +1626,7 @@ class CapacitorGoogleMapsWeb extends core.WebPlugin {
                     longitude: position.lng,
                     title: (_a = marker.title) !== null && _a !== void 0 ? _a : '',
                     snippet: '',
+                    mId
                 });
             });
             marker.addListener('drag', () => {
@@ -1490,6 +1639,7 @@ class CapacitorGoogleMapsWeb extends core.WebPlugin {
                     longitude: position.lng,
                     title: (_a = marker.title) !== null && _a !== void 0 ? _a : '',
                     snippet: '',
+                    mId
                 });
             });
             marker.addListener('dragend', () => {
@@ -1502,6 +1652,7 @@ class CapacitorGoogleMapsWeb extends core.WebPlugin {
                     longitude: position.lng,
                     title: (_a = marker.title) !== null && _a !== void 0 ? _a : '',
                     snippet: '',
+                    mId
                 });
             });
         }
@@ -1600,6 +1751,14 @@ class CapacitorGoogleMapsWeb extends core.WebPlugin {
             gmpDraggable: marker.draggable,
         });
         return advancedMarker;
+    }
+    removeAllMarkers(mapId) {
+        const map = this.maps[mapId];
+        const markerIds = Object.keys(map.markers);
+        this.removeMarkers({
+            id: mapId,
+            markerIds: markerIds
+        });
     }
 }
 

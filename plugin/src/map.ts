@@ -38,9 +38,13 @@ export interface GoogleMapInterface {
   addMarker(marker: Marker): Promise<string>;
   addMarkers(markers: Marker[]): Promise<string[]>;
   updateMarker(id: string, marker: Marker): Promise<string>;
+  updateMarkerBymId(mId: string, marker: Marker): Promise<string>;
+  updateMarkersBymId(mId: string, marker: Marker): Promise<string>;
   updateMarkerIcon(id: string, iconId: string, iconUrl: string): Promise<void>;
   removeMarker(id: string): Promise<void>;
+  removeMarkerBymId(mId: string): Promise<void>;
   removeMarkers(ids: string[]): Promise<void>;
+  removeMarkersBymId(mIds: string[]): Promise<void>;
   addPolygons(polygons: Polygon[]): Promise<string[]>;
   removePolygons(ids: string[]): Promise<void>;
   addCircles(circles: Circle[]): Promise<string[]>;
@@ -299,6 +303,17 @@ export class GoogleMap {
   }
 
   /**
+   * Returns all the markers on the map
+   *
+   * @returns Object of { markerId: mId }
+   */
+  async getMarkersIds(): Promise<Record<string, string>> {
+    return CapacitorGoogleMaps.getMarkersIds({
+      id: this.id
+    });
+  }
+
+  /**
    * Enable touch events on native map
    *
    * @returns void
@@ -376,6 +391,12 @@ export class GoogleMap {
     return res.ids;
   }
 
+  /**
+   * Updates the current marker on the map
+   *
+   * @param marker
+   * @returns marker ID
+   */
   async updateMarker(id: string, marker: Marker): Promise<string> {
     const res = await CapacitorGoogleMaps.updateMarker({
       id: this.id,
@@ -386,10 +407,50 @@ export class GoogleMap {
     return res.id;
   }
 
-  async updateMarkerIcon(id: string, iconId: string, iconUrl: string): Promise<void> {
+  /**
+   * Updates the current marker on the map by mId
+   *
+   * @param marker
+   * @returns marker ID
+   */
+  async updateMarkerBymId(mId: string, marker: Marker): Promise<string> {
+    const res = await CapacitorGoogleMaps.updateMarkerBymId({
+      id: this.id,
+      mId,
+      marker,
+    });
+
+    return res.id;
+  }
+
+  /**
+   * Updates the multiple markers on the map by mId
+   *
+   * @param marker
+   * @returns array of created marker IDs
+   */
+  async updateMarkersBymId(mIds: string[], markers: Marker[]): Promise<string[]> {
+    const res = await CapacitorGoogleMaps.updateMarkersBymId({
+      id: this.id,
+      mIds,
+      markers,
+    });
+
+    return res.ids;
+  }
+
+  /**
+   * Updates the marker icon
+   *
+   * @param mId
+   * @param iconId
+   * @param iconUrl
+   * @returns void
+   */
+  async updateMarkerIcon(mId: string, iconId: string, iconUrl: string): Promise<void> {
     return CapacitorGoogleMaps.updateMarkerIcon({
       id: this.id,
-      markerId: id,
+      mId: mId,
       iconId,
       iconUrl
     });
@@ -409,6 +470,19 @@ export class GoogleMap {
   }
 
   /**
+   * Remove marker from the map by mId
+   *
+   * @param mId mId of the marker to remove from the map
+   * @returns
+   */
+  async removeMarkerBymId(mId: string): Promise<void> {
+    return CapacitorGoogleMaps.removeMarkerBymId({
+      id: this.id,
+      mId,
+    });
+  }
+
+  /**
    * Remove markers from the map
    *
    * @param ids array of ids to remove from the map
@@ -418,6 +492,19 @@ export class GoogleMap {
     return CapacitorGoogleMaps.removeMarkers({
       id: this.id,
       markerIds: ids,
+    });
+  }
+
+  /**
+   * Remove markers from the map by mId
+   *
+   * @param mIds array of mIds to remove from the map
+   * @returns
+   */
+  async removeMarkersBymId(mIds: string[]): Promise<void> {
+    return CapacitorGoogleMaps.removeMarkersBymId({
+      id: this.id,
+      mIds,
     });
   }
 
@@ -604,7 +691,7 @@ export class GoogleMap {
       id: this.id,
       format,
       quality
-    })
+    });
   }
 
   async addGroundOverlay(opts: GroundOverlayArgs): Promise<void> {
@@ -615,20 +702,20 @@ export class GoogleMap {
       width: opts.width,
       height: opts.height,
       imagePath: opts.imagePath
-    })
+    });
   }
 
   async getZoomLevel(): Promise<{ zoomLevel: number | undefined }> {
     return CapacitorGoogleMaps.getZoomLevel({
       id: this.id
-    })
+    });
   }
 
   async hasIcon(iconId: string): Promise<{ hasIcon: boolean}> {
     return CapacitorGoogleMaps.hasIcon({
       id: this.id,
       iconId: iconId
-    })
+    });
   }
 
   async fitBounds(bounds: LatLngBounds, padding?: number): Promise<void> {
