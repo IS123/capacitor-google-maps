@@ -36,6 +36,7 @@ class CapacitorGoogleMapsPlugin : Plugin(), OnMapsSdkInitializedCallback {
     private var cachedTouchEvents: HashMap<String, MutableList<MotionEvent>> = HashMap()
     private val tag: String = "CAP-GOOGLE-MAPS"
     private var touchEnabled: HashMap<String, Boolean> = HashMap()
+	internal val markerIcons = HashMap<String, Bitmap>()
 
     companion object {
         const val LOCATION = "location"
@@ -294,16 +295,7 @@ class CapacitorGoogleMapsPlugin : Plugin(), OnMapsSdkInitializedCallback {
                 markers.add(marker)
             }
 
-            map.addMarkers(markers) { result ->
-                val ids = result.getOrThrow()
-
-                val jsonIDs = JSONArray()
-                ids.forEach { jsonIDs.put(it) }
-
-                val res = JSObject()
-                res.put("ids", jsonIDs)
-                call.resolve(res)
-            }
+            map.addMarkers(markers, call)
         } catch (e: GoogleMapsError) {
             handleError(call, e)
         } catch (e: Exception) {
@@ -589,6 +581,32 @@ class CapacitorGoogleMapsPlugin : Plugin(), OnMapsSdkInitializedCallback {
     }
 
     @PluginMethod
+    fun removeMarkerBymId(call: PluginCall) {
+        try {
+            val id = call.getString("id")
+            id ?: throw InvalidMapIdError()
+
+            val markerId = call.getString("mId")
+            markerId ?: throw InvalidArgumentsError("mId is invalid or missing")
+
+            val map = maps[id]
+            map ?: throw MapNotFoundError()
+
+            map.removeMarkerBymId(markerId) { err ->
+                if (err != null) {
+                    throw err
+                }
+
+                call.resolve()
+            }
+        } catch (e: GoogleMapsError) {
+            handleError(call, e)
+        } catch (e: Exception) {
+            handleError(call, e)
+        }
+    }
+
+    @PluginMethod
     fun removeMarkers(call: PluginCall) {
         try {
             val id = call.getString("id")
@@ -612,6 +630,43 @@ class CapacitorGoogleMapsPlugin : Plugin(), OnMapsSdkInitializedCallback {
             }
 
             map.removeMarkers(markerIds) { err ->
+                if (err != null) {
+                    throw err
+                }
+
+                call.resolve()
+            }
+        } catch (e: GoogleMapsError) {
+            handleError(call, e)
+        } catch (e: Exception) {
+            handleError(call, e)
+        }
+    }
+
+    @PluginMethod
+    fun removeMarkersBymId(call: PluginCall) {
+        try {
+            val id = call.getString("id")
+            id ?: throw InvalidMapIdError()
+
+            val markerIdsArray = call.getArray("mIds")
+            markerIdsArray ?: throw InvalidArgumentsError("mIds are invalid or missing")
+
+            if (markerIdsArray.length() == 0) {
+                throw InvalidArgumentsError("markerIds requires at least one marker id")
+            }
+
+            val map = maps[id]
+            map ?: throw MapNotFoundError()
+
+            val markerIds: MutableList<String> = mutableListOf()
+
+            for (i in 0 until markerIdsArray.length()) {
+                val markerId = markerIdsArray.getString(i)
+                markerIds.add(markerId)
+            }
+
+            map.removeMarkersBymId(markerIds) { err ->
                 if (err != null) {
                     throw err
                 }
@@ -693,13 +748,43 @@ class CapacitorGoogleMapsPlugin : Plugin(), OnMapsSdkInitializedCallback {
     }
 
     @PluginMethod
+    fun updateMarkerBymId(call: PluginCall) {
+        try {
+            val id = call.getString("id")
+            id ?: throw InvalidMapIdError()
+
+            val markerId = call.getString("mId")
+            markerId ?: throw InvalidArgumentsError("mId is invalid or missing")
+
+            val markerObj = call.getObject("marker", null)
+            markerObj ?: throw InvalidArgumentsError("marker object is missing")
+
+            val map = maps[id]
+            map ?: throw MapNotFoundError()
+
+            val marker = CapacitorGoogleMapMarker(markerObj)
+            map.updateMarkerBymId(markerId, marker) { result ->
+                val markerId = result.getOrThrow()
+
+                val res = JSObject()
+                res.put("id", markerId)
+                call.resolve(res)
+            }
+        } catch (e: GoogleMapsError) {
+            handleError(call, e)
+        } catch (e: Exception) {
+            handleError(call, e)
+        }
+    }
+
+    @PluginMethod
     fun updateMarkerIcon(call: PluginCall) {
         try {
             val id = call.getString("id")
             id ?: throw InvalidMapIdError()
 
-            val markerId = call.getString("markerId")
-            markerId ?: throw InvalidArgumentsError("markerId is invalid or missing")
+            val markerId = call.getString("mId")
+            markerId ?: throw InvalidArgumentsError("mId is invalid or missing")
 
             val iconId = call.getString("iconId")
             iconId ?: throw InvalidArgumentsError("iconId is invalid or missing")
@@ -718,6 +803,34 @@ class CapacitorGoogleMapsPlugin : Plugin(), OnMapsSdkInitializedCallback {
         } catch (e: GoogleMapsError) {
             handleError(call, e)
         } catch (e: Exception) {
+            handleError(call, e)
+        }
+    }
+
+    @PluginMethod
+    fun getMarkersIds(call: PluginCall) {
+        try {
+            val id = call.getString("id")
+            id ?: throw InvalidMapIdError()
+
+            val map = maps[id]
+            map ?: throw MapNotFoundError()
+
+            map.getMarkersIds { result -> {
+                    val ids = result?.getOrThrow()
+
+                    val res = JSObject()
+
+                ids?.forEach {
+                    res.put(it.key, it.value)
+                }
+
+                    call.resolve(res)
+                }
+            }
+
+
+        } catch (e: GoogleMapsError) {
             handleError(call, e)
         }
     }
@@ -981,7 +1094,7 @@ class CapacitorGoogleMapsPlugin : Plugin(), OnMapsSdkInitializedCallback {
                     } else {
                         this.bridge.webView.onTouchEvent(event)
                     }
-                    events.removeFirst()
+                    events.removeAt(0)
                 }
             }
 

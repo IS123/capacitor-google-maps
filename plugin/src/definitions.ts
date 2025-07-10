@@ -395,6 +395,18 @@ export interface Marker {
    *
    */
   iconId?: string;
+
+   /**
+   * Marker's alternative id
+   *
+   */
+  mId: string;
+
+   /**
+   * Is remove all other markers from map when use addMarker() function
+   *
+   */
+  clearAllMarkers?: boolean;
 }
 
 /**
@@ -412,6 +424,7 @@ export interface MarkerCallbackData {
   longitude: number;
   title: string;
   snippet: string;
+  mId: string;
 }
 
 export interface PolylineCallbackData {

@@ -63,14 +63,25 @@ export interface RemoveMarkerArgs {
   markerId: string;
 }
 
+export interface RemoveMarkerBymIdArgs {
+  id: string;
+  mId: string;
+}
+
 export interface RemoveMarkersArgs {
   id: string;
   markerIds: string[];
 }
 
+export interface RemoveMarkersBymIdArgs {
+  id: string;
+  mIds: string[];
+}
+
 export interface AddMarkerArgs {
   id: string;
   marker: Marker;
+  clearAllMarkers?: boolean;
 }
 
 export interface UpdateMarkerArgs {
@@ -79,9 +90,21 @@ export interface UpdateMarkerArgs {
   marker: Marker;
 }
 
+export interface UpdateMarkerBymIdArgs {
+  id: string;
+  mId: string;
+  marker: Marker;
+}
+
+export interface UpdateMarkersBymIdArgs {
+  id: string;
+  mIds: string[];
+  markers: Marker[];
+}
+
 export interface UpdateMarkerIconArgs {
   id: string;
-  markerId: string;
+  mId: string;
   iconId: string;
   iconUrl: string;
 }
@@ -197,7 +220,9 @@ export interface CapacitorGoogleMapsPlugin extends Plugin {
   addMarker(args: AddMarkerArgs): Promise<{ id: string }>;
   addMarkers(args: AddMarkersArgs): Promise<{ ids: string[] }>;
   removeMarker(args: RemoveMarkerArgs): Promise<void>;
+  removeMarkerBymId(args: RemoveMarkerBymIdArgs): Promise<void>;
   removeMarkers(args: RemoveMarkersArgs): Promise<void>;
+  removeMarkersBymId(args: RemoveMarkersBymIdArgs): Promise<void>;
   addPolygons(args: AddPolygonsArgs): Promise<{ ids: string[] }>;
   removePolygons(args: RemovePolygonsArgs): Promise<void>;
   addCircles(args: AddCirclesArgs): Promise<{ ids: string[] }>;
@@ -224,11 +249,14 @@ export interface CapacitorGoogleMapsPlugin extends Plugin {
   mapBoundsContains(args: MapBoundsContainsArgs): Promise<{ contains: boolean }>;
   mapBoundsExtend(args: MapBoundsExtendArgs): Promise<{ bounds: LatLngBounds }>;
   takeSnapshot(args: { id: string, format?: string, quality?: number }): Promise<{ snapshot: string | HTMLElement }>;
-  addGroundOverlay(args: GroundOverlayArgs & {id: string}): Promise<void>;
+  addGroundOverlay(args: GroundOverlayArgs & { id: string }): Promise<void>;
   getZoomLevel(args: { id: string }): Promise<{ zoomLevel: number | undefined }>;
-  hasIcon(args: { id: string, iconId: string }): Promise<{ hasIcon: boolean}>;
-  updateMarker(args: UpdateMarkerArgs): Promise<{ id: string}>;
+  hasIcon(args: { id: string, iconId: string }): Promise<{ hasIcon: boolean }>;
+  updateMarker(args: UpdateMarkerArgs): Promise<{ id: string }>;
+  updateMarkerBymId(args: UpdateMarkerBymIdArgs): Promise<{ id: string }>;
+  updateMarkersBymId(args: UpdateMarkersBymIdArgs): Promise<{ ids: string[] }>;
   updateMarkerIcon(args: UpdateMarkerIconArgs): Promise<void>;
+  getMarkersIds(args: { id: string }): Promise<Record<string, string>>;
 }
 
 const CapacitorGoogleMaps = registerPlugin<CapacitorGoogleMapsPlugin>('CapacitorGoogleMaps', {
