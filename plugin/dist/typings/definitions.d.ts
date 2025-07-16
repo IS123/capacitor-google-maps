@@ -187,6 +187,8 @@ export interface GoogleMapConfig extends google.maps.MapOptions {
      * @since 5.4.0
      */
     iOSMapId?: string;
+    autoClusteringEnabled?: boolean;
+    clusteringThreshold?: number;
 }
 /**
  * Configuration properties for a Google Map Camera

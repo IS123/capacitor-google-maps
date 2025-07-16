@@ -59,9 +59,10 @@ export class CapacitorGoogleMapsWeb extends WebPlugin implements CapacitorGoogle
       };
       markerClusterer?: MarkerClusterer;
       trafficLayer?: google.maps.TrafficLayer;
+      autoClusteringEnabled?: boolean;
+      clusteringThreshold?: number;
     };
   } = {};
-  private currMarkerId = 0;
   private currPolygonId = 0;
   private currCircleId = 0;
   private currPolylineId = 0;
@@ -273,7 +274,10 @@ export class CapacitorGoogleMapsWeb extends WebPlugin implements CapacitorGoogle
     const map = this.maps[_args.id];
     const currentMids: string[] = [];
 
-    for (const markerArgs of _args.markers) {
+    if (!map) return {ids: []};
+
+    for (let index = 0; index < _args.markers.length; index++) {
+      const markerArgs = _args.markers[index];
       if (map.mIds[markerArgs.mId]) {
         const markerId = map.mIds[markerArgs.mId];
 
@@ -290,7 +294,7 @@ export class CapacitorGoogleMapsWeb extends WebPlugin implements CapacitorGoogle
 
       const advancedMarker = this.buildMarkerOpts(markerArgs, map.map);
 
-      const id = '' + this.currMarkerId;
+      const id = this.generateRandomMarkerId(12);
 
       map.markers[id] = advancedMarker;
       map.mIds[markerArgs.mId] = id;
@@ -298,15 +302,47 @@ export class CapacitorGoogleMapsWeb extends WebPlugin implements CapacitorGoogle
       await this.setMarkerListeners(_args.id, id, markerArgs.mId, advancedMarker);
 
       markerIds.push(id);
-      this.currMarkerId++;
     }
 
     const markersToRemove = Object.keys(map.mIds).filter(id => !currentMids.includes(id));
 
-    this.removeMarkersBymId({
-      id: _args.id,
-      mIds: markersToRemove
-    });
+     if (map.markerClusterer) {
+        const toRemove = markersToRemove
+          .map(mId => map.markers[map.mIds[mId]])
+          .filter(Boolean);
+        map.markerClusterer.removeMarkers(toRemove);
+        map.markerClusterer.render();
+     } 
+
+    for (const mId of markersToRemove) {
+      const markerId = map.mIds[mId];
+      const marker = map.markers[markerId];
+
+      if (marker) {
+        marker.map = null;
+        delete map.markers[markerId];
+      }
+
+      delete map.mIds[mId];
+    }
+
+    if (map.autoClusteringEnabled && map.clusteringThreshold) {
+      if (Object.keys(map.markers).length >= map.clusteringThreshold) {
+        if (!map.markerClusterer) {
+          this.enableClustering({
+            id: _args.id
+          });
+        } else {
+          map.markerClusterer.clearMarkers();
+          map.markerClusterer.addMarkers(Object.values(map.markers))
+          map.markerClusterer.render();
+        }
+      } else {
+        this.disableClustering({
+          id: _args.id
+        })
+      }
+    }
 
     return { ids: markerIds };
   }
@@ -319,14 +355,12 @@ export class CapacitorGoogleMapsWeb extends WebPlugin implements CapacitorGoogle
 
     const advancedMarker = this.buildMarkerOpts(_args.marker, this.maps[_args.id].map);
 
-    const id = '' + this.currMarkerId;
+    const id = this.generateRandomMarkerId(12);
 
     this.maps[_args.id].mIds[_args.marker.mId] = id;
 
     this.maps[_args.id].markers[id] = advancedMarker;
     await this.setMarkerListeners(_args.id, id, _args.marker.mId, advancedMarker);
-
-    this.currMarkerId++;
 
     return { id: id };
   }
@@ -593,7 +627,9 @@ export class CapacitorGoogleMapsWeb extends WebPlugin implements CapacitorGoogle
       polygons: {},
       circles: {},
       polylines: {},
-      mIds: {}
+      mIds: {},
+      autoClusteringEnabled: _args.config.autoClusteringEnabled ?? false,
+      clusteringThreshold: _args.config.clusteringThreshold ?? 500
     };
     this.setMapListeners(_args.id);
   }
@@ -859,5 +895,16 @@ export class CapacitorGoogleMapsWeb extends WebPlugin implements CapacitorGoogle
       id: mapId,
       markerIds: markerIds
     });
+  }
+
+  private generateRandomMarkerId(length = 8): string {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    let result = '';
+
+    for (let i = 0; i < length; i++) {
+      result += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+
+    return `marker_${result}`;
   }
 }

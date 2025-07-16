@@ -6,7 +6,6 @@ export declare class CapacitorGoogleMapsWeb extends WebPlugin implements Capacit
     private AdvancedMarkerElement;
     private PinElement;
     private maps;
-    private currMarkerId;
     private currPolygonId;
     private currCircleId;
     private currPolylineId;
@@ -112,4 +111,5 @@ export declare class CapacitorGoogleMapsWeb extends WebPlugin implements Capacit
     setMapListeners(mapId: string): Promise<void>;
     private buildMarkerOpts;
     private removeAllMarkers;
+    private generateRandomMarkerId;
 }
