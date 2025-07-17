@@ -242,6 +242,13 @@ class CapacitorGoogleMap(
 		)
 	}
 
+	fun setTimeout(delayMillis: Long, block: () -> Unit): Job {
+		return CoroutineScope(Dispatchers.Main).launch {
+			delay(delayMillis)
+			block()
+		}
+	}
+
 	fun addMarkersReactive(
 		newMarkersFlow: Flow<List<CapacitorGoogleMapMarker>>
 	): Flow<Result<List<String>>> =
@@ -300,9 +307,12 @@ class CapacitorGoogleMap(
 									}
 								}
 
-								if (config.autoClusteringEnabled) {
-									scheduleClusterToggle()
-								}
+								setTimeout(500L) { val count = newMarkers.size;
+
+									if (config.autoClusteringEnabled) {
+										if (count >= config.clusteringThreshold) enableClustering(null) {}
+										else if(clusterManager != null) disableClustering {}
+									} }
 							}
 						}
 
@@ -458,76 +468,61 @@ class CapacitorGoogleMap(
         )
     }
 
-    @SuppressLint("PotentialBehaviorOverride")
-    fun enableClustering(minClusterSize: Int?, callback: (error: GoogleMapsError?) -> Unit) {
-        try {
-            googleMap ?: throw GoogleMapNotAvailable()
-
-            CoroutineScope(Dispatchers.Main).launch {
-                if (clusterManager != null) {
-                    setClusterManagerRenderer(minClusterSize)
-                    callback(null)
-                    return@launch
-                }
-
-                val bridge = delegate.bridge
-                clusterManager = ClusterManager(bridge.context, googleMap)
-
-                setClusterManagerRenderer(minClusterSize)
-                setClusterListeners()
-
-                // add existing markers to the cluster
-                if (markers.isNotEmpty()) {
-                    val copyMap = HashMap(markers);
-                    for ((_, marker) in copyMap) {
-                        marker.googleMapMarker?.remove()
-                        // marker.googleMapMarker = null
-                    }
-                    clusterManager?.addItems(markers.values)
-                    clusterManager?.cluster()
-                }
-
-                callback(null)
-            }
-        } catch (e: GoogleMapsError) {
-            callback(e)
-        }
-    }
-
-	fun disableClustering(callback: (error: GoogleMapsError?) -> Unit) {
+	fun enableClustering(minClusterSize: Int?, callback: (error: GoogleMapsError?) -> Unit) {
 		try {
 			googleMap ?: throw GoogleMapNotAvailable()
 
 			CoroutineScope(Dispatchers.Main).launch {
 				markerMutex.withLock {
-					clusterManager?.clearItems()
-					clusterManager?.cluster()
-					clusterManager = null
-
-					googleMap?.setOnMarkerClickListener(this@CapacitorGoogleMap)
-
-					val copyMap = synchronized(markers) { HashMap(markers) }
-
-					mIds.clear()
-					markers.clear()
-
-					val markerOptionPairs = withContext(Dispatchers.IO) {
-						copyMap.values.map { marker ->
-							async {
-								val opts = buildMarker(marker)
-								marker to opts
-							}
-						}.awaitAll()
+					// Initialize ClusterManager if needed
+					if (clusterManager == null) {
+						clusterManager = ClusterManager(delegate.bridge.context, googleMap)
+						setClusterListeners()
 					}
 
-					markerOptionPairs.forEach { (marker, options) ->
-						val googleMapMarker = googleMap?.addMarker(options)
-						marker.googleMapMarker = googleMapMarker
+					setClusterManagerRenderer(minClusterSize)
 
-						googleMapMarker?.let { gm ->
-							mIds[marker.mId] = gm.id
-							markers[gm.id] = marker
-						}
+					// Clear old items and remove existing visible markers from map
+					clusterManager?.clearItems()
+					val copyMap = HashMap(markers)
+					copyMap.forEach { (_, marker) ->
+						marker.googleMapMarker?.remove()
+						marker.googleMapMarker = null
+					}
+
+					// Re-add all markers to clusterManager
+					clusterManager?.addItems(copyMap.values)
+					clusterManager?.cluster()
+
+					callback(null)
+				}
+			}
+		} catch (e: GoogleMapsError) {
+			callback(e)
+		}
+	}
+
+	@SuppressLint("PotentialBehaviorOverride")
+	fun disableClustering(callback: (error: GoogleMapsError?) -> Unit) {
+		try {
+			googleMap ?: throw GoogleMapNotAvailable()
+
+			CoroutineScope(Dispatchers.Main).launch {
+				clusterManager?.clearItems()
+				clusterManager?.cluster()
+				clusterManager = null
+
+				googleMap?.setOnMarkerClickListener(this@CapacitorGoogleMap)
+
+				// add existing markers back to the map
+				if (markers.isNotEmpty()) {
+					for ((_, marker) in markers) {
+						val markerOptions: Deferred<MarkerOptions> =
+							CoroutineScope(Dispatchers.IO).async {
+								this@CapacitorGoogleMap.buildMarker(marker)
+							}
+						val googleMapMarker = googleMap?.addMarker(markerOptions.await())
+						marker.googleMapMarker = googleMapMarker
 					}
 				}
 
