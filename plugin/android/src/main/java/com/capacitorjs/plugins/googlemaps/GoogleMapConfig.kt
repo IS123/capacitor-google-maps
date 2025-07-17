@@ -20,6 +20,8 @@ class GoogleMapConfig(fromJSONObject: JSONObject) {
     var styles: String? = null
     var mapId: String? = null
 	var mapType: String? = null
+	var autoClusteringEnabled: Boolean = false
+	var clusteringThreshold: Int = 500
 
     init {
         if (!fromJSONObject.has("width")) {
@@ -117,5 +119,11 @@ class GoogleMapConfig(fromJSONObject: JSONObject) {
         if (mapId != null) {
             googleMapOptions?.mapId(mapId!!)
         }
+
+		autoClusteringEnabled = fromJSONObject.has("autoClusteringEnabled") && fromJSONObject.getBoolean("autoClusteringEnabled")
+
+		clusteringThreshold = fromJSONObject
+			.takeIf { it.has("clusteringThreshold") }
+			?.getInt("clusteringThreshold") ?: 500
     }
 }

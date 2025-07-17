@@ -41,6 +41,7 @@ import java.util.concurrent.ConcurrentHashMap
 import androidx.core.graphics.createBitmap
 import kotlin.math.roundToInt
 import androidx.core.graphics.scale
+import java.util.concurrent.atomic.AtomicReference
 
 @OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
 class CapacitorGoogleMap(
@@ -226,6 +227,21 @@ class CapacitorGoogleMap(
 		markerUpdates.tryEmit(markers)
 	}
 
+	private val clusterToggleJob = AtomicReference<Job?>(null)
+
+	private fun scheduleClusterToggle() {
+		clusterToggleJob.getAndSet(null)?.cancel()
+
+		clusterToggleJob.set(
+			CoroutineScope(Dispatchers.Main).launch {
+				delay(200) // slight debounce
+				val count = markers.size
+				if (count >= config.clusteringThreshold) enableClustering(null) {}
+				else disableClustering {}
+			}
+		)
+	}
+
 	fun addMarkersReactive(
 		newMarkersFlow: Flow<List<CapacitorGoogleMapMarker>>
 	): Flow<Result<List<String>>> =
@@ -265,6 +281,10 @@ class CapacitorGoogleMap(
 						withContext(Dispatchers.Main) {
 							val toRemove = existingMIdsSnapshot - currentMIds
 							removeMarkersBymId(toRemove.toList()) {
+								if (clusterManager != null) {
+									clusterManager!!.clearItems()
+								}
+
 								markersToAdd.forEach { marker ->
 									val googleMapMarker = googleMap?.addMarker(marker.markerOptions!!)
 									marker.googleMapMarker = googleMapMarker
@@ -280,9 +300,8 @@ class CapacitorGoogleMap(
 									}
 								}
 
-								clusterManager?.apply {
-									addItems(markersToAdd)
-									cluster()
+								if (config.autoClusteringEnabled) {
+									scheduleClusterToggle()
 								}
 							}
 						}
