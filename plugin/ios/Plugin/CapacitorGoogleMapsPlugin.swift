@@ -1435,8 +1435,17 @@ public class CapacitorGoogleMapsPlugin: CAPPlugin, GMSMapViewDelegate {
 
     // onMarkerDragStart
     public func mapView(_ mapView: GMSMapView, didBeginDragging marker: GMSMarker) {
+		let mapId = self.findMapIdByMapView(mapView)
+		let map = self.maps[mapId]
+		var mId = "none"
+		
+		if let map {
+			mId = map.mIds.first(where: { $0.value == marker.hash.hashValue })?.key ?? "none"
+		}
+		
         self.notifyListeners("onMarkerDragStart", data: [
-            "mapId": self.findMapIdByMapView(mapView),
+            "mapId": mapId,
+			"mId": mId,
             "markerId": String(marker.hash.hashValue),
             "latitude": marker.position.latitude,
             "longitude": marker.position.longitude,
@@ -1447,8 +1456,17 @@ public class CapacitorGoogleMapsPlugin: CAPPlugin, GMSMapViewDelegate {
 
     // onMarkerDrag
     public func mapView(_ mapView: GMSMapView, didDrag marker: GMSMarker) {
+		let mapId = self.findMapIdByMapView(mapView)
+		let map = self.maps[mapId]
+		var mId = "none"
+		
+		if let map {
+			mId = map.mIds.first(where: { $0.value == marker.hash.hashValue })?.key ?? "none"
+		}
+		
         self.notifyListeners("onMarkerDrag", data: [
-            "mapId": self.findMapIdByMapView(mapView),
+            "mapId": mapId,
+			"mId": mId,
             "markerId": String(marker.hash.hashValue),
             "latitude": marker.position.latitude,
             "longitude": marker.position.longitude,
@@ -1459,8 +1477,17 @@ public class CapacitorGoogleMapsPlugin: CAPPlugin, GMSMapViewDelegate {
 
     // onMarkerDragEnd
     public func mapView(_ mapView: GMSMapView, didEndDragging marker: GMSMarker) {
+		let mapId = self.findMapIdByMapView(mapView)
+		let map = self.maps[mapId]
+		var mId = "none"
+		
+		if let map {
+			mId = map.mIds.first(where: { $0.value == marker.hash.hashValue })?.key ?? "none"
+		}
+		
         self.notifyListeners("onMarkerDragEnd", data: [
-            "mapId": self.findMapIdByMapView(mapView),
+            "mapId": mapId,
+			"mId": mId,
             "markerId": String(marker.hash.hashValue),
             "latitude": marker.position.latitude,
             "longitude": marker.position.longitude,
