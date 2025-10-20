@@ -41,6 +41,7 @@ import java.util.concurrent.ConcurrentHashMap
 import androidx.core.graphics.createBitmap
 import kotlin.math.roundToInt
 import androidx.core.graphics.scale
+import com.google.maps.android.ktx.polygonClickEvents
 
 @OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
 class CapacitorGoogleMap(
@@ -241,12 +242,12 @@ class CapacitorGoogleMap(
 
 						val markersToAdd = newMarkers.mapNotNull { marker ->
 							currentMIds += marker.mId
-
 							val existingId = mIds[marker.mId]
 							if (existingId != null) {
 								withContext(Dispatchers.Main) {
 									val existingMarker = markers[existingId]
-									if (existingMarker != null && existingMarker.iconId != marker.iconId) {
+
+									if (existingMarker != null) {
 										updateMarkerIcon(
 											marker.mId,
 											marker.iconId.toString(),
@@ -738,7 +739,8 @@ class CapacitorGoogleMap(
         }
     }
 
-    fun updateMarkerIcon(mId: String, iconId: String, iconUrl: String) {
+
+fun updateMarkerIcon(mId: String, iconId: String, iconUrl: String) {
         try {
             googleMap ?: throw GoogleMapNotAvailable()
 
@@ -746,10 +748,6 @@ class CapacitorGoogleMap(
             val marker = markers[markerId] ?: throw MarkerNotFoundError("No marker object for markerId: $markerId")
 
             if (iconId.isNotEmpty()) {
-                if (this.delegate.markerIcons.contains(iconId)) {
-                    val cachedBitmap = this.delegate.markerIcons[iconId]
-                    marker.googleMapMarker?.setIcon(cachedBitmap?.let { getResizedIcon(it, marker) })
-                } else {
                     val base64Data = iconUrl.substringAfter("base64,", "")
 
                     if (marker.iconUrl?.startsWith("data:image/svg+xml") == true) {
@@ -777,7 +775,6 @@ class CapacitorGoogleMap(
                             Log.w("CapacitorGoogleMaps", "Invalid Base64 bitmap data for marker: ${marker.iconUrl}")
                         }
                     }
-                }
             }
         } catch (e: GoogleMapsError) {
             Log.e("CapacitorGoogleMaps", "GoogleMapsError in updateMarkerIcon", e)

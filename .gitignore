@@ -5,3 +5,6 @@ Podfile.lock
 Package.resolved
 .env
 test.sh
+android
+ios
+dist

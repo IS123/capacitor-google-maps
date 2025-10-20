@@ -1134,6 +1134,14 @@ class CapacitorGoogleMapsWeb extends core.WebPlugin {
                 items: items,
             });
         };
+        // private removeAllMarkers(mapId: string): void {
+        //   const map = this.maps[mapId];
+        //   const markerIds = Object.keys(map.markers);
+        //   this.removeMarkers({
+        //     id: mapId,
+        //     markerIds: markerIds
+        //   });
+        // }
     }
     getIdFromMap(map) {
         for (const id in this.maps) {
@@ -1278,6 +1286,9 @@ class CapacitorGoogleMapsWeb extends core.WebPlugin {
         const markerIds = [];
         const map = this.maps[_args.id];
         const currentMids = [];
+        if (!map) {
+            throw new Error('Google Map could not be found.');
+        }
         for (const markerArgs of _args.markers) {
             if (map.mIds[markerArgs.mId]) {
                 const markerId = map.mIds[markerArgs.mId];
@@ -1306,10 +1317,6 @@ class CapacitorGoogleMapsWeb extends core.WebPlugin {
         return { ids: markerIds };
     }
     async addMarker(_args) {
-        // clearAllMarkers = undefined by default, if you need to leave all markers you need to pass clearAllMarkers: false
-        if (_args.clearAllMarkers || typeof _args.clearAllMarkers === 'undefined') {
-            this.removeAllMarkers(_args.id);
-        }
         const advancedMarker = this.buildMarkerOpts(_args.marker, this.maps[_args.id].map);
         const id = '' + this.currMarkerId;
         this.maps[_args.id].mIds[_args.marker.mId] = id;
@@ -1319,15 +1326,24 @@ class CapacitorGoogleMapsWeb extends core.WebPlugin {
         return { id: id };
     }
     async updateMarker(args) {
-        await this.removeMarker({
-            id: args.id,
-            markerId: args.markerId
-        });
-        return (await this.addMarker({
-            id: args.id,
-            marker: args.marker,
-            clearAllMarkers: false
-        }));
+        const map = this.maps[args.id];
+        if (!map)
+            throw new Error('Map not found');
+        const mId = Object.keys(map.mIds).find(key => map.mIds[key] === args.markerId);
+        const oldMarker = map.markers[args.markerId];
+        if (oldMarker) {
+            oldMarker.map = null;
+            delete map.markers[args.markerId];
+        }
+        if (mId) {
+            delete map.mIds[mId];
+        }
+        const newMarker = this.buildMarkerOpts(args.marker, map.map);
+        const newId = String(this.currMarkerId++);
+        map.mIds[args.marker.mId] = newId;
+        map.markers[newId] = newMarker;
+        await this.setMarkerListeners(args.id, newId, args.marker.mId, newMarker);
+        return { id: newId };
     }
     async updateMarkerIcon(args) {
         var _a, _b;
@@ -1751,14 +1767,6 @@ class CapacitorGoogleMapsWeb extends core.WebPlugin {
             gmpDraggable: marker.draggable,
         });
         return advancedMarker;
-    }
-    removeAllMarkers(mapId) {
-        const map = this.maps[mapId];
-        const markerIds = Object.keys(map.markers);
-        this.removeMarkers({
-            id: mapId,
-            markerIds: markerIds
-        });
     }
 }
 
