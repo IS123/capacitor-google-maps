@@ -158,8 +158,12 @@ public class Map {
             self.mapViewController.mapType = self.config.mapType
 
             if let styles = self.config.styles {
+                guard let gMapView = self.mapViewController.GMapView else {
+                    CAPLog.print("GMapView is nil, cannot set map style")
+                    return
+                }
                 do {
-                    self.mapViewController.GMapView.mapStyle = try GMSMapStyle(jsonString: styles)
+                    gMapView.mapStyle = try GMSMapStyle(jsonString: styles)
                 } catch {
                     CAPLog.print("Invalid Google Maps styles")
                 }
@@ -283,8 +287,6 @@ public class Map {
                 self.destroyCompletion = nil
                 return
             }
-
-            print("Perform Destroy Map")
 
             self.mapViewController.GMapView = nil
             self.targetViewController?.tag = 0
