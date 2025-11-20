@@ -94,6 +94,7 @@ export interface GoogleMapInterface {
   setOnMapDoubleClickListener(callback?: MapListenerCallback<MapClickCallbackData>): Promise<void>;
   setOnMapLoadedListener(callback?: MapListenerCallback<{id: string}>): Promise<void>;
   setOnZoomChangedListener(callback?: MapListenerCallback<{zoomLevel: number | undefined}>): Promise<void>;
+  setOnSelectionEndListener(callback?: MapListenerCallback<{mIds: string[]}>): Promise<void>;
   takeSnapshot(format?: string, quality?: number): Promise<{snapshot: string | HTMLElement}>;
   addGroundOverlay(groundOverlayOptions: GroundOverlayArgs): Promise<void>;
   getZoomLevel(): Promise<number | undefined>;
@@ -147,6 +148,7 @@ export class GoogleMap {
   private onMapDoubleClickListener?: PluginListenerHandle;
   private onMapLoadedListener?: PluginListenerHandle;
   private onZoomChangedListener?: PluginListenerHandle;
+  private onSelectionEndListener?: PluginListenerHandle;
 
   private constructor(id: string) {
     this.id = id;
@@ -1181,6 +1183,21 @@ export class GoogleMap {
     }
   }
 
+   async setOnSelectionEndListener(callback?: MapListenerCallback<{mIds: string[]}>): Promise<void> {
+    if (this.onSelectionEndListener) {
+      this.onSelectionEndListener.remove();
+    }
+
+    if (callback) {
+      this.onSelectionEndListener = await CapacitorGoogleMaps.addListener(
+        'onSelectionEnd',
+        this.generateCallback(callback)
+      );
+    } else {
+      this.onSelectionEndListener = undefined;
+    }
+  }
+
   /**
    * Remove all event listeners on the map.
    *
@@ -1279,6 +1296,11 @@ export class GoogleMap {
     if (this.onZoomChangedListener) {
       this.onZoomChangedListener.remove();
       this.onZoomChangedListener = undefined;
+    }
+
+    if (this.onSelectionEndListener) {
+      this.onSelectionEndListener.remove();
+      this.onSelectionEndListener = undefined;
     }
   }
 

@@ -5,29 +5,28 @@ import android.content.res.Resources
 import android.graphics.*
 import android.graphics.Bitmap.CompressFormat
 import android.location.Location
+import android.os.Handler
+import android.os.Looper
 import android.util.Base64
 import android.util.Log
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
+import androidx.core.graphics.createBitmap
+import com.caverock.androidsvg.SVG
 import com.getcapacitor.Bridge
 import com.getcapacitor.JSArray
 import com.getcapacitor.JSObject
+import com.getcapacitor.PluginCall
 import com.google.android.gms.maps.*
 import com.google.android.gms.maps.GoogleMap.*
 import com.google.android.gms.maps.model.*
+import com.google.maps.android.SphericalUtil
 import com.google.maps.android.clustering.Cluster
 import com.google.maps.android.clustering.ClusterManager
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.flow.asFlow
-import kotlinx.coroutines.flow.mapNotNull
-import kotlinx.coroutines.flow.toList
-import java.io.ByteArrayOutputStream
-import java.util.concurrent.Executors
-import com.caverock.androidsvg.SVG
-import com.getcapacitor.PluginCall
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.catch
@@ -37,11 +36,12 @@ import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import org.json.JSONArray
+import java.io.ByteArrayOutputStream
 import java.util.concurrent.ConcurrentHashMap
-import androidx.core.graphics.createBitmap
+import java.util.concurrent.Executors
+import kotlin.math.max
+import kotlin.math.min
 import kotlin.math.roundToInt
-import androidx.core.graphics.scale
-import com.google.maps.android.ktx.polygonClickEvents
 
 @OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
 class CapacitorGoogleMap(
@@ -81,6 +81,14 @@ class CapacitorGoogleMap(
     private var lastZoomLevel: Float = -1f
 
 	private var currentCall: PluginCall? = null
+
+	private var selectionType: String? = "shape"
+	var selectionActive: Boolean = false
+
+	var startPoint: LatLng? = null
+	var selectionLine: Polyline? = null
+	var selectionPoints: MutableList<LatLng>? = null
+	var selectionSquare: Polygon? = null
 
     init {
         val bridge = delegate.bridge
@@ -886,6 +894,16 @@ fun updateMarkerIcon(mId: String, iconId: String, iconUrl: String) {
         return this@CapacitorGoogleMap.delegate.markerIcons.contains(iconId);
     }
 
+	fun setSelectionType(selectionType: String?) {
+		googleMap ?: throw GoogleMapNotAvailable()
+
+		this.selectionType = selectionType
+	}
+
+	fun getSelectionType(): String? {
+		return selectionType
+	}
+
     fun setCamera(config: GoogleMapCameraConfig, callback: (error: GoogleMapsError?) -> Unit) {
         try {
             googleMap ?: throw GoogleMapNotAvailable()
@@ -1254,6 +1272,170 @@ fun updateMarkerIcon(mId: String, iconId: String, iconUrl: String) {
         return BitmapDescriptorFactory.fromBitmap(bitmap)
     }
 
+	private fun toLatLng(e: MotionEvent): LatLng {
+		val mapLocation = IntArray(2)
+		mapView.getLocationOnScreen(mapLocation)
+
+		val eventX = e.rawX - mapLocation[0]
+		val eventY = e.rawY - mapLocation[1]
+
+		return googleMap!!.projection.fromScreenLocation(
+			Point(eventX.toInt(), eventY.toInt())
+		)
+	}
+
+	fun handleSelectionMove(e: MotionEvent?): Boolean {
+		val end = toLatLng(e!!)
+
+		if (selectionType === "square") {
+			val p1 = startPoint
+			val p2 = LatLng(startPoint!!.latitude, end.longitude)
+			val p3 = end
+			val p4 = LatLng(end.latitude, startPoint!!.longitude)
+
+			val polygon: List<LatLng?> = listOf(p1, p2, p3, p4)
+
+			if (selectionSquare == null) {
+				selectionSquare = googleMap!!.addPolygon(
+					PolygonOptions()
+						.addAll(polygon)
+						.strokeColor(Color.BLUE)
+						.fillColor(0x220000FF)
+				)
+			} else {
+				selectionSquare!!.points = polygon
+			}
+		} else {
+			if (selectionLine == null) {
+				selectionPoints!!.add(end)
+
+				selectionLine = googleMap!!.addPolyline(
+					PolylineOptions()
+						.add(startPoint)
+						.add(end)
+						.width(5f)
+						.color(Color.BLUE)
+				)
+
+				Log.d("CapacitorGoogleMaps", "$selectionPoints")
+			} else {
+				if (selectionPoints != null) {
+					selectionPoints!!.add(end)
+					selectionLine?.points = selectionPoints!!
+				}
+			}
+		}
+
+		return false;
+
+		//delegate.notify("selectionUpdate", radius)
+	}
+
+	fun handleSelectionEnd(e: MotionEvent?): Boolean {
+		if (selectionType == "square") {
+			val endPoint = e?.let { toLatLng(it) }
+
+			if (startPoint != null && endPoint != null) {
+				val inside = getMarkersInsideSquare(
+					startPoint!!.longitude,
+					startPoint!!.latitude,
+					endPoint.longitude,
+					endPoint.latitude
+				)
+
+				val mIds = JSONArray()
+				inside.forEach { mIds.put(it) }
+
+				val res = JSObject()
+				res.put("mIds", mIds)
+
+				delegate.notify("onSelectionEnd", res)
+			}
+
+		} else {
+			if (selectionPoints != null) {
+				val closed = ArrayList(selectionPoints)
+
+				val polygon = googleMap!!.addPolygon(
+					PolygonOptions()
+						.addAll(closed)
+						.strokeWidth(5f)
+						.strokeColor(Color.BLUE)
+						.fillColor(Color.argb(50, 30, 144, 255))
+				)
+
+				val inside = markers.filter { m ->
+					com.google.maps.android.PolyUtil.containsLocation(
+						m.value.position,
+						selectionPoints,
+						true
+					)
+				}.map { it.value.mId }
+
+				// Clear selection
+				Handler(Looper.getMainLooper()).postDelayed({
+					selectionLine?.remove()
+					polygon.remove()
+					selectionLine = null
+				}, 100)
+
+				selectionPoints = null
+
+				val mIds = JSONArray()
+				inside.forEach { mIds.put(it) }
+
+				val res = JSObject()
+				res.put("mIds", mIds)
+
+				delegate.notify("onSelectionEnd", res)
+			}
+		}
+
+		selectionActive = false
+		return false
+	}
+
+	fun startSelection(e: MotionEvent): Boolean {
+		startPoint = toLatLng(e)
+		selectionActive = true
+
+
+		if (selectionType === "shape") {
+			if (selectionPoints === null) {
+				selectionPoints = mutableListOf<LatLng>()
+
+				startPoint?.let { selectionPoints!!.add(it) }
+			}
+		}
+
+		return true;
+	}
+
+	fun getMarkersInsideSquare(
+		startX: Double,
+		startY: Double,
+		endX: Double,
+		endY: Double,
+	): List<String> {
+
+		googleMap ?: throw GoogleMapNotAvailable()
+
+		val left   = min(startX, endX)
+		val right  = max(startX, endX)
+		val top    = max(startY, endY)
+		val bottom = min(startY, endY)
+
+
+		return markers.filter { marker ->
+			val pos = marker.value.position
+			Log.d("CapacitorGoogleMaps", "$pos")
+			Log.d("CapacitorGoogleMaps", "$startX $startY $endX $endY")
+			Log.d("CapacitorGoogleMaps", "$left $top $right $bottom")
+			Log.d("CapacitorGoogleMaps", "${pos.latitude in bottom..top} ${pos.longitude in left..right}")
+			pos.latitude in bottom..top && pos.longitude in left..right
+		}.map { marker -> marker.value.mId }
+	}
+
     fun onStart() {
         mapView.onStart()
     }
@@ -1510,6 +1692,10 @@ fun updateMarkerIcon(mId: String, iconId: String, iconUrl: String) {
     }
 
     override fun onMapLongClick(point: LatLng) {
+		if (selectionType !== null) {
+			return
+		}
+
         val data = JSObject()
         data.put("mapId", this@CapacitorGoogleMap.id)
         data.put("latitude", point.latitude)

@@ -918,6 +918,17 @@ export class GoogleMap {
             this.onMyLocationClickListener = undefined;
         }
     }
+    async setOnSelectionEndListener(callback) {
+        if (this.onSelectionEndListener) {
+            this.onSelectionEndListener.remove();
+        }
+        if (callback) {
+            this.onSelectionEndListener = await CapacitorGoogleMaps.addListener('onSelectionEnd', this.generateCallback(callback));
+        }
+        else {
+            this.onSelectionEndListener = undefined;
+        }
+    }
     /**
      * Remove all event listeners on the map.
      *
@@ -1000,6 +1011,10 @@ export class GoogleMap {
         if (this.onZoomChangedListener) {
             this.onZoomChangedListener.remove();
             this.onZoomChangedListener = undefined;
+        }
+        if (this.onSelectionEndListener) {
+            this.onSelectionEndListener.remove();
+            this.onSelectionEndListener = undefined;
         }
     }
     generateCallback(callback) {

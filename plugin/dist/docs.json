@@ -922,6 +922,24 @@
         "slug": "setonzoomchangedlistener"
       },
       {
+        "name": "setOnSelectionEndListener",
+        "signature": "(callback?: MapListenerCallback<{ mIds: string[]; }> | undefined) => Promise<void>",
+        "parameters": [
+          {
+            "name": "callback",
+            "docs": "",
+            "type": "MapListenerCallback<{ mIds: string[]; }> | undefined"
+          }
+        ],
+        "returns": "Promise<void>",
+        "tags": [],
+        "docs": "",
+        "complexTypes": [
+          "MapListenerCallback"
+        ],
+        "slug": "setonselectionendlistener"
+      },
+      {
         "name": "takeSnapshot",
         "signature": "(format?: string | undefined, quality?: number | undefined) => Promise<{ snapshot: string | HTMLElement; }>",
         "parameters": [

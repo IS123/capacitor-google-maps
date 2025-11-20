@@ -85,7 +85,7 @@ public class CapacitorGoogleMapsPlugin: CAPPlugin, GMSMapViewDelegate {
 
         return locationState
     }
-	
+
 	@objc func getMarkersIds(_ call: CAPPluginCall) {
 		do {
 			guard let id = call.getString("id") else {
@@ -132,7 +132,28 @@ public class CapacitorGoogleMapsPlugin: CAPPlugin, GMSMapViewDelegate {
                 }
 
                 let removedMap = self.maps.removeValue(forKey: id)
-                removedMap?.destroy()
+
+                if removedMap?.isDestroyed == true {
+                    DispatchQueue.main.async {
+                        let newMap = Map(id: id, config: config, delegate: self)
+                        newMap.mapViewController.mapType = config.mapType
+                        self.maps[id] = newMap
+                        call.resolve()
+                    }
+                    return
+                }
+
+                removedMap?.destroyWithCompletion {
+                    DispatchQueue.main.async {
+                        if self.maps[id] == nil {
+                            let newMap = Map(id: id, config: config, delegate: self)
+                            newMap.mapViewController.mapType = config.mapType
+                            self.maps[id] = newMap
+                        }
+                        call.resolve()
+                    }
+                }
+                return
             }
 
             DispatchQueue.main.sync {
@@ -154,11 +175,13 @@ public class CapacitorGoogleMapsPlugin: CAPPlugin, GMSMapViewDelegate {
             }
 
             guard let removedMap = self.maps.removeValue(forKey: id) else {
-                throw GoogleMapErrors.mapNotFound
+                call.resolve()
+                return
             }
 
-            removedMap.destroy()
-            call.resolve()
+            removedMap.destroyWithCompletion {
+                call.resolve()
+            }
         } catch {
             handleError(call, error: error)
         }
@@ -262,7 +285,7 @@ public class CapacitorGoogleMapsPlugin: CAPPlugin, GMSMapViewDelegate {
                 throw GoogleMapErrors.mapNotFound
             }
 
-            let markerId = try map.addMarker(marker: marker)
+            let markerId = try map.addMarker(marker: marker, cleanAllMarkers: marker.clearAllMarkers ?? true)
 
             call.resolve(["id": String(markerId)])
 
@@ -270,13 +293,13 @@ public class CapacitorGoogleMapsPlugin: CAPPlugin, GMSMapViewDelegate {
             handleError(call, error: error)
         }
     }
-	
+
 	@objc func updateMarker(_ call: CAPPluginCall) {
 		do {
 			guard let id = call.getString("id") else {
 				throw GoogleMapErrors.invalidMapId
 			}
-			
+
 			guard let markerId = call.getString("markerId"),
 				  let markerId = Int(markerId) else {
 				throw GoogleMapErrors.invalidArguments("markerId is missing")
@@ -291,9 +314,9 @@ public class CapacitorGoogleMapsPlugin: CAPPlugin, GMSMapViewDelegate {
 			guard let map = self.maps[id] else {
 				throw GoogleMapErrors.mapNotFound
 			}
-			
+
 			try map.removeMarker(id: markerId)
-			
+
 			let markerHash = try map.addMarker(marker: marker)
 
 			call.resolve(["id": String(markerHash)])
@@ -302,13 +325,13 @@ public class CapacitorGoogleMapsPlugin: CAPPlugin, GMSMapViewDelegate {
 			handleError(call, error: error)
 		}
 	}
-	
+
 	@objc func updateMarkerBymId(_ call: CAPPluginCall) {
 		do {
 			guard let id = call.getString("id") else {
 				throw GoogleMapErrors.invalidMapId
 			}
-			
+
 			guard let mId = call.getString("mId") else {
 				throw GoogleMapErrors.invalidArguments("mId is missing")
 			}
@@ -322,13 +345,13 @@ public class CapacitorGoogleMapsPlugin: CAPPlugin, GMSMapViewDelegate {
 			guard let map = self.maps[id] else {
 				throw GoogleMapErrors.mapNotFound
 			}
-			
+
 			guard let markerHash = map.mIds[mId] else {
 				throw GoogleMapErrors.markerNotFound
 			}
-			
+
 			try map.removeMarker(id: markerHash)
-			
+
 			let markerId = try map.addMarker(marker: marker)
 
 			call.resolve(["id": String(markerId)])
@@ -337,13 +360,13 @@ public class CapacitorGoogleMapsPlugin: CAPPlugin, GMSMapViewDelegate {
 			handleError(call, error: error)
 		}
 	}
-	
+
 	@objc func updateMarkersBymId(_ call: CAPPluginCall) {
 		do {
 			guard let id = call.getString("id") else {
 				throw GoogleMapErrors.invalidMapId
 			}
-			
+
 			guard let mIds = call.getArray("mIds") as? [String] else {
 				throw GoogleMapErrors.invalidArguments("mIds is missing")
 			}
@@ -351,7 +374,7 @@ public class CapacitorGoogleMapsPlugin: CAPPlugin, GMSMapViewDelegate {
 			guard let markersObj = call.getArray("markers") as? [JSObject] else {
 				throw GoogleMapErrors.invalidArguments("markers is missing")
 			}
-			
+
 			if markersObj.isEmpty {
 				throw GoogleMapErrors.invalidArguments("markers requires at least one marker")
 			}
@@ -368,38 +391,38 @@ public class CapacitorGoogleMapsPlugin: CAPPlugin, GMSMapViewDelegate {
 			}
 
 			var markerHashes: [String] = []
-			
+
 			for mId in mIds {
 				guard let markerHash = map.mIds[mId],
 					  let marker = markers.first(where: { $0.mId == mId }) else {
 					print("updateMarkersBymId(): Marker not found \(mId)")
 					return
 				}
-				
+
 				try map.removeMarker(id: markerHash)
-				
+
 				let markerId = try map.addMarker(marker: marker)
-				
+
 				markerHashes.append(String(markerHash))
 			}
-			
+
 			call.resolve(["ids": markerHashes])
 
 		} catch {
 			handleError(call, error: error)
 		}
 	}
-	
+
 	@objc func updateMarkerIcon(_ call: CAPPluginCall) {
 		do {
 			guard let id = call.getString("id") else {
 				throw GoogleMapErrors.invalidMapId
 			}
-			
+
 			guard let mId = call.getString("mId") else {
 				throw GoogleMapErrors.invalidArguments("mId is missing")
 			}
-			
+
 			guard let iconUrl = call.getString("iconId") else {
 				throw GoogleMapErrors.invalidArguments("iconUrl is missing")
 			}
@@ -407,7 +430,7 @@ public class CapacitorGoogleMapsPlugin: CAPPlugin, GMSMapViewDelegate {
 			guard let map = self.maps[id] else {
 				throw GoogleMapErrors.mapNotFound
 			}
-			
+
 			try map.updateMarkerIcon(mId: mId, iconUrl: iconUrl)
 		} catch {
 			handleError(call, error: error)
@@ -445,7 +468,7 @@ public class CapacitorGoogleMapsPlugin: CAPPlugin, GMSMapViewDelegate {
 					return String(id)
 				})])
 			}
-            
+
         } catch {
             handleError(call, error: error)
         }
@@ -484,17 +507,17 @@ public class CapacitorGoogleMapsPlugin: CAPPlugin, GMSMapViewDelegate {
             handleError(call, error: error)
         }
     }
-	
+
 	@objc func removeMarkersBymId(_ call: CAPPluginCall) {
 		do {
 			guard let id = call.getString("id") else {
 				throw GoogleMapErrors.invalidMapId
 			}
-			
+
 			guard let mIds = call.getArray("mIds") as? [String] else {
 				throw GoogleMapErrors.invalidArguments("mIds are missing")
 			}
-			
+
 			if mIds.isEmpty {
 				throw GoogleMapErrors.invalidArguments("mIds requires at least one marker id")
 			}
@@ -537,7 +560,7 @@ public class CapacitorGoogleMapsPlugin: CAPPlugin, GMSMapViewDelegate {
             handleError(call, error: error)
         }
     }
-	
+
 	@objc func removeMarkerBymId(_ call: CAPPluginCall) {
 		do {
 			guard let id = call.getString("id") else {
@@ -1337,9 +1360,9 @@ public class CapacitorGoogleMapsPlugin: CAPPlugin, GMSMapViewDelegate {
         self.notifyListeners("onBoundsChanged", data: data)
         self.notifyListeners("onCameraIdle", data: data)
 
-        if let map = map {
-            _updateVisibleMarkers(mapView: mapView, map: map)
-        }
+        // if let map = map {
+        //     _updateVisibleMarkers(mapView: mapView, map: map)
+        // }
     }
 
     // onCameraMoveStarted
@@ -1415,11 +1438,11 @@ public class CapacitorGoogleMapsPlugin: CAPPlugin, GMSMapViewDelegate {
 			let mapId = self.findMapIdByMapView(mapView)
 			let map = self.maps[mapId]
 			var mId = "none"
-			
+
 			if let map {
 				mId = map.mIds.first(where: { $0.value == marker.hash.hashValue })?.key ?? "none"
 			}
-			
+
             self.notifyListeners("onMarkerClick", data: [
                 "mapId": mapId,
                 "markerId": String(marker.hash.hashValue),
@@ -1435,8 +1458,17 @@ public class CapacitorGoogleMapsPlugin: CAPPlugin, GMSMapViewDelegate {
 
     // onMarkerDragStart
     public func mapView(_ mapView: GMSMapView, didBeginDragging marker: GMSMarker) {
+		let mapId = self.findMapIdByMapView(mapView)
+		let map = self.maps[mapId]
+		var mId = "none"
+
+		if let map {
+			mId = map.mIds.first(where: { $0.value == marker.hash.hashValue })?.key ?? "none"
+		}
+
         self.notifyListeners("onMarkerDragStart", data: [
-            "mapId": self.findMapIdByMapView(mapView),
+            "mapId": mapId,
+			"mId": mId,
             "markerId": String(marker.hash.hashValue),
             "latitude": marker.position.latitude,
             "longitude": marker.position.longitude,
@@ -1447,8 +1479,17 @@ public class CapacitorGoogleMapsPlugin: CAPPlugin, GMSMapViewDelegate {
 
     // onMarkerDrag
     public func mapView(_ mapView: GMSMapView, didDrag marker: GMSMarker) {
+		let mapId = self.findMapIdByMapView(mapView)
+		let map = self.maps[mapId]
+		var mId = "none"
+
+		if let map {
+			mId = map.mIds.first(where: { $0.value == marker.hash.hashValue })?.key ?? "none"
+		}
+
         self.notifyListeners("onMarkerDrag", data: [
-            "mapId": self.findMapIdByMapView(mapView),
+            "mapId": mapId,
+			"mId": mId,
             "markerId": String(marker.hash.hashValue),
             "latitude": marker.position.latitude,
             "longitude": marker.position.longitude,
@@ -1459,8 +1500,17 @@ public class CapacitorGoogleMapsPlugin: CAPPlugin, GMSMapViewDelegate {
 
     // onMarkerDragEnd
     public func mapView(_ mapView: GMSMapView, didEndDragging marker: GMSMarker) {
+		let mapId = self.findMapIdByMapView(mapView)
+		let map = self.maps[mapId]
+		var mId = "none"
+
+		if let map {
+			mId = map.mIds.first(where: { $0.value == marker.hash.hashValue })?.key ?? "none"
+		}
+
         self.notifyListeners("onMarkerDragEnd", data: [
-            "mapId": self.findMapIdByMapView(mapView),
+            "mapId": mapId,
+			"mId": mId,
             "markerId": String(marker.hash.hashValue),
             "latitude": marker.position.latitude,
             "longitude": marker.position.longitude,
@@ -1519,14 +1569,14 @@ public class CapacitorGoogleMapsPlugin: CAPPlugin, GMSMapViewDelegate {
             "longitude": location.longitude
         ])
     }
-    
+
     private func _updateVisibleMarkers(mapView: GMSMapView, map: Map) {
         if (map.mapViewController.clusteringEnabled) {
             return
         }
-        
+
         let visibleRegion = mapView.projection.visibleRegion()
-            
+
         let bounds = GMSCoordinateBounds(
             coordinate: visibleRegion.farLeft,
             coordinate: visibleRegion.farRight
@@ -1535,22 +1585,22 @@ public class CapacitorGoogleMapsPlugin: CAPPlugin, GMSMapViewDelegate {
 
         if let center = bounds.center() {
             let expandedBounds = _expandBounds(bounds: bounds, center: center, factor: 2.0)
-            
+
             for (_, marker) in map.markers {
                 marker.map = expandedBounds.contains(marker.position) ? mapView : nil
             }
         }
     }
-    
+
     private func _expandBounds(bounds: GMSCoordinateBounds, center: CLLocationCoordinate2D, factor: Double) -> GMSCoordinateBounds {
         let northEast = bounds.northEast
         let southWest = bounds.southWest
-        
+
         let newNorthEast = CLLocationCoordinate2D(
             latitude: center.latitude + (northEast.latitude - center.latitude) * factor,
             longitude: center.longitude + (northEast.longitude - center.longitude) * factor
         )
-        
+
         let newSouthWest = CLLocationCoordinate2D(
             latitude: center.latitude + (southWest.latitude - center.latitude) * factor,
             longitude: center.longitude + (southWest.longitude - center.longitude) * factor

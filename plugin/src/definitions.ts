@@ -480,3 +480,5 @@ export interface CircleClickCallbackData {
 export interface MyLocationButtonClickCallbackData {
   mapId: string;
 }
+
+export type SelectionType = 'square' | 'shape' | undefined;

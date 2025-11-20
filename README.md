@@ -367,6 +367,7 @@ export default MyMap;
 * [`setOnMapDoubleClickListener(...)`](#setonmapdoubleclicklistener)
 * [`setOnMapLoadedListener(...)`](#setonmaploadedlistener)
 * [`setOnZoomChangedListener(...)`](#setonzoomchangedlistener)
+* [`setOnSelectionEndListener(...)`](#setonselectionendlistener)
 * [`takeSnapshot(...)`](#takesnapshot)
 * [`addGroundOverlay(...)`](#addgroundoverlay)
 * [`getZoomLevel()`](#getzoomlevel)
@@ -1050,6 +1051,19 @@ setOnZoomChangedListener(callback?: MapListenerCallback<{ zoomLevel: number | un
 | Param          | Type                                                                                              |
 | -------------- | ------------------------------------------------------------------------------------------------- |
 | **`callback`** | <code><a href="#maplistenercallback">MapListenerCallback</a>&lt;{ zoomLevel: number; }&gt;</code> |
+
+--------------------
+
+
+### setOnSelectionEndListener(...)
+
+```typescript
+setOnSelectionEndListener(callback?: MapListenerCallback<{ mIds: string[]; }> | undefined) => Promise<void>
+```
+
+| Param          | Type                                                                                           |
+| -------------- | ---------------------------------------------------------------------------------------------- |
+| **`callback`** | <code><a href="#maplistenercallback">MapListenerCallback</a>&lt;{ mIds: string[]; }&gt;</code> |
 
 --------------------
 

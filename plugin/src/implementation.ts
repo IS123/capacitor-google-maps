@@ -12,6 +12,7 @@ import type {
   Marker,
   Polygon,
   Polyline,
+  SelectionType,
 } from './definitions';
 
 /**
@@ -257,6 +258,7 @@ export interface CapacitorGoogleMapsPlugin extends Plugin {
   updateMarkersBymId(args: UpdateMarkersBymIdArgs): Promise<{ ids: string[] }>;
   updateMarkerIcon(args: UpdateMarkerIconArgs): Promise<void>;
   getMarkersIds(args: { id: string }): Promise<Record<string, string>>;
+  setSelectionType(args: { id: string, selectionType: SelectionType }): Promise<void>;
 }
 
 const CapacitorGoogleMaps = registerPlugin<CapacitorGoogleMapsPlugin>('CapacitorGoogleMaps', {

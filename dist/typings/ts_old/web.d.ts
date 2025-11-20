@@ -104,6 +104,7 @@ export declare class CapacitorGoogleMapsWeb extends WebPlugin implements Capacit
     hasIcon(): Promise<{
         hasIcon: boolean;
     }>;
+    setSelectionType(): Promise<void>;
     private getLatLngBounds;
     setCircleListeners(mapId: string, circleId: string, circle: google.maps.Circle): Promise<void>;
     setPolygonListeners(mapId: string, polygonId: string, polygon: google.maps.Polygon): Promise<void>;
@@ -111,5 +112,4 @@ export declare class CapacitorGoogleMapsWeb extends WebPlugin implements Capacit
     setMarkerListeners(mapId: string, markerId: string, mId: string, marker: google.maps.marker.AdvancedMarkerElement): Promise<void>;
     setMapListeners(mapId: string): Promise<void>;
     private buildMarkerOpts;
-    private removeAllMarkers;
 }

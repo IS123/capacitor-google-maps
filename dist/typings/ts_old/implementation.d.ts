@@ -1,5 +1,5 @@
 import { Plugin } from '@capacitor/core';
-import { CameraConfig, Circle, GoogleMapConfig, LatLng, LatLngBounds, MapPadding, MapType, Marker, Polygon, Polyline } from './definitions';
+import { CameraConfig, Circle, GoogleMapConfig, LatLng, LatLngBounds, MapPadding, MapType, Marker, Polygon, Polyline, SelectionType } from './definitions';
 /**
  * An interface containing the options used when creating a map.
  */
@@ -267,6 +267,10 @@ export interface CapacitorGoogleMapsPlugin extends Plugin {
     getMarkersIds(args: {
         id: string;
     }): Promise<Record<string, string>>;
+    setSelectionType(args: {
+        id: string;
+        selectionType: SelectionType;
+    }): Promise<void>;
 }
 declare const CapacitorGoogleMaps: CapacitorGoogleMapsPlugin;
 export { CapacitorGoogleMaps };

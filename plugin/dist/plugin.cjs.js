@@ -1001,6 +1001,17 @@ class GoogleMap {
             this.onMyLocationClickListener = undefined;
         }
     }
+    async setOnSelectionEndListener(callback) {
+        if (this.onSelectionEndListener) {
+            this.onSelectionEndListener.remove();
+        }
+        if (callback) {
+            this.onSelectionEndListener = await CapacitorGoogleMaps.addListener('onSelectionEnd', this.generateCallback(callback));
+        }
+        else {
+            this.onSelectionEndListener = undefined;
+        }
+    }
     /**
      * Remove all event listeners on the map.
      *
@@ -1083,6 +1094,10 @@ class GoogleMap {
         if (this.onZoomChangedListener) {
             this.onZoomChangedListener.remove();
             this.onZoomChangedListener = undefined;
+        }
+        if (this.onSelectionEndListener) {
+            this.onSelectionEndListener.remove();
+            this.onSelectionEndListener = undefined;
         }
     }
     generateCallback(callback) {
@@ -1586,6 +1601,9 @@ class CapacitorGoogleMapsWeb extends core.WebPlugin {
         return {
             hasIcon: false
         };
+    }
+    setSelectionType() {
+        throw new Error('Method not implemented.');
     }
     getLatLngBounds(_args) {
         return new google.maps.LatLngBounds(new google.maps.LatLng(_args.southwest.lat, _args.southwest.lng), new google.maps.LatLng(_args.northeast.lat, _args.northeast.lng));

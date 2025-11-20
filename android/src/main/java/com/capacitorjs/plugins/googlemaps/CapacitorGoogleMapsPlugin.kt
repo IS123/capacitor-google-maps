@@ -5,6 +5,7 @@ import android.annotation.SuppressLint
 import android.graphics.Bitmap
 import android.graphics.RectF
 import android.util.Log
+import android.view.GestureDetector
 import android.view.MotionEvent
 import android.view.View
 import com.getcapacitor.*
@@ -20,6 +21,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import org.json.JSONArray
 import org.json.JSONObject
+import kotlin.collections.component1
+import kotlin.collections.component2
 
 @CapacitorPlugin(
         name = "CapacitorGoogleMaps",
@@ -36,6 +39,8 @@ class CapacitorGoogleMapsPlugin : Plugin(), OnMapsSdkInitializedCallback {
     private var cachedTouchEvents: HashMap<String, MutableList<MotionEvent>> = HashMap()
     private val tag: String = "CAP-GOOGLE-MAPS"
     private var touchEnabled: HashMap<String, Boolean> = HashMap()
+	internal val markerIcons = HashMap<String, Bitmap>()
+	private var gestureDetector: GestureDetector? = null
 
     companion object {
         const val LOCATION = "location"
@@ -48,11 +53,32 @@ class CapacitorGoogleMapsPlugin : Plugin(), OnMapsSdkInitializedCallback {
         MapsInitializer.initialize(this.context, MapsInitializer.Renderer.LATEST, this)
 
 
+		gestureDetector = GestureDetector(this.context,
+			object : GestureDetector.SimpleOnGestureListener() {
+				override fun onLongPress(event: MotionEvent) {
+					val touchX = event.x
+					val touchY = event.y
+
+					for ((id, map) in maps) {
+						if (touchEnabled[id] == false) {
+							continue
+						}
+						val mapRect = map.getMapBounds()
+						if (mapRect.contains(touchX.toInt(), touchY.toInt())) {
+							if (map.getSelectionType() !== null) {
+								event.setLocation(touchX / map.config.devicePixelRatio, touchY / map.config.devicePixelRatio)
+
+								map.startSelection(event);
+							}
+						}
+					}
+
+				}
+			}
+		)
+
         this.bridge.webView.setOnTouchListener(
                 object : View.OnTouchListener {
-                    private var touchStartX: Float = -1f
-                    private var touchStartY: Float = -1f
-                    private var touchStartedInsideMap: Boolean = false
                     override fun onTouch(v: View?, event: MotionEvent?): Boolean {
                         if (event != null) {
                             if (event.source == -1) {
@@ -62,58 +88,89 @@ class CapacitorGoogleMapsPlugin : Plugin(), OnMapsSdkInitializedCallback {
                             val touchX = event.x
                             val touchY = event.y
 
-                            when (event.action) {
-                                MotionEvent.ACTION_DOWN -> {
-                                    // Store initial touch position
-                                    touchStartX = touchX
-                                    touchStartY = touchY
-                                    touchStartedInsideMap = false
-
-                                    // Check if touch started inside any map
-                                    for ((id, map) in maps) {
-                                        if (touchEnabled[id] == false) continue
-                                        val mapRect = map.getMapBounds()
-
-                                        if (mapRect.contains(touchStartX.toInt(), touchStartY.toInt())) {
-                                            touchStartedInsideMap = true
-                                            break
-                                        }
-                                    }
-
-                                    Log.d("GoogleMapsPlugin", "Touch start position: ($touchStartX, $touchStartY), inside map: $touchStartedInsideMap")
-                                }
-                                MotionEvent.ACTION_MOVE, MotionEvent.ACTION_UP -> {
-                                    if (!touchStartedInsideMap) {
-                                        Log.d("GoogleMapsPlugin", "Blocking touch event since it started outside the map.")
-                                        return v?.onTouchEvent(event) ?: true // Allow normal app handling, ignore map touch
-                                    }
-                                }
-                            }
-
                             for ((id, map) in maps) {
                                 if (touchEnabled[id] == false) {
                                     continue
                                 }
                                 val mapRect = map.getMapBounds()
                                 if (mapRect.contains(touchX.toInt(), touchY.toInt())) {
-                                    if (event.action == MotionEvent.ACTION_DOWN) {
-                                        if (cachedTouchEvents[id] == null) {
-                                            cachedTouchEvents[id] = mutableListOf<MotionEvent>()
-                                        }
+                                    if (map.getSelectionType() !== null) {
+										if (map.selectionActive) {
+											when (event.action) {
+												MotionEvent.ACTION_MOVE -> return map.handleSelectionMove(event)
+												MotionEvent.ACTION_UP -> return map.handleSelectionEnd(event)
+											}
+											if (event.action == MotionEvent.ACTION_DOWN) {
+												if (cachedTouchEvents[id] == null) {
+													cachedTouchEvents[id] = mutableListOf<MotionEvent>()
+												}
 
-                                        cachedTouchEvents[id]?.clear()
-                                    }
+												//map.handleSelectionStart(event)
 
-                                    val motionEvent = MotionEvent.obtain(event)
-                                    cachedTouchEvents[id]?.add(motionEvent)
+												cachedTouchEvents[id]?.clear()
+											}
 
-                                    val payload = JSObject()
-                                    payload.put("x", touchX / map.config.devicePixelRatio)
-                                    payload.put("y", touchY / map.config.devicePixelRatio)
-                                    payload.put("mapId", map.id)
+											val motionEvent = MotionEvent.obtain(event)
+											cachedTouchEvents[id]?.add(motionEvent)
 
-                                    notifyListeners("isMapInFocus", payload)
-                                    return true
+											val payload = JSObject()
+											payload.put("x", touchX / map.config.devicePixelRatio)
+											payload.put("y", touchY / map.config.devicePixelRatio)
+											payload.put("mapId", map.id)
+
+											notifyListeners("isMapInFocus", payload)
+
+											if (event.action == MotionEvent.ACTION_DOWN || event.action == MotionEvent.ACTION_MOVE) {
+												return true
+											}
+										} else {
+											if (event.action == MotionEvent.ACTION_DOWN) {
+												if (cachedTouchEvents[id] == null) {
+													cachedTouchEvents[id] = mutableListOf<MotionEvent>()
+												}
+
+												//map.handleSelectionStart(event)
+
+												cachedTouchEvents[id]?.clear()
+											}
+
+											val motionEvent = MotionEvent.obtain(event)
+											cachedTouchEvents[id]?.add(motionEvent)
+
+											val payload = JSObject()
+											payload.put("x", touchX / map.config.devicePixelRatio)
+											payload.put("y", touchY / map.config.devicePixelRatio)
+											payload.put("mapId", map.id)
+
+											notifyListeners("isMapInFocus", payload)
+
+											gestureDetector?.onTouchEvent(event);
+											return false;
+										}
+									} else {
+										if (event.action == MotionEvent.ACTION_DOWN) {
+											if (cachedTouchEvents[id] == null) {
+												cachedTouchEvents[id] = mutableListOf<MotionEvent>()
+											}
+
+											cachedTouchEvents[id]?.clear()
+										}
+
+										val motionEvent = MotionEvent.obtain(event)
+										cachedTouchEvents[id]?.add(motionEvent)
+
+										val payload = JSObject()
+										payload.put("x", touchX / map.config.devicePixelRatio)
+										payload.put("y", touchY / map.config.devicePixelRatio)
+										payload.put("mapId", map.id)
+
+										notifyListeners("isMapInFocus", payload)
+										// Only consume DOWN and MOVE events, let UP and CANCEL events pass through
+										// This ensures scrolling can resume after interaction
+										if (event.action == MotionEvent.ACTION_DOWN || event.action == MotionEvent.ACTION_MOVE) {
+											return true
+										}
+									}
                                 }
                             }
                         }
@@ -294,16 +351,7 @@ class CapacitorGoogleMapsPlugin : Plugin(), OnMapsSdkInitializedCallback {
                 markers.add(marker)
             }
 
-            map.addMarkers(markers) { result ->
-                val ids = result.getOrThrow()
-
-                val jsonIDs = JSONArray()
-                ids.forEach { jsonIDs.put(it) }
-
-                val res = JSObject()
-                res.put("ids", jsonIDs)
-                call.resolve(res)
-            }
+            map.addMarkers(markers, call)
         } catch (e: GoogleMapsError) {
             handleError(call, e)
         } catch (e: Exception) {
@@ -1328,6 +1376,29 @@ class CapacitorGoogleMapsPlugin : Plugin(), OnMapsSdkInitializedCallback {
             handleError(call, e)
         }
     }
+
+	@PluginMethod()
+	fun setSelectionType(call: PluginCall) {
+		try {
+			val id = call.getString("id")
+			id ?: throw InvalidMapIdError()
+
+			val map = maps[id]
+			map ?: throw MapNotFoundError()
+
+			val selectionType = call.getString("selectionType", null)
+
+			CoroutineScope(Dispatchers.Main).launch {
+				map.setSelectionType(selectionType)
+				call.resolve()
+			}
+		} catch (e: GoogleMapsError) {
+			handleError(call, e)
+		} catch (e: Exception) {
+			handleError(call, e)
+		}
+	}
+
 
     private fun createLatLng(point: JSObject): LatLng {
         return LatLng(

@@ -74,6 +74,9 @@ export interface GoogleMapInterface {
     setOnZoomChangedListener(callback?: MapListenerCallback<{
         zoomLevel: number | undefined;
     }>): Promise<void>;
+    setOnSelectionEndListener(callback?: MapListenerCallback<{
+        mIds: string[];
+    }>): Promise<void>;
     takeSnapshot(format?: string, quality?: number): Promise<{
         snapshot: string | HTMLElement;
     }>;
@@ -105,6 +108,7 @@ export declare class GoogleMap {
     private onMapDoubleClickListener?;
     private onMapLoadedListener?;
     private onZoomChangedListener?;
+    private onSelectionEndListener?;
     private constructor();
     /**
      * Creates a new instance of a Google Map
@@ -422,6 +426,9 @@ export declare class GoogleMap {
      * @returns
      */
     setOnMyLocationClickListener(callback?: MapListenerCallback<MapClickCallbackData>): Promise<void>;
+    setOnSelectionEndListener(callback?: MapListenerCallback<{
+        mIds: string[];
+    }>): Promise<void>;
     /**
      * Remove all event listeners on the map.
      *

@@ -493,6 +493,9 @@ export class CapacitorGoogleMapsWeb extends WebPlugin {
             hasIcon: false
         };
     }
+    setSelectionType() {
+        throw new Error('Method not implemented.');
+    }
     getLatLngBounds(_args) {
         return new google.maps.LatLngBounds(new google.maps.LatLng(_args.southwest.lat, _args.southwest.lng), new google.maps.LatLng(_args.northeast.lat, _args.northeast.lng));
     }
