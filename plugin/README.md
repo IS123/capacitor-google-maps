@@ -1127,12 +1127,12 @@ hasIcon(iconId: string) => Promise<boolean>
 ### setSelectionType(...)
 
 ```typescript
-setSelectionType(args: { selectionType: SelectionType; }) => Promise<void>
+setSelectionType(args: { selectionType?: SelectionType; }) => Promise<void>
 ```
 
-| Param      | Type                                                                        |
-| ---------- | --------------------------------------------------------------------------- |
-| **`args`** | <code>{ selectionType: <a href="#selectiontype">SelectionType</a>; }</code> |
+| Param      | Type                                                                         |
+| ---------- | ---------------------------------------------------------------------------- |
+| **`args`** | <code>{ selectionType?: <a href="#selectiontype">SelectionType</a>; }</code> |
 
 --------------------
 

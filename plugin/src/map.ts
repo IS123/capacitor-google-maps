@@ -100,7 +100,7 @@ export interface GoogleMapInterface {
   addGroundOverlay(groundOverlayOptions: GroundOverlayArgs): Promise<void>;
   getZoomLevel(): Promise<number | undefined>;
   hasIcon(iconId: string): Promise<boolean>;
-  setSelectionType(args: { selectionType: SelectionType }): Promise<void>;
+  setSelectionType(args: { selectionType?: SelectionType }): Promise<void>;
 }
 
 class MapCustomElement extends HTMLElement {

@@ -1008,12 +1008,12 @@
       },
       {
         "name": "setSelectionType",
-        "signature": "(args: { selectionType: SelectionType; }) => Promise<void>",
+        "signature": "(args: { selectionType?: SelectionType; }) => Promise<void>",
         "parameters": [
           {
             "name": "args",
             "docs": "",
-            "type": "{ selectionType: SelectionType; }"
+            "type": "{ selectionType?: SelectionType; }"
           }
         ],
         "returns": "Promise<void>",

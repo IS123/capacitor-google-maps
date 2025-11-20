@@ -84,7 +84,7 @@ export interface GoogleMapInterface {
     getZoomLevel(): Promise<number | undefined>;
     hasIcon(iconId: string): Promise<boolean>;
     setSelectionType(args: {
-        selectionType: SelectionType;
+        selectionType?: SelectionType;
     }): Promise<void>;
 }
 export declare class GoogleMap {
