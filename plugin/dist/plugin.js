@@ -588,6 +588,12 @@ var capacitorCapacitorGoogleMaps = (function (exports, core, markerclusterer) {
                 iconId: iconId
             });
         }
+        async setSelectionType(args) {
+            return CapacitorGoogleMaps.setSelectionType({
+                id: this.id,
+                selectionType: args.selectionType
+            });
+        }
         async fitBounds(bounds, padding) {
             return CapacitorGoogleMaps.fitBounds({
                 id: this.id,

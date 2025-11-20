@@ -372,6 +372,7 @@ export default MyMap;
 * [`addGroundOverlay(...)`](#addgroundoverlay)
 * [`getZoomLevel()`](#getzoomlevel)
 * [`hasIcon(...)`](#hasicon)
+* [`setSelectionType(...)`](#setselectiontype)
 * [Interfaces](#interfaces)
 * [Type Aliases](#type-aliases)
 * [Enums](#enums)
@@ -1123,6 +1124,19 @@ hasIcon(iconId: string) => Promise<boolean>
 --------------------
 
 
+### setSelectionType(...)
+
+```typescript
+setSelectionType(args: { selectionType: SelectionType; }) => Promise<void>
+```
+
+| Param      | Type                                                                        |
+| ---------- | --------------------------------------------------------------------------- |
+| **`args`** | <code>{ selectionType: <a href="#selectiontype">SelectionType</a>; }</code> |
+
+--------------------
+
+
 ### Interfaces
 
 
@@ -1446,6 +1460,11 @@ to determine if a position is a 2D or 3D position.
 Supports markers of either either "legacy" or "advanced" types.
 
 <code>google.maps.<a href="#marker">Marker</a> | google.maps.marker.AdvancedMarkerElement</code>
+
+
+#### SelectionType
+
+<code>'square' | 'shape'</code> | 
 
 
 ### Enums

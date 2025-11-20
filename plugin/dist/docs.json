@@ -1005,6 +1005,24 @@
         "docs": "",
         "complexTypes": [],
         "slug": "hasicon"
+      },
+      {
+        "name": "setSelectionType",
+        "signature": "(args: { selectionType: SelectionType; }) => Promise<void>",
+        "parameters": [
+          {
+            "name": "args",
+            "docs": "",
+            "type": "{ selectionType: SelectionType; }"
+          }
+        ],
+        "returns": "Promise<void>",
+        "tags": [],
+        "docs": "",
+        "complexTypes": [
+          "SelectionType"
+        ],
+        "slug": "setselectiontype"
       }
     ],
     "properties": []
@@ -2184,6 +2202,25 @@
           "complexTypes": [
             "google"
           ]
+        }
+      ]
+    },
+    {
+      "name": "SelectionType",
+      "slug": "selectiontype",
+      "docs": "",
+      "types": [
+        {
+          "text": "'square'",
+          "complexTypes": []
+        },
+        {
+          "text": "'shape'",
+          "complexTypes": []
+        },
+        {
+          "text": "undefined",
+          "complexTypes": []
         }
       ]
     }

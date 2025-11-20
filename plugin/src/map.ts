@@ -19,6 +19,7 @@ import type {
   CircleClickCallbackData,
   Polyline,
   PolylineCallbackData,
+  SelectionType,
 } from './definitions';
 import { LatLngBounds, MapType } from './definitions';
 import type { CreateMapArgs, GroundOverlayArgs } from './implementation';
@@ -99,6 +100,7 @@ export interface GoogleMapInterface {
   addGroundOverlay(groundOverlayOptions: GroundOverlayArgs): Promise<void>;
   getZoomLevel(): Promise<number | undefined>;
   hasIcon(iconId: string): Promise<boolean>;
+  setSelectionType(args: { selectionType: SelectionType }): Promise<void>;
 }
 
 class MapCustomElement extends HTMLElement {
@@ -718,6 +720,13 @@ export class GoogleMap {
       id: this.id,
       iconId: iconId
     });
+  }
+
+  async setSelectionType(args: { selectionType: SelectionType }): Promise<void> {
+    return CapacitorGoogleMaps.setSelectionType({
+      id: this.id,
+      selectionType: args.selectionType
+    })
   }
 
   async fitBounds(bounds: LatLngBounds, padding?: number): Promise<void> {
