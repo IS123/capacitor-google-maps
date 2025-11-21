@@ -82,7 +82,7 @@ class CapacitorGoogleMap(
 
 	private var currentCall: PluginCall? = null
 
-	private var selectionType: String? = "shape"
+	private var selectionType: String? = null
 	var selectionActive: Boolean = false
 
 	var startPoint: LatLng? = null
@@ -894,10 +894,10 @@ fun updateMarkerIcon(mId: String, iconId: String, iconUrl: String) {
         return this@CapacitorGoogleMap.delegate.markerIcons.contains(iconId);
     }
 
-	fun setSelectionType(selectionType: String?) {
+	fun setSelectionType(selType: String?) {
 		googleMap ?: throw GoogleMapNotAvailable()
 
-		this.selectionType = selectionType
+		selectionType = selType
 	}
 
 	fun getSelectionType(): String? {
@@ -1287,7 +1287,7 @@ fun updateMarkerIcon(mId: String, iconId: String, iconUrl: String) {
 	fun handleSelectionMove(e: MotionEvent?): Boolean {
 		val end = toLatLng(e!!)
 
-		if (selectionType === "square") {
+		if (selectionType == "square") {
 			val p1 = startPoint
 			val p2 = LatLng(startPoint!!.latitude, end.longitude)
 			val p3 = end
@@ -1307,7 +1307,7 @@ fun updateMarkerIcon(mId: String, iconId: String, iconUrl: String) {
 			}
 		} else {
 			if (selectionLine == null) {
-				selectionPoints!!.add(end)
+				selectionPoints?.add(end)
 
 				selectionLine = googleMap!!.addPolyline(
 					PolylineOptions()
@@ -1317,18 +1317,15 @@ fun updateMarkerIcon(mId: String, iconId: String, iconUrl: String) {
 						.color(Color.BLUE)
 				)
 
-				Log.d("CapacitorGoogleMaps", "$selectionPoints")
 			} else {
 				if (selectionPoints != null) {
-					selectionPoints!!.add(end)
+					selectionPoints?.add(end)
 					selectionLine?.points = selectionPoints!!
 				}
 			}
 		}
 
 		return false;
-
-		//delegate.notify("selectionUpdate", radius)
 	}
 
 	fun handleSelectionEnd(e: MotionEvent?): Boolean {
@@ -1348,6 +1345,10 @@ fun updateMarkerIcon(mId: String, iconId: String, iconUrl: String) {
 
 				val res = JSObject()
 				res.put("mIds", mIds)
+
+				selectionSquare?.remove()
+
+				selectionSquare = null
 
 				delegate.notify("onSelectionEnd", res)
 			}
@@ -1400,7 +1401,7 @@ fun updateMarkerIcon(mId: String, iconId: String, iconUrl: String) {
 		selectionActive = true
 
 
-		if (selectionType === "shape") {
+		if (selectionType == "shape") {
 			if (selectionPoints === null) {
 				selectionPoints = mutableListOf<LatLng>()
 
@@ -1425,13 +1426,8 @@ fun updateMarkerIcon(mId: String, iconId: String, iconUrl: String) {
 		val top    = max(startY, endY)
 		val bottom = min(startY, endY)
 
-
 		return markers.filter { marker ->
 			val pos = marker.value.position
-			Log.d("CapacitorGoogleMaps", "$pos")
-			Log.d("CapacitorGoogleMaps", "$startX $startY $endX $endY")
-			Log.d("CapacitorGoogleMaps", "$left $top $right $bottom")
-			Log.d("CapacitorGoogleMaps", "${pos.latitude in bottom..top} ${pos.longitude in left..right}")
 			pos.latitude in bottom..top && pos.longitude in left..right
 		}.map { marker -> marker.value.mId }
 	}
