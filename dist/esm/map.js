@@ -527,6 +527,12 @@ export class GoogleMap {
             iconId: iconId
         });
     }
+    async setSelectionType(args) {
+        return CapacitorGoogleMaps.setSelectionType({
+            id: this.id,
+            selectionType: args.selectionType
+        });
+    }
     async fitBounds(bounds, padding) {
         return CapacitorGoogleMaps.fitBounds({
             id: this.id,
@@ -928,6 +934,7 @@ export class GoogleMap {
         else {
             this.onSelectionEndListener = undefined;
         }
+        console.log(this);
     }
     /**
      * Remove all event listeners on the map.

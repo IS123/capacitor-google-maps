@@ -1,4 +1,4 @@
-import { CameraConfig, Marker, MapPadding, MapListenerCallback, MapReadyCallbackData, CameraIdleCallbackData, CameraMoveStartedCallbackData, ClusterClickCallbackData, MapClickCallbackData, MarkerClickCallbackData, MyLocationButtonClickCallbackData, Polygon, PolygonClickCallbackData, Circle, CircleClickCallbackData, Polyline, PolylineCallbackData } from './definitions';
+import { CameraConfig, Marker, MapPadding, MapListenerCallback, MapReadyCallbackData, CameraIdleCallbackData, CameraMoveStartedCallbackData, ClusterClickCallbackData, MapClickCallbackData, MarkerClickCallbackData, MyLocationButtonClickCallbackData, Polygon, PolygonClickCallbackData, Circle, CircleClickCallbackData, Polyline, PolylineCallbackData, SelectionType } from './definitions';
 import { LatLngBounds, MapType } from './definitions';
 import { CreateMapArgs, GroundOverlayArgs } from './implementation';
 export interface GoogleMapInterface {
@@ -83,6 +83,9 @@ export interface GoogleMapInterface {
     addGroundOverlay(groundOverlayOptions: GroundOverlayArgs): Promise<void>;
     getZoomLevel(): Promise<number | undefined>;
     hasIcon(iconId: string): Promise<boolean>;
+    setSelectionType(args: {
+        selectionType?: SelectionType;
+    }): Promise<void>;
 }
 export declare class GoogleMap {
     private id;
@@ -301,6 +304,9 @@ export declare class GoogleMap {
     hasIcon(iconId: string): Promise<{
         hasIcon: boolean;
     }>;
+    setSelectionType(args: {
+        selectionType: SelectionType;
+    }): Promise<void>;
     fitBounds(bounds: LatLngBounds, padding?: number): Promise<void>;
     initScrolling(): void;
     disableScrolling(): void;

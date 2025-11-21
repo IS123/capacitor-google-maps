@@ -1344,6 +1344,8 @@ fun updateMarkerIcon(mId: String, iconId: String, iconUrl: String) {
 				inside.forEach { mIds.put(it) }
 
 				val res = JSObject()
+
+				res.put("mapId", this@CapacitorGoogleMap.id)
 				res.put("mIds", mIds)
 
 				selectionSquare?.remove()
@@ -1386,6 +1388,8 @@ fun updateMarkerIcon(mId: String, iconId: String, iconUrl: String) {
 				inside.forEach { mIds.put(it) }
 
 				val res = JSObject()
+
+				res.put("mapId", this@CapacitorGoogleMap.id)
 				res.put("mIds", mIds)
 
 				delegate.notify("onSelectionEnd", res)
