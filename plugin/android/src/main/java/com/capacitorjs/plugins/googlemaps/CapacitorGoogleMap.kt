@@ -14,6 +14,7 @@ import android.widget.FrameLayout
 import com.getcapacitor.Bridge
 import com.getcapacitor.JSArray
 import com.getcapacitor.JSObject
+import com.getcapacitor.PluginCall
 import com.google.android.gms.maps.*
 import com.google.android.gms.maps.GoogleMap.*
 import com.google.android.gms.maps.model.*
