@@ -891,8 +891,13 @@ fun updateMarkerIcon(mId: String, iconId: String, iconUrl: String) {
 		params.height = height
 		mapView.layoutParams = params
 
-		mapView.requestLayout()
-		mapView.invalidate()
+		CoroutineScope(Dispatchers.Main).launch {
+			mapView.measure(
+				View.MeasureSpec.makeMeasureSpec(mapView.width, View.MeasureSpec.EXACTLY),
+				View.MeasureSpec.makeMeasureSpec(height, View.MeasureSpec.EXACTLY)
+			)
+			mapView.layout(mapView.left, mapView.top, mapView.right, mapView.top + height)
+		}
 	}
 
 
