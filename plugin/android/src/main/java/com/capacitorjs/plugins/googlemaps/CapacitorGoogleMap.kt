@@ -28,7 +28,6 @@ import kotlinx.coroutines.flow.toList
 import java.io.ByteArrayOutputStream
 import java.util.concurrent.Executors
 import com.caverock.androidsvg.SVG
-import com.getcapacitor.PluginCall
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.catch
