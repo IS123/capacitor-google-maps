@@ -534,6 +534,12 @@ export class GoogleMap {
             padding,
         });
     }
+    async setMapHeight(height) {
+        return CapacitorGoogleMaps.setMapHeight({
+            id: this.id,
+            height
+        });
+    }
     initScrolling() {
         const ionContents = document.getElementsByTagName('ion-content');
         // eslint-disable-next-line @typescript-eslint/prefer-for-of

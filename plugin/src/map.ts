@@ -98,6 +98,7 @@ export interface GoogleMapInterface {
   addGroundOverlay(groundOverlayOptions: GroundOverlayArgs): Promise<void>;
   getZoomLevel(): Promise<number | undefined>;
   hasIcon(iconId: string): Promise<boolean>;
+  setMapHeight(height: number): Promise<void>;
 }
 
 class MapCustomElement extends HTMLElement {
@@ -724,6 +725,13 @@ export class GoogleMap {
       bounds,
       padding,
     });
+  }
+
+  async setMapHeight(height: number): Promise<void> {
+    return CapacitorGoogleMaps.setMapHeight({
+      id: this.id,
+      height
+    })
   }
 
   initScrolling(): void {

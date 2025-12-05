@@ -617,6 +617,12 @@ class GoogleMap {
             padding,
         });
     }
+    async setMapHeight(height) {
+        return CapacitorGoogleMaps.setMapHeight({
+            id: this.id,
+            height
+        });
+    }
     initScrolling() {
         const ionContents = document.getElementsByTagName('ion-content');
         // eslint-disable-next-line @typescript-eslint/prefer-for-of
@@ -1517,6 +1523,9 @@ class CapacitorGoogleMapsWeb extends core.WebPlugin {
         throw new Error('Method not supported on web.');
     }
     async onDisplay() {
+        throw new Error('Method not supported on web.');
+    }
+    async setMapHeight() {
         throw new Error('Method not supported on web.');
     }
     async create(_args) {

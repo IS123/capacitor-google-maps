@@ -80,6 +80,7 @@ export declare class CapacitorGoogleMapsWeb extends WebPlugin implements Capacit
     onScroll(): Promise<void>;
     onResize(): Promise<void>;
     onDisplay(): Promise<void>;
+    setMapHeight(): Promise<void>;
     create(_args: CreateMapArgs): Promise<void>;
     destroy(_args: DestroyMapArgs): Promise<void>;
     mapBoundsContains(_args: MapBoundsContainsArgs): Promise<{

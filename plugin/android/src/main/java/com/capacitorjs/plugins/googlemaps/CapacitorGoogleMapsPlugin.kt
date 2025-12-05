@@ -1294,6 +1294,30 @@ class CapacitorGoogleMapsPlugin : Plugin(), OnMapsSdkInitializedCallback {
         }
     }
 
+	@PluginMethod()
+	fun setMapHeight(call: PluginCall) {
+		try {
+			val id = call.getString("id")
+			id ?: throw InvalidMapIdError()
+
+			val map = maps[id]
+			map ?: throw MapNotFoundError()
+
+			val height = call.getInt("height")
+
+			CoroutineScope(Dispatchers.Main).launch {
+				if (height != null) {
+					map.setMapHeight(height)
+				}
+				call.resolve()
+			}
+		} catch (e: GoogleMapsError) {
+			handleError(call, e)
+		} catch (e: Exception) {
+			handleError(call, e)
+		}
+	}
+
     private fun createLatLng(point: JSObject): LatLng {
         return LatLng(
             point.getDouble("lat"),

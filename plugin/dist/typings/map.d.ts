@@ -80,6 +80,7 @@ export interface GoogleMapInterface {
     addGroundOverlay(groundOverlayOptions: GroundOverlayArgs): Promise<void>;
     getZoomLevel(): Promise<number | undefined>;
     hasIcon(iconId: string): Promise<boolean>;
+    setMapHeight(height: number): Promise<void>;
 }
 export declare class GoogleMap {
     private id;
@@ -298,6 +299,7 @@ export declare class GoogleMap {
         hasIcon: boolean;
     }>;
     fitBounds(bounds: LatLngBounds, padding?: number): Promise<void>;
+    setMapHeight(height: number): Promise<void>;
     initScrolling(): void;
     disableScrolling(): void;
     handleScrollEvent: () => void;

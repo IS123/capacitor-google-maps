@@ -987,6 +987,22 @@
         "docs": "",
         "complexTypes": [],
         "slug": "hasicon"
+      },
+      {
+        "name": "setMapHeight",
+        "signature": "(height: number) => Promise<void>",
+        "parameters": [
+          {
+            "name": "height",
+            "docs": "",
+            "type": "number"
+          }
+        ],
+        "returns": "Promise<void>",
+        "tags": [],
+        "docs": "",
+        "complexTypes": [],
+        "slug": "setmapheight"
       }
     ],
     "properties": []

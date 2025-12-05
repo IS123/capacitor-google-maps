@@ -425,6 +425,9 @@ export class CapacitorGoogleMapsWeb extends WebPlugin {
     async onDisplay() {
         throw new Error('Method not supported on web.');
     }
+    async setMapHeight() {
+        throw new Error('Method not supported on web.');
+    }
     async create(_args) {
         console.log(`Create map: ${_args.id}`);
         await this.importGoogleLib(_args.apiKey, _args.region, _args.language);

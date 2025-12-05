@@ -267,6 +267,10 @@ export interface CapacitorGoogleMapsPlugin extends Plugin {
     getMarkersIds(args: {
         id: string;
     }): Promise<Record<string, string>>;
+    setMapHeight(args: {
+        id: string;
+        height: number;
+    }): Promise<void>;
 }
 declare const CapacitorGoogleMaps: CapacitorGoogleMapsPlugin;
 export { CapacitorGoogleMaps };

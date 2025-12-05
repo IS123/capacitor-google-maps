@@ -371,6 +371,7 @@ export default MyMap;
 * [`addGroundOverlay(...)`](#addgroundoverlay)
 * [`getZoomLevel()`](#getzoomlevel)
 * [`hasIcon(...)`](#hasicon)
+* [`setMapHeight(...)`](#setmapheight)
 * [Interfaces](#interfaces)
 * [Type Aliases](#type-aliases)
 * [Enums](#enums)
@@ -1105,6 +1106,19 @@ hasIcon(iconId: string) => Promise<boolean>
 | **`iconId`** | <code>string</code> |
 
 **Returns:** <code>Promise&lt;boolean&gt;</code>
+
+--------------------
+
+
+### setMapHeight(...)
+
+```typescript
+setMapHeight(height: number) => Promise<void>
+```
+
+| Param        | Type                |
+| ------------ | ------------------- |
+| **`height`** | <code>number</code> |
 
 --------------------
 

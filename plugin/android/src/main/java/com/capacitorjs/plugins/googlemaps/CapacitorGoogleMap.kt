@@ -21,13 +21,6 @@ import com.google.maps.android.clustering.Cluster
 import com.google.maps.android.clustering.ClusterManager
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.flow.asFlow
-import kotlinx.coroutines.flow.mapNotNull
-import kotlinx.coroutines.flow.toList
-import java.io.ByteArrayOutputStream
-import java.util.concurrent.Executors
-import com.caverock.androidsvg.SVG
-import com.getcapacitor.PluginCall
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.catch
@@ -37,11 +30,12 @@ import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import org.json.JSONArray
+import java.io.ByteArrayOutputStream
 import java.util.concurrent.ConcurrentHashMap
-import androidx.core.graphics.createBitmap
+import java.util.concurrent.Executors
+import kotlin.math.max
+import kotlin.math.min
 import kotlin.math.roundToInt
-import androidx.core.graphics.scale
-import com.google.maps.android.ktx.polygonClickEvents
 
 @OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
 class CapacitorGoogleMap(
@@ -885,6 +879,16 @@ fun updateMarkerIcon(mId: String, iconId: String, iconUrl: String) {
     fun hasIcon(iconId: String): Boolean {
         return this@CapacitorGoogleMap.delegate.markerIcons.contains(iconId);
     }
+
+	fun setMapHeight(height: Int) {
+		val params = mapView.layoutParams
+		params.height = height
+		mapView.layoutParams = params
+
+		mapView.requestLayout()
+		mapView.invalidate()
+	}
+
 
     fun setCamera(config: GoogleMapCameraConfig, callback: (error: GoogleMapsError?) -> Unit) {
         try {
