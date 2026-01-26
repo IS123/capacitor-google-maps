@@ -1390,7 +1390,14 @@ fun updateMarkerIcon(mId: String, iconId: String, iconUrl: String) {
 				val res = JSObject()
 
                 val points = JSONArray()
-                selectionPoints?.forEach { points.put(it) }
+                selectionPoints?.forEach {
+                    val latlng = JSObject()
+
+                    latlng.put("lat", it.latitude)
+                    latlng.put("lng", it.longitude)
+
+                    points.put(latlng)
+                }
 
                 selectionPoints = null
 

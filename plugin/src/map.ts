@@ -723,7 +723,7 @@ export class GoogleMap {
     });
   }
 
-  async setSelectionType(args: { selectionType: SelectionType }): Promise<void> {
+  async setSelectionType(args: { selectionType?: SelectionType }): Promise<void> {
     return CapacitorGoogleMaps.setSelectionType({
       id: this.id,
       selectionType: args.selectionType
