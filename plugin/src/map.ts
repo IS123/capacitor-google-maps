@@ -20,6 +20,7 @@ import type {
   Polyline,
   PolylineCallbackData,
   SelectionType,
+  LatLng,
 } from './definitions';
 import { LatLngBounds, MapType } from './definitions';
 import type { CreateMapArgs, GroundOverlayArgs } from './implementation';
@@ -1192,7 +1193,7 @@ export class GoogleMap {
     }
   }
 
-   async setOnSelectionEndListener(callback?: MapListenerCallback<{mIds: string[]}>): Promise<void> {
+   async setOnSelectionEndListener(callback?: MapListenerCallback<{mIds: string[], selectionPoints: LatLng[]}>): Promise<void> {
     if (this.onSelectionEndListener) {
       this.onSelectionEndListener.remove();
     }

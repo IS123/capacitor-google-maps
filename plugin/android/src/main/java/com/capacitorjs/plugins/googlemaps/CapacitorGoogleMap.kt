@@ -1382,15 +1382,21 @@ fun updateMarkerIcon(mId: String, iconId: String, iconUrl: String) {
 					selectionLine = null
 				}, 100)
 
-				selectionPoints = null
+
 
 				val mIds = JSONArray()
 				inside.forEach { mIds.put(it) }
 
 				val res = JSObject()
 
+                val points = JSONArray()
+                selectionPoints?.forEach { points.put(it) }
+
+                selectionPoints = null
+
 				res.put("mapId", this@CapacitorGoogleMap.id)
 				res.put("mIds", mIds)
+                res.put("selectionPoints", points);
 
 				delegate.notify("onSelectionEnd", res)
 			}
