@@ -1192,10 +1192,7 @@ fun updateMarkerIcon(mId: String, iconId: String, iconUrl: String) {
 
         // Check if there's an icon URL (assumed to be a Data URL in this case)
         if (!marker.iconId.isNullOrEmpty()) {
-            if (this.delegate.markerIcons.contains(marker.iconId)) {
-                val cachedBitmap = this.delegate.markerIcons[marker.iconId]
-                markerOptions.icon(getResizedIcon(cachedBitmap!!, marker))
-            } else {
+            
                 try {
                     val base64Data = marker.iconUrl!!.substringAfter("base64,", "")
 
@@ -1236,7 +1233,7 @@ fun updateMarkerIcon(mId: String, iconId: String, iconUrl: String) {
                         "Could not decode Base64 image: ${detailedMessage}. Using default marker icon."
                     )
                 }
-            }
+
         } else {
             // Fallback to color marker if no icon URL is provided
             if (marker.colorHue != null) {
