@@ -1,4 +1,4 @@
-import type { CameraConfig, Marker, MapPadding, MapListenerCallback, MapReadyCallbackData, CameraIdleCallbackData, CameraMoveStartedCallbackData, ClusterClickCallbackData, MapClickCallbackData, MarkerClickCallbackData, MyLocationButtonClickCallbackData, Polygon, PolygonClickCallbackData, Circle, CircleClickCallbackData, Polyline, PolylineCallbackData, SelectionType, LatLng } from './definitions';
+import type { CameraConfig, Marker, MapPadding, MapListenerCallback, MapReadyCallbackData, CameraIdleCallbackData, CameraMoveStartedCallbackData, ClusterClickCallbackData, MapClickCallbackData, MarkerClickCallbackData, MyLocationButtonClickCallbackData, Polygon, PolygonClickCallbackData, Circle, CircleClickCallbackData, Polyline, PolylineCallbackData, SelectionType, SelectionEndCallbackData } from './definitions';
 import { LatLngBounds, MapType } from './definitions';
 import type { CreateMapArgs, GroundOverlayArgs } from './implementation';
 export interface GoogleMapInterface {
@@ -432,10 +432,7 @@ export declare class GoogleMap {
      * @returns
      */
     setOnMyLocationClickListener(callback?: MapListenerCallback<MapClickCallbackData>): Promise<void>;
-    setOnSelectionEndListener(callback?: MapListenerCallback<{
-        mIds: string[];
-        selectionPoints: LatLng[];
-    }>): Promise<void>;
+    setOnSelectionEndListener(callback?: MapListenerCallback<SelectionEndCallbackData>): Promise<void>;
     /**
      * Remove all event listeners on the map.
      *

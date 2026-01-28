@@ -482,3 +482,9 @@ export interface MyLocationButtonClickCallbackData {
 }
 
 export type SelectionType = 'square' | 'shape' | undefined;
+
+export interface SelectionEndCallbackData {
+  mapId: string;
+  mIds: string[];
+  selectionPoints: LatLng[];
+}
