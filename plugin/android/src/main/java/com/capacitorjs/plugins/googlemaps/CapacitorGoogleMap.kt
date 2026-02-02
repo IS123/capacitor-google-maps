@@ -256,6 +256,12 @@ class CapacitorGoogleMap(
 									val existingMarker = markers[existingId]
 
 									existingMarker?.googleMapMarker?.position = marker.position
+                                    
+									existingMarker?.googleMapMarker?.isDraggable = marker.draggable
+                                    
+									if (existingMarker?.iconId !== marker.iconId) {
+										updateMarkerIcon(marker.mId, marker.mId, marker.iconUrl!!)
+									}
 								}
 								return@mapNotNull null
 							} else {
