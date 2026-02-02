@@ -248,10 +248,20 @@ class CapacitorGoogleMap(
 						val currentMIds = mutableSetOf<String>()
 						val existingMIdsSnapshot = mIds.keys.toSet()
 
-						val markersToAdd = newMarkers.map { marker ->
+						val markersToAdd = newMarkers.mapNotNull { marker ->
 							currentMIds += marker.mId
-							marker.markerOptions = buildMarker(marker)
-							marker
+							val existingId = mIds[marker.mId]
+							if (existingId != null) {
+								withContext(Dispatchers.Main) {
+									val existingMarker = markers[existingId]
+
+									existingMarker?.googleMapMarker?.position = marker.position
+								}
+								return@mapNotNull null
+							} else {
+								marker.markerOptions = buildMarker(marker)
+								marker
+							}
 						}
 
 						withContext(Dispatchers.Main) {
