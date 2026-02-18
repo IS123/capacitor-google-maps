@@ -3,6 +3,7 @@ import Foundation
 import Capacitor
 import GoogleMaps
 import GoogleMapsUtils
+import WebKit
 
 extension GMSMapViewType {
     static func fromString(mapType: String) -> GMSMapViewType {
@@ -68,6 +69,10 @@ public class CapacitorGoogleMapsPlugin: CAPPlugin, GMSMapViewDelegate {
     private var maps = [String: Map]()
     private var isInitialized = false
     private var locationManager = CLLocationManager()
+    private var cachedTouchEvents: [String: [UITouch]] = [:]
+    private var touchEnabled: [String: Bool] = [:]
+    private var longPressGestureRecognizer: UILongPressGestureRecognizer?
+    private var longPressHandled: [String: Bool] = [:] // Track if long press was already handled for each map
 
     func checkLocationPermission() -> String {
         let locationState: String
@@ -84,6 +89,201 @@ public class CapacitorGoogleMapsPlugin: CAPPlugin, GMSMapViewDelegate {
         }
 
         return locationState
+    }
+
+    public override func load() {
+        super.load()
+
+        // Setup touch handling on webView
+        if let webView = self.bridge?.webView {
+            setupTouchHandling(on: webView)
+        }
+    }
+
+    private func setupTouchHandling(on webView: UIView) {
+        let touchInterceptor = TouchInterceptorGestureRecognizer(
+            touchHandler: { [weak self] gesture in
+                guard let self = self else { return false }
+                return self.handleTouchEvent(gesture: gesture)
+            },
+            longPressHandler: { [weak self] location in
+                self?.handleLongPressAtLocation(location)
+            },
+            scrollBlockHandler: { [weak self] block in
+                guard let self = self else { return }
+                // Block/unblock scrolling for all maps that have selectionType set
+                for (_, map) in self.maps {
+                    if map.getSelectionType() != nil {
+                        if let gMapView = map.mapViewController.GMapView {
+                            gMapView.settings.scrollGestures = !block
+                        }
+                    }
+                }
+                if let wkWebView = self.bridge?.webView as? WKWebView {
+                    wkWebView.scrollView.isScrollEnabled = !block
+                }
+            }
+        )
+        touchInterceptor.cancelsTouchesInView = false
+        touchInterceptor.delegate = self
+        webView.addGestureRecognizer(touchInterceptor)
+
+        // Setup long press gesture recognizer separately as backup
+        longPressGestureRecognizer = UILongPressGestureRecognizer(target: self, action: #selector(handleLongPress(_:)))
+        longPressGestureRecognizer?.minimumPressDuration = 0.5
+        longPressGestureRecognizer?.cancelsTouchesInView = false
+        longPressGestureRecognizer?.delegate = self
+        longPressGestureRecognizer?.delaysTouchesBegan = false
+        longPressGestureRecognizer?.delaysTouchesEnded = false
+
+        if let longPress = longPressGestureRecognizer {
+            webView.addGestureRecognizer(longPress)
+        }
+    }
+
+    private func isAnySelectionActive() -> Bool {
+        return maps.values.contains { $0.selectionActive }
+    }
+
+    @objc private func handleLongPress(_ gesture: UILongPressGestureRecognizer) {
+        guard gesture.state == .began else { return }
+
+        guard let webView = self.bridge?.webView else { return }
+        let location = gesture.location(in: webView)
+
+        handleLongPressAtLocation(location)
+    }
+
+    func handleLongPressAtLocation(_ location: CGPoint) {
+        print("handleLongPressAtLocation called at: \(location)")
+
+        for (id, map) in maps {
+            if touchEnabled[id] == false {
+                print("handleLongPressAtLocation: touchEnabled[\(id)] is false")
+                continue
+            }
+
+            let mapRect = map.getMapBounds()
+            print("handleLongPressAtLocation: mapRect=\(mapRect), contains=\(mapRect.contains(location))")
+
+            if mapRect.contains(location) {
+                if let selectionType = map.getSelectionType() {
+                    // Only start selection if it's not already active (prevent double activation)
+                    guard !map.selectionActive else {
+                        print("handleLongPressAtLocation: selection already active, ignoring")
+                        continue // Use continue instead of return to check other maps
+                    }
+
+                    // CRITICAL: Check if long press was already handled for this map AND selection is still active
+                    // This prevents multiple calls from timer firing multiple times, but allows new long press after selection ends
+                    if longPressHandled[id] == true && map.selectionActive {
+                        print("handleLongPressAtLocation: long press already handled for map \(id) and selection is active, ignoring")
+                        continue
+                    }
+
+                    // If selection is not active, reset the flag to allow new long press
+                    if !map.selectionActive {
+                        longPressHandled[id] = false
+                    }
+
+                    // Start selection on long press - call synchronously on main thread
+                    print("Touch event handler long press Start Selection at location: \(location), selectionType: \(selectionType)")
+                    if Thread.isMainThread {
+                        map.startSelection(at: location)
+                        longPressHandled[id] = true // Mark as handled
+                        print("After startSelection: selectionActive=\(map.selectionActive)")
+                        // Note: Scrolling will be disabled during drawing (in .changed case)
+                        // But if user lifts finger without drawing, scrolling will be restored in .ended case
+                    } else {
+                        DispatchQueue.main.sync {
+                            map.startSelection(at: location)
+                            longPressHandled[id] = true // Mark as handled
+                            print("After startSelection: selectionActive=\(map.selectionActive)")
+                        }
+                    }
+                } else {
+                    print("handleLongPressAtLocation: selectionType is nil")
+                }
+            } else {
+                print("handleLongPressAtLocation: location not in mapRect")
+            }
+        }
+    }
+
+    private func handleTouchEvent(gesture: UIGestureRecognizer) -> Bool {
+        guard let webView = self.bridge?.webView else { return false }
+
+        let location = gesture.location(in: webView)
+
+        // --- Touch ended/cancelled: finish selection if active, always restore scrolling ---
+        if gesture.state == .ended || gesture.state == .cancelled || gesture.state == .failed {
+            for (id, map) in maps {
+                if map.selectionActive {
+                    map.handleSelectionEnd(at: location)
+                    map.clearSelection()
+                }
+                longPressHandled[id] = false
+                cachedTouchEvents[id]?.removeAll()
+
+                // Always restore scrolling on touch end
+                if let gMapView = map.mapViewController.GMapView {
+                    gMapView.settings.scrollGestures = true
+                }
+            }
+            if let wkWebView = self.bridge?.webView as? WKWebView {
+                wkWebView.scrollView.isScrollEnabled = true
+            }
+            return false
+        }
+
+        // --- New touch began: if selection was left active from a previous gesture, clear it ---
+        if gesture.state == .began {
+            for (_, map) in maps {
+                if map.selectionActive {
+                    map.clearSelection()
+                    if let gMapView = map.mapViewController.GMapView {
+                        gMapView.settings.scrollGestures = true
+                    }
+                }
+            }
+        }
+
+        // --- Route touches to the appropriate map ---
+        for (id, map) in maps {
+            if touchEnabled[id] == false { continue }
+
+            let mapRect = map.getMapBounds()
+            guard mapRect.contains(location) else { continue }
+
+            // Map has selection type set — check if actively drawing
+            if map.getSelectionType() != nil && map.selectionActive && gesture.state == .changed {
+                // Active selection drawing: block scrolling and draw
+                if let gMapView = map.mapViewController.GMapView {
+                    gMapView.settings.scrollGestures = false
+                }
+                if let wkWebView = self.bridge?.webView as? WKWebView {
+                    wkWebView.scrollView.isScrollEnabled = false
+                }
+                map.handleSelectionMove(at: location)
+                return true
+            }
+
+            // Not actively drawing — notify listeners for focus tracking
+            let devicePixelRatio = UIScreen.main.scale
+            let payload: [String: Any] = [
+                "x": location.x / CGFloat(devicePixelRatio),
+                "y": location.y / CGFloat(devicePixelRatio),
+                "mapId": map.id
+            ]
+            self.notifyListeners("isMapInFocus", data: payload)
+
+            // Allow normal map interaction (scroll, zoom, tap)
+            if gesture.state == .began || gesture.state == .changed {
+                return true
+            }
+        }
+
+        return false
     }
 
 	@objc func getMarkersIds(_ call: CAPPluginCall) {
@@ -197,6 +397,7 @@ public class CapacitorGoogleMapsPlugin: CAPPlugin, GMSMapViewDelegate {
                 throw GoogleMapErrors.mapNotFound
             }
 
+            touchEnabled[id] = true
             map.enableTouch()
 
             call.resolve()
@@ -215,7 +416,43 @@ public class CapacitorGoogleMapsPlugin: CAPPlugin, GMSMapViewDelegate {
                 throw GoogleMapErrors.mapNotFound
             }
 
+            touchEnabled[id] = false
             map.disableTouch()
+
+            call.resolve()
+        } catch {
+            handleError(call, error: error)
+        }
+    }
+
+    @objc func dispatchMapEvent(_ call: CAPPluginCall) {
+        do {
+            guard let id = call.getString("id") else {
+                throw GoogleMapErrors.invalidMapId
+            }
+
+            guard let map = self.maps[id] else {
+                throw GoogleMapErrors.mapNotFound
+            }
+
+            let focus = call.getBool("focus", false) ?? false
+
+            let events = cachedTouchEvents[id]
+            if let events = events, !events.isEmpty {
+                // In iOS, we need to dispatch events differently
+                // Since we can't directly create UITouch, we'll notify through JavaScript
+                if focus {
+					print("Focus event")
+                    // Map is in focus, dispatch to map
+                    map.dispatchTouchEvents(events: events)
+                } else {
+					print("Focus event ELSE")
+                    // Map is not in focus, dispatch to webView
+                    // Note: In iOS, we can't directly dispatch to webView like in Android
+                    // This would need to be handled through JavaScript bridge
+                }
+                cachedTouchEvents[id]?.removeAll()
+            }
 
             call.resolve()
         } catch {
@@ -423,15 +660,28 @@ public class CapacitorGoogleMapsPlugin: CAPPlugin, GMSMapViewDelegate {
 				throw GoogleMapErrors.invalidArguments("mId is missing")
 			}
 
-			guard let iconUrl = call.getString("iconId") else {
-				throw GoogleMapErrors.invalidArguments("iconUrl is missing")
+			guard let iconId = call.getString("iconId") else {
+				throw GoogleMapErrors.invalidArguments("iconId is missing")
+			}
+
+			// iconUrl contains the actual SVG/URL data, used as fallback when imageCache misses
+			let iconUrl = call.getString("iconUrl") ?? iconId
+
+			var iconSize: CGSize?
+			if let sizeObj = call.getObject("iconSize") {
+				if let width = sizeObj["width"] as? Double, let height = sizeObj["height"] as? Double {
+					iconSize = CGSize(width: width, height: height)
+				}
 			}
 
 			guard let map = self.maps[id] else {
 				throw GoogleMapErrors.mapNotFound
 			}
 
-			try map.updateMarkerIcon(mId: mId, iconUrl: iconUrl)
+			// Try to resolve the icon from the plugin's imageCache first
+			let cachedIcon = imageCache.object(forKey: iconId as NSString)
+			// Pass both the cached image (if any) and the iconUrl for SVG/URL fallback
+			map.updateMarkerIcon(mId: mId, iconUrl: iconUrl, iconSize: iconSize, iconImage: cachedIcon)
 		} catch {
 			handleError(call, error: error)
 		}
@@ -1235,6 +1485,26 @@ public class CapacitorGoogleMapsPlugin: CAPPlugin, GMSMapViewDelegate {
         }
     }
 
+    @objc func setSelectionType(_ call: CAPPluginCall) {
+        do {
+            guard let id = call.getString("id") else {
+                throw GoogleMapErrors.invalidMapId
+            }
+
+            guard let map = self.maps[id] else {
+                throw GoogleMapErrors.mapNotFound
+            }
+
+            let selectionType = call.getString("selectionType")
+
+            map.setSelectionType(selectionType)
+
+            call.resolve()
+        } catch {
+            handleError(call, error: error)
+        }
+    }
+
     private func getGMSCoordinateBounds(_ bounds: JSObject) throws -> GMSCoordinateBounds {
         guard let southwest = bounds["southwest"] as? JSObject else {
             throw GoogleMapErrors.unhandledError("Bounds southwest property not formatted properly.")
@@ -1659,5 +1929,157 @@ extension GMSCoordinateBounds {
             latitude: (northEast.latitude + southWest.latitude) / 2,
             longitude: (northEast.longitude + southWest.longitude) / 2
         )
+    }
+}
+
+// Helper function to convert gesture state to string for debugging
+private func gestureStateToString(_ state: UIGestureRecognizer.State) -> String {
+    switch state {
+    case .possible: return "possible"
+    case .began: return "began"
+    case .changed: return "changed"
+    case .ended: return "ended"
+    case .cancelled: return "cancelled"
+    case .failed: return "failed"
+    @unknown default: return "unknown"
+    }
+}
+
+// MARK: - UIGestureRecognizerDelegate
+extension CapacitorGoogleMapsPlugin: UIGestureRecognizerDelegate {
+    public func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
+        // Allow long press to work simultaneously with touch interceptor
+        if gestureRecognizer is UILongPressGestureRecognizer || otherGestureRecognizer is UILongPressGestureRecognizer {
+            return true
+        }
+        return true
+    }
+
+    public func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRequireFailureOf otherGestureRecognizer: UIGestureRecognizer) -> Bool {
+        // Long press should not require failure of touch interceptor
+        return false
+    }
+
+    public func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldBeRequiredToFailBy otherGestureRecognizer: UIGestureRecognizer) -> Bool {
+        // Touch interceptor should not require long press to fail
+        return false
+    }
+}
+
+// MARK: - TouchInterceptorGestureRecognizer
+class TouchInterceptorGestureRecognizer: UIGestureRecognizer {
+    private let touchHandler: (UIGestureRecognizer) -> Bool
+    private let longPressHandler: ((CGPoint) -> Void)?
+    private let scrollBlockHandler: ((Bool) -> Void)?
+    private var longPressTimer: Timer?
+    private var longPressLocation: CGPoint = .zero
+    private let longPressDuration: TimeInterval = 0.4
+    private let longPressDistanceThreshold: CGFloat = 30.0
+
+    // True after long press timer fires and before touch ends
+    var longPressActivated: Bool = false
+
+    var isWaitingForLongPress: Bool {
+        return longPressTimer != nil
+    }
+
+    init(touchHandler: @escaping (UIGestureRecognizer) -> Bool, longPressHandler: ((CGPoint) -> Void)? = nil, scrollBlockHandler: ((Bool) -> Void)? = nil) {
+        self.touchHandler = touchHandler
+        self.longPressHandler = longPressHandler
+        self.scrollBlockHandler = scrollBlockHandler
+        super.init(target: nil, action: nil)
+    }
+
+    override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent) {
+        guard let touch = touches.first, let view = view else { return }
+
+        let touchCount = event.allTouches?.count ?? touches.count
+        if touchCount > 1 || touches.count > 1 {
+            return
+        }
+
+        longPressLocation = touch.location(in: view)
+        longPressActivated = false
+
+        // Do NOT block scrolling here — let the map scroll normally.
+        // Scrolling will only be blocked if/when the long press timer fires.
+
+        let timer = Timer(timeInterval: longPressDuration, repeats: false) { [weak self] timer in
+            guard let self = self else { return }
+
+            let location = self.longPressLocation
+            self.longPressActivated = true
+
+            // Long press detected — NOW block scrolling
+            self.scrollBlockHandler?(true)
+
+            self.longPressHandler?(location)
+
+            timer.invalidate()
+            self.longPressTimer = nil
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        longPressTimer = timer
+
+        _ = touchHandler(self)
+        state = .began
+    }
+
+    override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent) {
+        guard let touch = touches.first, let view = view else { return }
+
+        let touchCount = event.allTouches?.count ?? touches.count
+        if touchCount > 1 || touches.count > 1 {
+            longPressTimer?.invalidate()
+            longPressTimer = nil
+            if longPressActivated {
+                longPressActivated = false
+                scrollBlockHandler?(false)
+            }
+            state = .changed
+            _ = touchHandler(self)
+            return
+        }
+
+        let currentLocation = touch.location(in: view)
+        let distance = sqrt(pow(currentLocation.x - longPressLocation.x, 2) + pow(currentLocation.y - longPressLocation.y, 2))
+
+        // If still waiting for long press and moved too far, cancel it
+        if longPressTimer != nil && distance > longPressDistanceThreshold {
+            longPressTimer?.invalidate()
+            longPressTimer = nil
+            // No need to unblock scroll — we never blocked it
+        }
+
+        state = .changed
+        _ = touchHandler(self)
+    }
+
+    override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent) {
+        longPressTimer?.invalidate()
+        longPressTimer = nil
+
+        state = .ended
+        _ = touchHandler(self)
+
+        // Always unblock scrolling on touch end
+        if longPressActivated {
+            longPressActivated = false
+            scrollBlockHandler?(false)
+        }
+    }
+
+    override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent) {
+        longPressTimer?.invalidate()
+        longPressTimer = nil
+
+        state = .cancelled
+        _ = touchHandler(self)
+
+        // Always unblock scrolling on cancel
+        if longPressActivated {
+            longPressActivated = false
+            scrollBlockHandler?(false)
+        }
     }
 }

@@ -307,6 +307,7 @@ export declare class GoogleMap {
     setSelectionType(args: {
         selectionType?: SelectionType;
     }): Promise<void>;
+    disableSelectionMode(): Promise<void>;
     fitBounds(bounds: LatLngBounds, padding?: number): Promise<void>;
     initScrolling(): void;
     disableScrolling(): void;
