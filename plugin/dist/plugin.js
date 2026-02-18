@@ -594,6 +594,12 @@ var capacitorCapacitorGoogleMaps = (function (exports, core, markerclusterer) {
                 selectionType: args.selectionType
             });
         }
+        async disableSelectionMode() {
+            return CapacitorGoogleMaps.setSelectionType({
+                id: this.id,
+                selectionType: null,
+            });
+        }
         async fitBounds(bounds, padding) {
             return CapacitorGoogleMaps.fitBounds({
                 id: this.id,
