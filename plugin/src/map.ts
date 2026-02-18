@@ -730,6 +730,13 @@ export class GoogleMap {
     })
   }
 
+  async disableSelectionMode(): Promise<void> {
+    return CapacitorGoogleMaps.setSelectionType({
+      id: this.id,
+      selectionType: null,
+    });
+  }
+
   async fitBounds(bounds: LatLngBounds, padding?: number): Promise<void> {
     return CapacitorGoogleMaps.fitBounds({
       id: this.id,
@@ -962,7 +969,7 @@ export class GoogleMap {
     }
 
     if (callback) {
-      this.onMapLongClickListener = await CapacitorGoogleMaps.addListener('onMapLongClick', this.generateCallback(callback));
+		this.onMapLongClickListener = await CapacitorGoogleMaps.addListener('onMapLongClick', this.generateCallback(callback));
     } else {
       this.onMapLongClickListener = undefined;
     }
@@ -999,7 +1006,7 @@ export class GoogleMap {
     }
 
     if (callback) {
-      this.onZoomChangedListener = await CapacitorGoogleMaps.addListener('onZoomChanged', this.generateCallback(callback));
+		this.onZoomChangedListener = await CapacitorGoogleMaps.addListener('onZoomChanged', this.generateCallback(callback));
     } else {
       this.onZoomChangedListener = undefined;
     }
@@ -1193,7 +1200,7 @@ export class GoogleMap {
     }
   }
 
-   async setOnSelectionEndListener(callback?: MapListenerCallback<SelectionEndCallbackData>): Promise<void> {
+  async setOnSelectionEndListener(callback?: MapListenerCallback<SelectionEndCallbackData>): Promise<void> {
     if (this.onSelectionEndListener) {
       this.onSelectionEndListener.remove();
     }

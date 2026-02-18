@@ -91,11 +91,15 @@ public class Map {
     var markerIcons = [String: UIImage]()
     var mIds = [String: Int]()
     var isDestroyed: Bool = false
-    var hasRendered: Bool = false
     var destroyCompletion: (() -> Void)?
-    var isRendering: Bool = false
-    var renderCompletion: (() -> Void)?
-    var destroyId: String = UUID().uuidString
+
+    // Selection properties
+    private var selectionType: String?
+    var selectionActive: Bool = false
+    private var startPoint: CLLocationCoordinate2D?
+    private var selectionLine: GMSPolyline?
+    private var selectionPoints: [CLLocationCoordinate2D]?
+    private var selectionSquare: GMSPolygon?
 
     // swiftlint:disable identifier_name
     public static let MAP_TAG = 99999
@@ -121,24 +125,12 @@ public class Map {
                 return
             }
 
-            self.isRendering = true
-
-            guard !self.isDestroyed else {
-                self.isRendering = false
-                return
-            }
-
             self.mapViewController.mapViewBounds = [
                 "width": self.config.width,
                 "height": self.config.height,
                 "x": self.config.x,
                 "y": self.config.y
             ]
-
-            guard !self.isDestroyed else {
-                self.isRendering = false
-                return
-            }
 
             self.mapViewController.cameraPosition = [
                 "latitude": self.config.center.lat,
@@ -170,19 +162,12 @@ public class Map {
             }
 
             guard !self.isDestroyed else {
-                self.isRendering = false
                 return
             }
-
-            self.isRendering = false
-            self.hasRendered = true
 
             self.delegate.notifyListeners("onMapReady", data: [
                 "mapId": self.id
             ])
-
-            self.renderCompletion?()
-            self.renderCompletion = nil
         }
     }
 
@@ -247,50 +232,13 @@ public class Map {
 
     func destroy() {
         DispatchQueue.main.async {
-            guard !self.isDestroyed else {
-                self.destroyCompletion?()
-                self.destroyCompletion = nil
-                return
-            }
-
-            if self.isRendering {
-                self.destroyCompletion?()
-                self.destroyCompletion = nil
-                return
-            }
-
-            if self.hasRendered {
-                self.destroyCompletion?()
-                self.destroyCompletion = nil
-                return
-            }
-
             self.isDestroyed = true
-            self.performDestroy()
-        }
-    }
 
-    private func performDestroy() {
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-            guard self.isDestroyed else {
-                return
-            }
-
-            if self.isRendering {
-                self.destroyCompletion?()
-                self.destroyCompletion = nil
-                return
-            }
-
-            if self.hasRendered {
-                self.destroyCompletion?()
-                self.destroyCompletion = nil
-                return
-            }
-
+            self.mapViewController.GMapView?.delegate = nil
+            self.mapViewController.GMapView?.removeFromSuperview()
             self.mapViewController.GMapView = nil
             self.targetViewController?.tag = 0
-            self.mapViewController.view = nil
+            self.mapViewController.view?.removeFromSuperview()
             self.enableTouch()
 
             self.destroyCompletion?()
@@ -299,28 +247,11 @@ public class Map {
     }
 
     func destroyWithCompletion(completion: @escaping () -> Void) {
-        let currentDestroyId = UUID().uuidString
-
-        if self.destroyCompletion != nil {
-            return
-        }
-
         if self.isDestroyed {
             completion()
             return
         }
 
-        if self.isRendering {
-            completion()
-            return
-        }
-
-        if self.hasRendered {
-            completion()
-            return
-        }
-
-        self.destroyId = currentDestroyId
         self.destroyCompletion = completion
         self.destroy()
     }
@@ -499,8 +430,7 @@ public class Map {
             if let userData = marker.userData as? String,
                let iconUrl = newMarker.iconUrl,
                 userData != iconUrl {
-                print("updateMarkerIcon \(markerId)")
-                self.updateMarkerIcon(markerId: markerId, iconUrl: iconUrl)
+                self.updateMarkerIcon(markerId: markerId, iconUrl: iconUrl, iconSize: newMarker.iconSize)
             }
         }
     }
@@ -992,8 +922,8 @@ public class Map {
         return newMarker
     }
 
-    func updateMarkerIcon(mId: String? = nil, markerId: Int? = nil, iconUrl: String) -> Void {
-        runOnMainThread {
+    func updateMarkerIcon(mId: String? = nil, markerId: Int? = nil, iconUrl: String, iconSize: CGSize? = nil, iconImage: UIImage? = nil) -> Void {
+        DispatchQueue.main.async {
             var marker: GMSMarker?
             if let mId = mId,
                let markerHash = self.mIds[mId] {
@@ -1006,52 +936,113 @@ public class Map {
             }
 
             guard let marker = marker else {
-                print("updateMarkerIcon(): Marker not found, mId: \(mId), markerId: \(markerId)")
+                print("updateMarkerIcon(): Marker not found, mId: \(mId ?? "nil"), markerId: \(String(describing: markerId))")
                 return
             }
 
             marker.userData = iconUrl
 
-            let iconSize = CGSize(width: 30, height: 38)
-            if let iconImage = self.markerIcons[iconUrl] {
-                marker.icon = getResizedIcon(iconImage, iconSize)
-            } else {
-                if iconUrl.starts(with: "data:image/svg+xml;base64,") {
-                    let base64String = iconUrl.replacingOccurrences(of: "data:image/svg+xml;base64,", with: "")
+            // Use provided iconSize, fall back to current icon size to preserve dimensions
+            let effectiveIconSize = iconSize ?? marker.icon?.size
 
-                    DispatchQueue.main.async {
-                        if let svgData = Data(base64Encoded: base64String),
-                           let svgString = String(data: svgData, encoding: .utf8),
-                           let svgImage = svgToImage(svgString: svgString, size: iconSize) {
-                            self.markerIcons[iconUrl] = svgImage
-                            marker.icon = svgImage
-                        } else {
-                            print("Failed to decode SVG Base64 or render image")
-                        }
-                    }
-                } else if iconUrl.starts(with: "https:") {
-                    if let url = URL(string: iconUrl) {
-                        URLSession.shared.dataTask(with: url) { (data, _, _) in
-                            DispatchQueue.main.async {
-                                if let data = data, let iconImage = UIImage(data: data) {
-                                    self.markerIcons[iconUrl] = iconImage
-                                    marker.icon = getResizedIcon(iconImage, iconSize)
-                                }
-                            }
-                        }.resume()
-                    }
-                } else if let iconImage = UIImage(named: "public/\(iconUrl)") {
-                    self.markerIcons[iconUrl] = iconImage
-                    marker.icon = getResizedIcon(iconImage, iconSize)
+            // 1. Direct image provided (from plugin's imageCache)
+            if let iconImage = iconImage {
+                self.applyIconAndRefresh(marker: marker, icon: getResizedIcon(iconImage, effectiveIconSize))
+            }
+            // 2. Found in map's markerIcons cache (by URL)
+            else if let cachedImage = self.markerIcons[iconUrl] {
+                self.applyIconAndRefresh(marker: marker, icon: getResizedIcon(cachedImage, effectiveIconSize))
+            }
+            // 3. SVG base64
+            else if iconUrl.starts(with: "data:image/svg+xml;base64,") {
+                let base64String = iconUrl.replacingOccurrences(of: "data:image/svg+xml;base64,", with: "")
+
+                if let svgData = Data(base64Encoded: base64String),
+                   let svgString = String(data: svgData, encoding: .utf8),
+                   let svgImage = svgToImage(svgString: svgString, size: effectiveIconSize) {
+                    self.markerIcons[iconUrl] = svgImage
+                    self.applyIconAndRefresh(marker: marker, icon: svgImage)
                 } else {
-                    var detailedMessage = ""
-
-                    if iconUrl.hasSuffix(".svg") {
-                        detailedMessage = "SVG not supported."
-                    }
-
-                    print("CapacitorGoogleMaps Warning: could not load image '\(iconUrl)'. \(detailedMessage)  Using default marker icon.")
+                    print("Failed to decode SVG Base64 or render image")
                 }
+            }
+            // 4. Remote URL
+            else if iconUrl.starts(with: "https:") {
+                if let url = URL(string: iconUrl) {
+                    URLSession.shared.dataTask(with: url) { (data, _, _) in
+                        DispatchQueue.main.async {
+                            if let data = data, let iconImage = UIImage(data: data) {
+                                self.markerIcons[iconUrl] = iconImage
+                                self.applyIconAndRefresh(marker: marker, icon: getResizedIcon(iconImage, effectiveIconSize))
+                            }
+                        }
+                    }.resume()
+                }
+            }
+            // 5. Local file
+            else if let fileImage = UIImage(named: "public/\(iconUrl)") {
+                self.markerIcons[iconUrl] = fileImage
+                self.applyIconAndRefresh(marker: marker, icon: getResizedIcon(fileImage, effectiveIconSize))
+            } else {
+                print("updateMarkerIcon(): Icon not found for '\(iconUrl)'. No cached image provided.")
+            }
+        }
+    }
+
+    private func applyIconAndRefresh(marker: GMSMarker, icon: UIImage?) {
+        let oldHash = marker.hash.hashValue
+        print("[updateMarkerIcon] applyIconAndRefresh: oldHash=\(oldHash), position=\(marker.position), clusteringEnabled=\(self.mapViewController.clusteringEnabled)")
+
+        // Create a new marker with the same properties but new icon
+        let newMarker = GMSMarker()
+        newMarker.position = marker.position
+        newMarker.title = marker.title
+        newMarker.snippet = marker.snippet
+        newMarker.isFlat = marker.isFlat
+        newMarker.opacity = marker.opacity
+        newMarker.isDraggable = marker.isDraggable
+        newMarker.zIndex = marker.zIndex
+        newMarker.groundAnchor = marker.groundAnchor
+        newMarker.userData = marker.userData
+        newMarker.icon = icon
+
+        // Remove old marker from map/cluster
+        if self.mapViewController.clusteringEnabled {
+            self.mapViewController.removeMarkersFromCluster(markers: [marker])
+            print("[updateMarkerIcon] removed old marker from cluster")
+        }
+        marker.map = nil
+
+        // Add new marker to map/cluster
+        if self.mapViewController.clusteringEnabled {
+            self.mapViewController.addMarkersToCluster(markers: [newMarker])
+            print("[updateMarkerIcon] added new marker to cluster")
+        } else {
+            newMarker.map = self.mapViewController.GMapView
+            print("[updateMarkerIcon] added new marker directly to map")
+        }
+
+        // Update markers dictionary
+        self.markers.removeValue(forKey: oldHash)
+        let newHash = newMarker.hash.hashValue
+        self.markers[newHash] = newMarker
+
+        // Update mIds mapping to point to the new marker hash
+        if let mId = self.mIds.first(where: { $0.value == oldHash })?.key {
+            self.mIds[mId] = newHash
+            print("[updateMarkerIcon] updated mId '\(mId)': \(oldHash) -> \(newHash)")
+        }
+
+        print("[updateMarkerIcon] applyIconAndRefresh done: newHash=\(newHash), icon size=\(icon?.size ?? .zero)")
+
+        // Force the idle map to render by triggering a real (but imperceptible) zoom animation.
+        // The SDK only renders when its animation loop is active.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+            guard let mapView = self.mapViewController.GMapView else { return }
+            let originalZoom = mapView.camera.zoom
+            mapView.animate(toZoom: originalZoom + 0.01)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                mapView.animate(toZoom: originalZoom)
             }
         }
     }
@@ -1071,6 +1062,327 @@ public class Map {
 
         self.markers.removeAll()
         self.mIds.removeAll()
+    }
+
+    // MARK: - Map Bounds
+    func getMapBounds() -> CGRect {
+        guard let targetView = targetViewController else {
+            return CGRect.zero
+        }
+        return targetView.frame
+    }
+
+    // MARK: - Selection Methods
+    func getSelectionType() -> String? {
+        return selectionType
+    }
+
+    func setSelectionType(_ type: String?) {
+        selectionType = type
+    }
+
+    func startSelection(at location: CGPoint) {
+        guard let mapView = mapViewController.GMapView,
+              let targetView = targetViewController else {
+            print("startSelection: mapView or targetView is nil")
+            return
+        }
+
+        // Convert location from webView coordinates to mapView coordinates
+        guard let webView = delegate.bridge?.webView else {
+            print("startSelection: webView is nil")
+            return
+        }
+
+        // First convert from webView to targetView
+        let locationInTargetView = webView.convert(location, to: targetView)
+        // Then get the point in mapView's coordinate system
+        let locationInMapView = mapView.convert(locationInTargetView, from: targetView)
+        // Convert to coordinate using mapView's projection
+        let coordinate = mapView.projection.coordinate(for: locationInMapView)
+
+        print("startSelection: location=\(location), locationInTargetView=\(locationInTargetView), locationInMapView=\(locationInMapView), coordinate=\(coordinate)")
+
+        startPoint = coordinate
+        selectionActive = true
+
+        if selectionType == "shape" {
+            if selectionPoints == nil {
+                selectionPoints = []
+            }
+            if let startPoint = startPoint {
+                selectionPoints?.append(startPoint)
+            }
+        }
+
+        print("startSelection: selectionActive=\(selectionActive), selectionType=\(selectionType ?? "nil")")
+    }
+
+    func handleSelectionMove(at location: CGPoint) -> Bool {
+        // CRITICAL: Check if selection is still active before doing anything
+        guard selectionActive else {
+            print("handleSelectionMove: selectionActive is false, ignoring move - selection was deactivated")
+            return false
+        }
+
+        // Double-check that we have required data
+        guard let mapView = mapViewController.GMapView,
+              let startPoint = startPoint,
+              let targetView = targetViewController else {
+            print("handleSelectionMove: mapView, startPoint or targetView is nil - clearing selection")
+            // Clear selection if required data is missing
+            clearSelection()
+            return false
+        }
+
+        // Triple-check selectionActive after getting required data (might have changed)
+        guard selectionActive else {
+            print("handleSelectionMove: selectionActive became false while processing, aborting")
+            return false
+        }
+
+        // Convert location from webView coordinates to mapView coordinates
+        // location is in webView coordinates, need to convert to targetView (map container) coordinates
+        guard let webView = delegate.bridge?.webView else {
+            print("handleSelectionMove: webView is nil")
+            return false
+        }
+
+        // First convert from webView to targetView
+        let locationInTargetView = webView.convert(location, to: targetView)
+        // Then get the point in mapView's coordinate system
+        let locationInMapView = mapView.convert(locationInTargetView, from: targetView)
+        let endCoordinate = mapView.projection.coordinate(for: locationInMapView)
+
+        print("handleSelectionMove: location=\(location), locationInTargetView=\(locationInTargetView), locationInMapView=\(locationInMapView), endCoordinate=\(endCoordinate)")
+
+        if selectionType == "square" {
+            let p1 = startPoint
+            let p2 = CLLocationCoordinate2D(latitude: startPoint.latitude, longitude: endCoordinate.longitude)
+            let p3 = endCoordinate
+            let p4 = CLLocationCoordinate2D(latitude: endCoordinate.latitude, longitude: startPoint.longitude)
+
+            let path = GMSMutablePath()
+            path.add(p1)
+            path.add(p2)
+            path.add(p3)
+            path.add(p4)
+
+            if selectionSquare == nil {
+                selectionSquare = GMSPolygon(path: path)
+                selectionSquare?.fillColor = UIColor.blue.withAlphaComponent(0.22)
+                selectionSquare?.strokeColor = UIColor.blue
+                selectionSquare?.strokeWidth = 2.0
+                selectionSquare?.map = mapView
+            } else {
+                selectionSquare?.path = path
+            }
+        } else {
+            // Shape selection
+            if selectionLine == nil {
+                selectionPoints?.append(endCoordinate)
+
+                let path = GMSMutablePath()
+                path.add(startPoint)
+                path.add(endCoordinate)
+
+                selectionLine = GMSPolyline(path: path)
+                selectionLine?.strokeColor = UIColor.blue
+                selectionLine?.strokeWidth = 5.0
+                selectionLine?.map = mapView
+            } else {
+                if let points = selectionPoints {
+                    var updatedPoints = points
+                    updatedPoints.append(endCoordinate)
+                    selectionPoints = updatedPoints
+
+                    // Close the polygon by adding the first point at the end (like Android)
+                    let path = GMSMutablePath()
+                    updatedPoints.forEach { path.add($0) }
+                    // Add first point at the end to close the polygon
+                    if let firstPoint = points.first {
+                        path.add(firstPoint)
+                    }
+                    selectionLine?.path = path
+                }
+            }
+        }
+
+        return true // Return true to consume the touch event and prevent scrolling
+    }
+
+    func handleSelectionEnd(at location: CGPoint) -> Bool {
+        guard let mapView = mapViewController.GMapView,
+              let targetView = targetViewController else {
+            print("handleSelectionEnd: mapView or targetView is nil")
+            return false
+        }
+
+        // Convert location from webView coordinates to mapView coordinates
+        guard let webView = delegate.bridge?.webView else {
+            print("handleSelectionEnd: webView is nil")
+            return false
+        }
+
+        // First convert from webView to targetView
+        let locationInTargetView = webView.convert(location, to: targetView)
+        // Then get the point in mapView's coordinate system
+        let locationInMapView = mapView.convert(locationInTargetView, from: targetView)
+
+        // Immediately clear selection shapes to stop drawing
+        selectionSquare?.map = nil
+        selectionSquare = nil
+        selectionLine?.map = nil
+        selectionLine = nil
+
+        if selectionType == "square" {
+            let endCoordinate = mapView.projection.coordinate(for: locationInMapView)
+
+            if let startPoint = startPoint {
+                let inside = getMarkersInsideSquare(
+                    startLng: startPoint.longitude,
+                    startLat: startPoint.latitude,
+                    endLng: endCoordinate.longitude,
+                    endLat: endCoordinate.latitude
+                )
+
+                let mIdsArray = inside
+                var payload = JSObject()
+                payload["mapId"] = self.id
+                payload["mIds"] = mIdsArray
+
+                print("handleSelectionEnd (square): Sending onSelectionEnd event with payload: mapId=\(self.id), mIds count=\(mIdsArray.count)")
+                print("handleSelectionEnd (square): Payload details - mapId=\(self.id), mIds=\(mIdsArray)")
+
+                // Ensure we're on main thread for notifyListeners
+                DispatchQueue.main.async { [weak self] in
+                    guard let self = self else { return }
+                    print("handleSelectionEnd (square): Calling notifyListeners on main thread")
+                    self.delegate.notifyListeners("onSelectionEnd", data: payload)
+                    print("handleSelectionEnd (square): notifyListeners called, payload: mapId=\(payload["mapId"] ?? "nil"), mIds count=\((payload["mIds"] as? [String])?.count ?? 0)")
+                }
+            }
+        } else {
+            // Shape selection
+            if let points = selectionPoints, !points.isEmpty {
+                // Close the polygon by adding the first point at the end (like Android)
+                var closed = points
+                if let firstPoint = points.first {
+                    closed.append(firstPoint)
+                }
+
+                let path = GMSMutablePath()
+                closed.forEach { path.add($0) }
+
+                let polygon = GMSPolygon(path: path)
+                polygon.strokeWidth = 5.0
+                polygon.strokeColor = UIColor.blue
+                polygon.fillColor = UIColor(red: 30/255, green: 144/255, blue: 255/255, alpha: 0.2)
+                polygon.map = mapView
+
+                // Use original points (without closing) for containsLocation check
+                let originalPath = GMSMutablePath()
+                points.forEach { originalPath.add($0) }
+                // Close the path for containsLocation check
+                if let firstPoint = points.first {
+                    originalPath.add(firstPoint)
+                }
+
+                let inside = markers.filter { marker in
+                    let markerPosition = marker.value.position
+                    return GMSGeometryContainsLocation(markerPosition, originalPath, true)
+                }.compactMap { markerEntry in
+                    // markerEntry is (key: Int, value: GMSMarker)
+                    // Find mId by markerId (the key)
+                    let markerId = markerEntry.key
+                    return mIds.first(where: { $0.value == markerId })?.key
+                }
+
+                // Clear temporary polygon after delay
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    polygon.map = nil
+                }
+
+                // Send original points (without closing point) in payload
+                let pointsArray = points.map { point -> JSObject in
+                    var pointObj = JSObject()
+                    pointObj["lat"] = point.latitude
+                    pointObj["lng"] = point.longitude
+                    return pointObj
+                }
+
+                var payload = JSObject()
+                payload["mapId"] = self.id
+                payload["mIds"] = inside
+                payload["selectionPoints"] = pointsArray
+
+                print("handleSelectionEnd (shape): Sending onSelectionEnd event with payload: mapId=\(self.id), mIds count=\(inside.count), points count=\(pointsArray.count)")
+                print("handleSelectionEnd (shape): Payload details - mapId=\(self.id), mIds=\(inside), points=\(pointsArray)")
+
+                selectionPoints = nil
+
+                // Ensure we're on main thread for notifyListeners
+                DispatchQueue.main.async { [weak self] in
+                    guard let self = self else { return }
+                    print("handleSelectionEnd (shape): Calling notifyListeners on main thread")
+                    self.delegate.notifyListeners("onSelectionEnd", data: payload)
+                    print("handleSelectionEnd (shape): notifyListeners called, payload: mapId=\(payload["mapId"] ?? "nil"), mIds count=\((payload["mIds"] as? [String])?.count ?? 0), points count=\((payload["selectionPoints"] as? [JSObject])?.count ?? 0)")
+                }
+            }
+        }
+
+        // Clear start point
+        startPoint = nil
+
+        selectionActive = false
+        return false
+    }
+
+    func clearSelection() {
+        print("clearSelection: Clearing all selection state")
+        selectionActive = false
+        startPoint = nil
+        selectionPoints = nil
+
+        // Immediately remove selection shapes from map
+        selectionSquare?.map = nil
+        selectionSquare = nil
+        selectionLine?.map = nil
+        selectionLine = nil
+
+        // Restore scrolling when clearing selection
+        if let gMapView = mapViewController.GMapView {
+            gMapView.settings.scrollGestures = true
+        }
+    }
+
+    private func getMarkersInsideSquare(
+        startLng: Double,
+        startLat: Double,
+        endLng: Double,
+        endLat: Double
+    ) -> [String] {
+        let left = min(startLng, endLng)
+        let right = max(startLng, endLng)
+        let top = max(startLat, endLat)
+        let bottom = min(startLat, endLat)
+
+        return markers.filter { marker in
+            let pos = marker.value.position
+            return pos.latitude >= bottom && pos.latitude <= top &&
+                   pos.longitude >= left && pos.longitude <= right
+        }.compactMap { markerEntry in
+            // markerEntry is (key: Int, value: GMSMarker)
+            // Find mId by markerId (the key)
+            let markerId = markerEntry.key
+            return mIds.first(where: { $0.value == markerId })?.key
+        }
+    }
+
+    func dispatchTouchEvents(events: [UITouch]) {
+        // In iOS, we can't directly dispatch UITouch events like in Android
+        // This would need to be handled through JavaScript bridge or native gesture recognizers
+        // For now, this is a placeholder
     }
 }
 

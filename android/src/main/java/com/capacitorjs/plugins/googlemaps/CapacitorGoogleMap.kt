@@ -255,14 +255,13 @@ class CapacitorGoogleMap(
 								withContext(Dispatchers.Main) {
 									val existingMarker = markers[existingId]
 
-									if (existingMarker != null) {
-										updateMarkerIcon(
-											marker.mId,
-											marker.iconId.toString(),
-											marker.iconUrl.toString()
-										)
-									}
 									existingMarker?.googleMapMarker?.position = marker.position
+                                    
+									existingMarker?.googleMapMarker?.isDraggable = marker.draggable
+                                    
+									if (existingMarker?.iconId !== marker.iconId) {
+										updateMarkerIcon(marker.mId, marker.mId, marker.iconUrl!!)
+									}
 								}
 								return@mapNotNull null
 							} else {
@@ -1199,10 +1198,7 @@ fun updateMarkerIcon(mId: String, iconId: String, iconUrl: String) {
 
         // Check if there's an icon URL (assumed to be a Data URL in this case)
         if (!marker.iconId.isNullOrEmpty()) {
-            if (this.delegate.markerIcons.contains(marker.iconId)) {
-                val cachedBitmap = this.delegate.markerIcons[marker.iconId]
-                markerOptions.icon(getResizedIcon(cachedBitmap!!, marker))
-            } else {
+            
                 try {
                     val base64Data = marker.iconUrl!!.substringAfter("base64,", "")
 
@@ -1243,7 +1239,7 @@ fun updateMarkerIcon(mId: String, iconId: String, iconUrl: String) {
                         "Could not decode Base64 image: ${detailedMessage}. Using default marker icon."
                     )
                 }
-            }
+
         } else {
             // Fallback to color marker if no icon URL is provided
             if (marker.colorHue != null) {
@@ -1382,15 +1378,28 @@ fun updateMarkerIcon(mId: String, iconId: String, iconUrl: String) {
 					selectionLine = null
 				}, 100)
 
-				selectionPoints = null
+
 
 				val mIds = JSONArray()
 				inside.forEach { mIds.put(it) }
 
 				val res = JSObject()
 
+                val points = JSONArray()
+                selectionPoints?.forEach {
+                    val latlng = JSObject()
+
+                    latlng.put("lat", it.latitude)
+                    latlng.put("lng", it.longitude)
+
+                    points.put(latlng)
+                }
+
+                selectionPoints = null
+
 				res.put("mapId", this@CapacitorGoogleMap.id)
 				res.put("mIds", mIds)
+                res.put("selectionPoints", points);
 
 				delegate.notify("onSelectionEnd", res)
 			}

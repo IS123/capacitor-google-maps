@@ -258,7 +258,7 @@ export interface CapacitorGoogleMapsPlugin extends Plugin {
   updateMarkersBymId(args: UpdateMarkersBymIdArgs): Promise<{ ids: string[] }>;
   updateMarkerIcon(args: UpdateMarkerIconArgs): Promise<void>;
   getMarkersIds(args: { id: string }): Promise<Record<string, string>>;
-  setSelectionType(args: { id: string, selectionType?: SelectionType }): Promise<void>;
+  setSelectionType(args: { id: string, selectionType?: SelectionType | null }): Promise<void>;
 }
 
 const CapacitorGoogleMaps = registerPlugin<CapacitorGoogleMapsPlugin>('CapacitorGoogleMaps', {

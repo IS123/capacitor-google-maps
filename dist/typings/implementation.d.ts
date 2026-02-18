@@ -269,7 +269,7 @@ export interface CapacitorGoogleMapsPlugin extends Plugin {
     }): Promise<Record<string, string>>;
     setSelectionType(args: {
         id: string;
-        selectionType: SelectionType;
+        selectionType?: SelectionType;
     }): Promise<void>;
 }
 declare const CapacitorGoogleMaps: CapacitorGoogleMapsPlugin;
