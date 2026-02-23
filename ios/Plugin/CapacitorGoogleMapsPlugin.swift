@@ -1505,6 +1505,50 @@ public class CapacitorGoogleMapsPlugin: CAPPlugin, GMSMapViewDelegate {
         }
     }
 
+    @objc func setMarkersDraggable(_ call: CAPPluginCall) {
+        do {
+            guard let id = call.getString("id") else {
+                throw GoogleMapErrors.invalidMapId
+            }
+
+            guard let map = self.maps[id] else {
+                throw GoogleMapErrors.mapNotFound
+            }
+
+            guard let mIds = call.getArray("mIds") as? [String] else {
+                throw GoogleMapErrors.invalidArguments("mIds is missing")
+            }
+
+            let draggable = call.getBool("draggable") ?? false
+
+            map.setMarkersDraggable(mIds: mIds, draggable: draggable)
+
+            call.resolve()
+        } catch {
+            handleError(call, error: error)
+        }
+    }
+
+    @objc func setAllMarkersDraggable(_ call: CAPPluginCall) {
+        do {
+            guard let id = call.getString("id") else {
+                throw GoogleMapErrors.invalidMapId
+            }
+
+            guard let map = self.maps[id] else {
+                throw GoogleMapErrors.mapNotFound
+            }
+
+            let draggable = call.getBool("draggable") ?? false
+
+            map.setAllMarkersDraggable(draggable: draggable)
+
+            call.resolve()
+        } catch {
+            handleError(call, error: error)
+        }
+    }
+
     private func getGMSCoordinateBounds(_ bounds: JSObject) throws -> GMSCoordinateBounds {
         guard let southwest = bounds["southwest"] as? JSObject else {
             throw GoogleMapErrors.unhandledError("Bounds southwest property not formatted properly.")

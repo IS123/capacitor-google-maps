@@ -97,6 +97,9 @@ export interface GoogleMapInterface {
   setOnMapLoadedListener(callback?: MapListenerCallback<{id: string}>): Promise<void>;
   setOnZoomChangedListener(callback?: MapListenerCallback<{zoomLevel: number | undefined}>): Promise<void>;
   setOnSelectionEndListener(callback?: MapListenerCallback<{mIds: string[]}>): Promise<void>;
+  enableMarkersDrag(mIds: string[]): Promise<void>;
+  disableMarkersDrag(mIds: string[]): Promise<void>;
+  disableAllMarkersDrag(): Promise<void>;
   takeSnapshot(format?: string, quality?: number): Promise<{snapshot: string | HTMLElement}>;
   addGroundOverlay(groundOverlayOptions: GroundOverlayArgs): Promise<void>;
   getZoomLevel(): Promise<number | undefined>;
@@ -734,6 +737,42 @@ export class GoogleMap {
     return CapacitorGoogleMaps.setSelectionType({
       id: this.id,
       selectionType: null,
+    });
+  }
+
+  /**
+   * Enable dragging for specific markers by their mIds
+   *
+   * @param mIds - array of marker mIds to make draggable
+   */
+  async enableMarkersDrag(mIds: string[]): Promise<void> {
+    return CapacitorGoogleMaps.setMarkersDraggable({
+      id: this.id,
+      mIds,
+      draggable: true,
+    });
+  }
+
+  /**
+   * Disable dragging for specific markers by their mIds
+   *
+   * @param mIds - array of marker mIds to make non-draggable
+   */
+  async disableMarkersDrag(mIds: string[]): Promise<void> {
+    return CapacitorGoogleMaps.setMarkersDraggable({
+      id: this.id,
+      mIds,
+      draggable: false,
+    });
+  }
+
+  /**
+   * Disable dragging for all markers on the map
+   */
+  async disableAllMarkersDrag(): Promise<void> {
+    return CapacitorGoogleMaps.setAllMarkersDraggable({
+      id: this.id,
+      draggable: false,
     });
   }
 

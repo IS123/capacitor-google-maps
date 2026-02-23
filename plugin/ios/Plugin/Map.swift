@@ -90,6 +90,7 @@ public class Map {
     var polylines = [Int: GMSPolyline]()
     var markerIcons = [String: UIImage]()
     var mIds = [String: Int]()
+    private var addMarkersGeneration: Int = 0
     var isDestroyed: Bool = false
     var destroyCompletion: (() -> Void)?
 
@@ -321,6 +322,9 @@ public class Map {
     }
 
     func addMarkers(markers: [Marker], completion: @escaping ([Int]) -> Void) {
+        addMarkersGeneration += 1
+        let currentGeneration = addMarkersGeneration
+
         var index = 0
         let total = markers.count
         let batchSize = 10
@@ -334,13 +338,15 @@ public class Map {
             var _markers: [GMSMarker] = []
 
             if index >= total {
-                let difference = Set(self.mIds.keys).subtracting(currentMids)
-                let mIdsToRemove = Array(difference)
+                if currentGeneration == self.addMarkersGeneration {
+                    let difference = Set(self.mIds.keys).subtracting(currentMids)
+                    let mIdsToRemove = Array(difference)
 
-                do {
-                    try self.removeMarkersBymId(mIds: mIdsToRemove)
-                } catch {
-                    print("addMarkersInBatches() cleanup error: \(error)")
+                    do {
+                        try self.removeMarkersBymId(mIds: mIdsToRemove)
+                    } catch {
+                        print("addMarkersInBatches() cleanup error: \(error)")
+                    }
                 }
 
                 completion(markerHashes)
@@ -1069,12 +1075,28 @@ public class Map {
         guard let targetView = targetViewController else {
             return CGRect.zero
         }
-        return targetView.frame
+        guard let webView = delegate.bridge?.webView else {
+            return targetView.frame
+        }
+        return targetView.convert(targetView.bounds, to: webView)
     }
 
     // MARK: - Selection Methods
     func getSelectionType() -> String? {
         return selectionType
+    }
+
+    func setMarkersDraggable(mIds mIdsList: [String], draggable: Bool) {
+        for mId in mIdsList {
+            guard let hash = mIds[mId], let gmsMarker = markers[hash] else { continue }
+            gmsMarker.isDraggable = draggable
+        }
+    }
+
+    func setAllMarkersDraggable(draggable: Bool) {
+        for gmsMarker in markers.values {
+            gmsMarker.isDraggable = draggable
+        }
     }
 
     func setSelectionType(_ type: String?) {
@@ -1188,7 +1210,7 @@ public class Map {
 
                 selectionLine = GMSPolyline(path: path)
                 selectionLine?.strokeColor = UIColor.blue
-                selectionLine?.strokeWidth = 5.0
+                selectionLine?.strokeWidth = 2.0
                 selectionLine?.map = mapView
             } else {
                 if let points = selectionPoints {
@@ -1196,13 +1218,8 @@ public class Map {
                     updatedPoints.append(endCoordinate)
                     selectionPoints = updatedPoints
 
-                    // Close the polygon by adding the first point at the end (like Android)
                     let path = GMSMutablePath()
                     updatedPoints.forEach { path.add($0) }
-                    // Add first point at the end to close the polygon
-                    if let firstPoint = points.first {
-                        path.add(firstPoint)
-                    }
                     selectionLine?.path = path
                 }
             }
@@ -1275,7 +1292,7 @@ public class Map {
                 closed.forEach { path.add($0) }
 
                 let polygon = GMSPolygon(path: path)
-                polygon.strokeWidth = 5.0
+                polygon.strokeWidth = 2.0
                 polygon.strokeColor = UIColor.blue
                 polygon.fillColor = UIColor(red: 30/255, green: 144/255, blue: 255/255, alpha: 0.2)
                 polygon.map = mapView
@@ -1292,14 +1309,11 @@ public class Map {
                     let markerPosition = marker.value.position
                     return GMSGeometryContainsLocation(markerPosition, originalPath, true)
                 }.compactMap { markerEntry in
-                    // markerEntry is (key: Int, value: GMSMarker)
-                    // Find mId by markerId (the key)
                     let markerId = markerEntry.key
                     return mIds.first(where: { $0.value == markerId })?.key
                 }
 
-                // Clear temporary polygon after delay
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.33) {
                     polygon.map = nil
                 }
 

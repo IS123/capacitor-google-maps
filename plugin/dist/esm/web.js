@@ -496,6 +496,25 @@ export class CapacitorGoogleMapsWeb extends WebPlugin {
     setSelectionType() {
         throw new Error('Method not implemented.');
     }
+    async setMarkersDraggable(args) {
+        const map = this.maps[args.id];
+        if (!map)
+            return;
+        for (const mId of args.mIds) {
+            const marker = map.markers[mId];
+            if (marker) {
+                marker.gmpDraggable = args.draggable;
+            }
+        }
+    }
+    async setAllMarkersDraggable(args) {
+        const map = this.maps[args.id];
+        if (!map)
+            return;
+        for (const marker of Object.values(map.markers)) {
+            marker.gmpDraggable = args.draggable;
+        }
+    }
     getLatLngBounds(_args) {
         return new google.maps.LatLngBounds(new google.maps.LatLng(_args.southwest.lat, _args.southwest.lng), new google.maps.LatLng(_args.northeast.lat, _args.northeast.lng));
     }

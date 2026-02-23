@@ -539,6 +539,39 @@ export class GoogleMap {
             selectionType: null,
         });
     }
+    /**
+     * Enable dragging for specific markers by their mIds
+     *
+     * @param mIds - array of marker mIds to make draggable
+     */
+    async enableMarkersDrag(mIds) {
+        return CapacitorGoogleMaps.setMarkersDraggable({
+            id: this.id,
+            mIds,
+            draggable: true,
+        });
+    }
+    /**
+     * Disable dragging for specific markers by their mIds
+     *
+     * @param mIds - array of marker mIds to make non-draggable
+     */
+    async disableMarkersDrag(mIds) {
+        return CapacitorGoogleMaps.setMarkersDraggable({
+            id: this.id,
+            mIds,
+            draggable: false,
+        });
+    }
+    /**
+     * Disable dragging for all markers on the map
+     */
+    async disableAllMarkersDrag() {
+        return CapacitorGoogleMaps.setAllMarkersDraggable({
+            id: this.id,
+            draggable: false,
+        });
+    }
     async fitBounds(bounds, padding) {
         return CapacitorGoogleMaps.fitBounds({
             id: this.id,

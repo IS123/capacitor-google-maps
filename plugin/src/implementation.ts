@@ -214,6 +214,12 @@ export interface GroundOverlayArgs {
   imagePath: string;
 }
 
+export interface SetMarkersDraggableArgs {
+  id: string;
+  mIds: string[];
+  draggable: boolean;
+}
+
 export interface CapacitorGoogleMapsPlugin extends Plugin {
   create(options: CreateMapArgs): Promise<void>;
   enableTouch(args: { id: string }): Promise<void>;
@@ -259,6 +265,8 @@ export interface CapacitorGoogleMapsPlugin extends Plugin {
   updateMarkerIcon(args: UpdateMarkerIconArgs): Promise<void>;
   getMarkersIds(args: { id: string }): Promise<Record<string, string>>;
   setSelectionType(args: { id: string, selectionType?: SelectionType | null }): Promise<void>;
+  setMarkersDraggable(args: SetMarkersDraggableArgs): Promise<void>;
+  setAllMarkersDraggable(args: { id: string, draggable: boolean }): Promise<void>;
 }
 
 const CapacitorGoogleMaps = registerPlugin<CapacitorGoogleMapsPlugin>('CapacitorGoogleMaps', {

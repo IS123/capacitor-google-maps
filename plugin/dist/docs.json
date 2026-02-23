@@ -940,6 +940,48 @@
         "slug": "setonselectionendlistener"
       },
       {
+        "name": "enableMarkersDrag",
+        "signature": "(mIds: string[]) => Promise<void>",
+        "parameters": [
+          {
+            "name": "mIds",
+            "docs": "",
+            "type": "string[]"
+          }
+        ],
+        "returns": "Promise<void>",
+        "tags": [],
+        "docs": "",
+        "complexTypes": [],
+        "slug": "enablemarkersdrag"
+      },
+      {
+        "name": "disableMarkersDrag",
+        "signature": "(mIds: string[]) => Promise<void>",
+        "parameters": [
+          {
+            "name": "mIds",
+            "docs": "",
+            "type": "string[]"
+          }
+        ],
+        "returns": "Promise<void>",
+        "tags": [],
+        "docs": "",
+        "complexTypes": [],
+        "slug": "disablemarkersdrag"
+      },
+      {
+        "name": "disableAllMarkersDrag",
+        "signature": "() => Promise<void>",
+        "parameters": [],
+        "returns": "Promise<void>",
+        "tags": [],
+        "docs": "",
+        "complexTypes": [],
+        "slug": "disableallmarkersdrag"
+      },
+      {
         "name": "takeSnapshot",
         "signature": "(format?: string | undefined, quality?: number | undefined) => Promise<{ snapshot: string | HTMLElement; }>",
         "parameters": [

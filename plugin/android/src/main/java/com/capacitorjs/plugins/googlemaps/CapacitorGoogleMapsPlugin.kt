@@ -1402,6 +1402,58 @@ class CapacitorGoogleMapsPlugin : Plugin(), OnMapsSdkInitializedCallback {
 	}
 
 
+    @PluginMethod
+    fun setMarkersDraggable(call: PluginCall) {
+        try {
+            val id = call.getString("id")
+            id ?: throw InvalidMapIdError()
+
+            val map = maps[id]
+            map ?: throw MapNotFoundError()
+
+            val mIdsArray = call.getArray("mIds")
+            mIdsArray ?: throw InvalidArgumentsError("mIds is missing")
+
+            val draggable = call.getBoolean("draggable", false) ?: false
+
+            val mIdsList = mutableListOf<String>()
+            for (i in 0 until mIdsArray.length()) {
+                mIdsList.add(mIdsArray.getString(i))
+            }
+
+            CoroutineScope(Dispatchers.Main).launch {
+                map.setMarkersDraggable(mIdsList, draggable)
+                call.resolve()
+            }
+        } catch (e: GoogleMapsError) {
+            handleError(call, e)
+        } catch (e: Exception) {
+            handleError(call, e)
+        }
+    }
+
+    @PluginMethod
+    fun setAllMarkersDraggable(call: PluginCall) {
+        try {
+            val id = call.getString("id")
+            id ?: throw InvalidMapIdError()
+
+            val map = maps[id]
+            map ?: throw MapNotFoundError()
+
+            val draggable = call.getBoolean("draggable", false) ?: false
+
+            CoroutineScope(Dispatchers.Main).launch {
+                map.setAllMarkersDraggable(draggable)
+                call.resolve()
+            }
+        } catch (e: GoogleMapsError) {
+            handleError(call, e)
+        } catch (e: Exception) {
+            handleError(call, e)
+        }
+    }
+
     private fun createLatLng(point: JSObject): LatLng {
         return LatLng(
             point.getDouble("lat"),

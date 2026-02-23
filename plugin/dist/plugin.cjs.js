@@ -622,6 +622,39 @@ class GoogleMap {
             selectionType: null,
         });
     }
+    /**
+     * Enable dragging for specific markers by their mIds
+     *
+     * @param mIds - array of marker mIds to make draggable
+     */
+    async enableMarkersDrag(mIds) {
+        return CapacitorGoogleMaps.setMarkersDraggable({
+            id: this.id,
+            mIds,
+            draggable: true,
+        });
+    }
+    /**
+     * Disable dragging for specific markers by their mIds
+     *
+     * @param mIds - array of marker mIds to make non-draggable
+     */
+    async disableMarkersDrag(mIds) {
+        return CapacitorGoogleMaps.setMarkersDraggable({
+            id: this.id,
+            mIds,
+            draggable: false,
+        });
+    }
+    /**
+     * Disable dragging for all markers on the map
+     */
+    async disableAllMarkersDrag() {
+        return CapacitorGoogleMaps.setAllMarkersDraggable({
+            id: this.id,
+            draggable: false,
+        });
+    }
     async fitBounds(bounds, padding) {
         return CapacitorGoogleMaps.fitBounds({
             id: this.id,
@@ -1616,6 +1649,25 @@ class CapacitorGoogleMapsWeb extends core.WebPlugin {
     }
     setSelectionType() {
         throw new Error('Method not implemented.');
+    }
+    async setMarkersDraggable(args) {
+        const map = this.maps[args.id];
+        if (!map)
+            return;
+        for (const mId of args.mIds) {
+            const marker = map.markers[mId];
+            if (marker) {
+                marker.gmpDraggable = args.draggable;
+            }
+        }
+    }
+    async setAllMarkersDraggable(args) {
+        const map = this.maps[args.id];
+        if (!map)
+            return;
+        for (const marker of Object.values(map.markers)) {
+            marker.gmpDraggable = args.draggable;
+        }
     }
     getLatLngBounds(_args) {
         return new google.maps.LatLngBounds(new google.maps.LatLng(_args.southwest.lat, _args.southwest.lng), new google.maps.LatLng(_args.northeast.lat, _args.northeast.lng));

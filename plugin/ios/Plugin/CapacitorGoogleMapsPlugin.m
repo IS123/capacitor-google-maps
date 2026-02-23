@@ -48,4 +48,6 @@ CAP_PLUGIN(CapacitorGoogleMapsPlugin, "CapacitorGoogleMaps",
    CAP_PLUGIN_METHOD(updateMarkerIcon, CAPPluginReturnPromise);
    CAP_PLUGIN_METHOD(dispatchMapEvent, CAPPluginReturnPromise);
    CAP_PLUGIN_METHOD(setSelectionType, CAPPluginReturnPromise);
+   CAP_PLUGIN_METHOD(setMarkersDraggable, CAPPluginReturnPromise);
+   CAP_PLUGIN_METHOD(setAllMarkersDraggable, CAPPluginReturnPromise);
 )

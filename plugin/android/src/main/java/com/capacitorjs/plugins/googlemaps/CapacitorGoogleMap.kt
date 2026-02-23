@@ -775,7 +775,8 @@ fun updateMarkerIcon(mId: String, iconId: String, iconUrl: String) {
                             val bitmap = BitmapFactory.decodeByteArray(decodedString, 0, decodedString.size)
                             if (marker.iconId.toBoolean()) {
 								this.delegate.markerIcons[marker.iconId!!] = bitmap
-                                marker.googleMapMarker?.setIcon(getResizedIcon(bitmap, marker))
+                                marker.googleMapMarker?.setIcon(getResizedIcon(bitmap, marker)) // Here
+								// marker.googleMapMarker?.selectionType
                             }
 
                         } else {
@@ -892,6 +893,26 @@ fun updateMarkerIcon(mId: String, iconId: String, iconUrl: String) {
     fun hasIcon(iconId: String): Boolean {
         return this@CapacitorGoogleMap.delegate.markerIcons.contains(iconId);
     }
+
+	fun setMarkersDraggable(mIdsList: List<String>, draggable: Boolean) {
+		googleMap ?: throw GoogleMapNotAvailable()
+
+		for (mId in mIdsList) {
+			val markerId = mIds[mId] ?: continue
+			val capMarker = markers[markerId] ?: continue
+			capMarker.draggable = draggable
+			capMarker.googleMapMarker?.isDraggable = draggable
+		}
+	}
+
+	fun setAllMarkersDraggable(draggable: Boolean) {
+		googleMap ?: throw GoogleMapNotAvailable()
+
+		for (capMarker in markers.values) {
+			capMarker.draggable = draggable
+			capMarker.googleMapMarker?.isDraggable = draggable
+		}
+	}
 
 	fun setSelectionType(selType: String?) {
 		googleMap ?: throw GoogleMapNotAvailable()
@@ -1198,7 +1219,7 @@ fun updateMarkerIcon(mId: String, iconId: String, iconUrl: String) {
 
         // Check if there's an icon URL (assumed to be a Data URL in this case)
         if (!marker.iconId.isNullOrEmpty()) {
-            
+
                 try {
                     val base64Data = marker.iconUrl!!.substringAfter("base64,", "")
 
@@ -1586,6 +1607,8 @@ fun updateMarkerIcon(mId: String, iconId: String, iconUrl: String) {
     }
 
     override fun onMarkerDrag(marker: Marker) {
+        markers[marker.id]?.coordinate = marker.position
+
         val data = JSObject()
         data.put("mapId", this@CapacitorGoogleMap.id)
         data.put("mId", mIds.entries.find { it.value == marker.id }?.key )
@@ -1610,6 +1633,8 @@ fun updateMarkerIcon(mId: String, iconId: String, iconUrl: String) {
     }
 
     override fun onMarkerDragEnd(marker: Marker) {
+        markers[marker.id]?.coordinate = marker.position
+
         val data = JSObject()
         data.put("mapId", this@CapacitorGoogleMap.id)
         data.put("mId", mIds.entries.find { it.value == marker.id }?.key )

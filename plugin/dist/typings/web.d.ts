@@ -105,6 +105,15 @@ export declare class CapacitorGoogleMapsWeb extends WebPlugin implements Capacit
         hasIcon: boolean;
     }>;
     setSelectionType(): Promise<void>;
+    setMarkersDraggable(args: {
+        id: string;
+        mIds: string[];
+        draggable: boolean;
+    }): Promise<void>;
+    setAllMarkersDraggable(args: {
+        id: string;
+        draggable: boolean;
+    }): Promise<void>;
     private getLatLngBounds;
     setCircleListeners(mapId: string, circleId: string, circle: google.maps.Circle): Promise<void>;
     setPolygonListeners(mapId: string, polygonId: string, polygon: google.maps.Polygon): Promise<void>;

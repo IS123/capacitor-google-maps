@@ -77,6 +77,9 @@ export interface GoogleMapInterface {
     setOnSelectionEndListener(callback?: MapListenerCallback<{
         mIds: string[];
     }>): Promise<void>;
+    enableMarkersDrag(mIds: string[]): Promise<void>;
+    disableMarkersDrag(mIds: string[]): Promise<void>;
+    disableAllMarkersDrag(): Promise<void>;
     takeSnapshot(format?: string, quality?: number): Promise<{
         snapshot: string | HTMLElement;
     }>;
@@ -308,6 +311,22 @@ export declare class GoogleMap {
         selectionType?: SelectionType;
     }): Promise<void>;
     disableSelectionMode(): Promise<void>;
+    /**
+     * Enable dragging for specific markers by their mIds
+     *
+     * @param mIds - array of marker mIds to make draggable
+     */
+    enableMarkersDrag(mIds: string[]): Promise<void>;
+    /**
+     * Disable dragging for specific markers by their mIds
+     *
+     * @param mIds - array of marker mIds to make non-draggable
+     */
+    disableMarkersDrag(mIds: string[]): Promise<void>;
+    /**
+     * Disable dragging for all markers on the map
+     */
+    disableAllMarkersDrag(): Promise<void>;
     fitBounds(bounds: LatLngBounds, padding?: number): Promise<void>;
     initScrolling(): void;
     disableScrolling(): void;
