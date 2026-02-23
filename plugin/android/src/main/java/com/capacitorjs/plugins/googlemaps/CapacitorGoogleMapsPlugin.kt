@@ -145,7 +145,9 @@ class CapacitorGoogleMapsPlugin : Plugin(), OnMapsSdkInitializedCallback {
 											notifyListeners("isMapInFocus", payload)
 
 											gestureDetector?.onTouchEvent(event);
-											return false;
+											if (event.action == MotionEvent.ACTION_DOWN || event.action == MotionEvent.ACTION_MOVE) {
+												return true
+											}
 										}
 									} else {
 										if (event.action == MotionEvent.ACTION_DOWN) {
