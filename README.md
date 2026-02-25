@@ -368,6 +368,9 @@ export default MyMap;
 * [`setOnMapLoadedListener(...)`](#setonmaploadedlistener)
 * [`setOnZoomChangedListener(...)`](#setonzoomchangedlistener)
 * [`setOnSelectionEndListener(...)`](#setonselectionendlistener)
+* [`enableMarkersDrag(...)`](#enablemarkersdrag)
+* [`disableMarkersDrag(...)`](#disablemarkersdrag)
+* [`disableAllMarkersDrag()`](#disableallmarkersdrag)
 * [`takeSnapshot(...)`](#takesnapshot)
 * [`addGroundOverlay(...)`](#addgroundoverlay)
 * [`getZoomLevel()`](#getzoomlevel)
@@ -1065,6 +1068,41 @@ setOnSelectionEndListener(callback?: MapListenerCallback<{ mIds: string[]; }> | 
 | Param          | Type                                                                                           |
 | -------------- | ---------------------------------------------------------------------------------------------- |
 | **`callback`** | <code><a href="#maplistenercallback">MapListenerCallback</a>&lt;{ mIds: string[]; }&gt;</code> |
+
+--------------------
+
+
+### enableMarkersDrag(...)
+
+```typescript
+enableMarkersDrag(mIds: string[]) => Promise<void>
+```
+
+| Param      | Type                  |
+| ---------- | --------------------- |
+| **`mIds`** | <code>string[]</code> |
+
+--------------------
+
+
+### disableMarkersDrag(...)
+
+```typescript
+disableMarkersDrag(mIds: string[]) => Promise<void>
+```
+
+| Param      | Type                  |
+| ---------- | --------------------- |
+| **`mIds`** | <code>string[]</code> |
+
+--------------------
+
+
+### disableAllMarkersDrag()
+
+```typescript
+disableAllMarkersDrag() => Promise<void>
+```
 
 --------------------
 

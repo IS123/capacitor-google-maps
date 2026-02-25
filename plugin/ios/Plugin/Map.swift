@@ -333,12 +333,26 @@ public class Map {
         var currentMids: [String] = []
         var googleMapsMarkers: [GMSMarker] = []
         var markerHashes: [Int] = []
+        var isCompleted = false
+
+        func finish(_ ids: [Int]) {
+            if isCompleted {
+                return
+            }
+            isCompleted = true
+            completion(ids)
+        }
 
         func addNextBatch() {
             var _markers: [GMSMarker] = []
+            if currentGeneration != self.addMarkersGeneration {
+                finish(markerHashes)
+                return
+            }
 
             if index >= total {
-                if currentGeneration == self.addMarkersGeneration {
+                // Empty addMarkers payload must not be treated as full replacement.
+                if currentGeneration == self.addMarkersGeneration && total > 0 {
                     let difference = Set(self.mIds.keys).subtracting(currentMids)
                     let mIdsToRemove = Array(difference)
 
@@ -349,7 +363,7 @@ public class Map {
                     }
                 }
 
-                completion(markerHashes)
+                finish(markerHashes)
 
                 return
             }
@@ -357,6 +371,11 @@ public class Map {
             let batchEnd = min(index + batchSize, total)
 
             DispatchQueue.main.async {
+                if currentGeneration != self.addMarkersGeneration {
+                    finish(markerHashes)
+                    return
+                }
+
                 for i in index..<batchEnd {
                     let markerData = markers[i]
 
@@ -393,6 +412,11 @@ public class Map {
 
                 index = batchEnd
 
+                if currentGeneration != self.addMarkersGeneration {
+                    finish(markerHashes)
+                    return
+                }
+
                 DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
                     addNextBatch()
                 }
@@ -422,7 +446,7 @@ public class Map {
             return
         }
 
-        DispatchQueue.main.async {
+        runOnMainThread {
             if self.isCoordinatesDifferent(
                 coords1: newMarker.coordinate,
                 coords2: marker.position
@@ -1087,15 +1111,19 @@ public class Map {
     }
 
     func setMarkersDraggable(mIds mIdsList: [String], draggable: Bool) {
-        for mId in mIdsList {
-            guard let hash = mIds[mId], let gmsMarker = markers[hash] else { continue }
-            gmsMarker.isDraggable = draggable
+        runOnMainThread {
+            for mId in mIdsList {
+                guard let hash = self.mIds[mId], let gmsMarker = self.markers[hash] else { continue }
+                gmsMarker.isDraggable = draggable
+            }
         }
     }
 
     func setAllMarkersDraggable(draggable: Bool) {
-        for gmsMarker in markers.values {
-            gmsMarker.isDraggable = draggable
+        runOnMainThread {
+            for gmsMarker in self.markers.values {
+                gmsMarker.isDraggable = draggable
+            }
         }
     }
 

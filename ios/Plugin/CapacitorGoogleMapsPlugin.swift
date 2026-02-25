@@ -587,11 +587,11 @@ public class CapacitorGoogleMapsPlugin: CAPPlugin, GMSMapViewDelegate {
 				throw GoogleMapErrors.markerNotFound
 			}
 
-			try map.removeMarker(id: markerHash)
+			// Update marker in place to keep stable native marker instances.
+			// remove+add path can trigger unintended cleanup on iOS.
+			map.updateMarker(markerId: markerHash, newMarker: marker)
 
-			let markerId = try map.addMarker(marker: marker)
-
-			call.resolve(["id": String(markerId)])
+			call.resolve(["id": String(markerHash)])
 
 		} catch {
 			handleError(call, error: error)
@@ -633,13 +633,10 @@ public class CapacitorGoogleMapsPlugin: CAPPlugin, GMSMapViewDelegate {
 				guard let markerHash = map.mIds[mId],
 					  let marker = markers.first(where: { $0.mId == mId }) else {
 					print("updateMarkersBymId(): Marker not found \(mId)")
-					return
+					continue
 				}
 
-				try map.removeMarker(id: markerHash)
-
-				let markerId = try map.addMarker(marker: marker)
-
+				map.updateMarker(markerId: markerHash, newMarker: marker)
 				markerHashes.append(String(markerHash))
 			}
 
