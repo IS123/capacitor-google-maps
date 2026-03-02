@@ -301,24 +301,19 @@ public class Map {
         return markerHash
     }
 
-    func addGroundOverlay(overlay: GroundOverlay) throws -> Void {
-        try DispatchQueue.main.sync {
-            guard let newOverlay = overlay.createGroundOverlay() else {
+    func addGroundOverlay(overlay: GroundOverlay) {
+        overlay.createGroundOverlay { newOverlay in
+            guard let newOverlay = newOverlay else {
                 print("Error while creating GroundOverlay")
                 return
             }
 
-            self.mapViewController.GMapView.mapType = .none
-            self.mapViewController.GMapView.backgroundColor = UIColor.clear
-            self.mapViewController.GMapView.isBuildingsEnabled = false
-            self.mapViewController.GMapView.isIndoorEnabled = false
-
-            newOverlay.opacity = 1.0
-            newOverlay.bearing = 0;
-            newOverlay.map = self.mapViewController.GMapView
+            DispatchQueue.main.async {
+                newOverlay.opacity = 1.0
+                newOverlay.bearing = 0
+                newOverlay.map = self.mapViewController.GMapView
+            }
         }
-
-        return
     }
 
     func addMarkers(markers: [Marker], completion: @escaping ([Int]) -> Void) {

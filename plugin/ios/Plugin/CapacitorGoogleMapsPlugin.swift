@@ -1473,7 +1473,7 @@ public class CapacitorGoogleMapsPlugin: CAPPlugin, GMSMapViewDelegate {
 
             let overlay = try GroundOverlay(call)
 
-            try map.addGroundOverlay(overlay: overlay)
+            map.addGroundOverlay(overlay: overlay)
 
             call.resolve(["mapId": String(id)])
 
