@@ -30,7 +30,7 @@ public struct GroundOverlay {
         self.bounds = GroundOverlay.calculateBounds(latitude: self.latitude, longitude: self.longitude, width: self.width, height: self.height)
     }
     
-   public func createGroundOverlay(completion: @escaping (GMSGroundOverlay?) -> Void) {
+    public func createGroundOverlay(completion: @escaping (GMSGroundOverlay?) -> Void) {
         guard let imageUrl = URL(string: self.imagePath) else {
             print("CapacitorGoogleMaps Warning: invalid image URL: \(self.imagePath)")
             completion(nil)

@@ -66,6 +66,7 @@ extension CGRect {
 // swiftlint:disable type_body_length
 @objc(CapacitorGoogleMapsPlugin)
 public class CapacitorGoogleMapsPlugin: CAPPlugin, GMSMapViewDelegate {
+    private let shapeLogPrefix = "[ARBO_SHAPE_DEBUG]"
     private var maps = [String: Map]()
     private var isInitialized = false
     private var locationManager = CLLocationManager()
@@ -155,29 +156,28 @@ public class CapacitorGoogleMapsPlugin: CAPPlugin, GMSMapViewDelegate {
     }
 
     func handleLongPressAtLocation(_ location: CGPoint) {
-        print("handleLongPressAtLocation called at: \(location)")
-
         for (id, map) in maps {
             if touchEnabled[id] == false {
-                print("handleLongPressAtLocation: touchEnabled[\(id)] is false")
                 continue
             }
 
             let mapRect = map.getMapBounds()
-            print("handleLongPressAtLocation: mapRect=\(mapRect), contains=\(mapRect.contains(location))")
 
             if mapRect.contains(location) {
                 if let selectionType = map.getSelectionType() {
+                    if selectionType == "shape" {
+                        // Shape drawing starts on touch began, so long press is ignored.
+                        print("\(shapeLogPrefix) longPress ignored for shape mapId=\(id)")
+                        continue
+                    }
                     // Only start selection if it's not already active (prevent double activation)
                     guard !map.selectionActive else {
-                        print("handleLongPressAtLocation: selection already active, ignoring")
                         continue // Use continue instead of return to check other maps
                     }
 
                     // CRITICAL: Check if long press was already handled for this map AND selection is still active
                     // This prevents multiple calls from timer firing multiple times, but allows new long press after selection ends
                     if longPressHandled[id] == true && map.selectionActive {
-                        print("handleLongPressAtLocation: long press already handled for map \(id) and selection is active, ignoring")
                         continue
                     }
 
@@ -187,11 +187,9 @@ public class CapacitorGoogleMapsPlugin: CAPPlugin, GMSMapViewDelegate {
                     }
 
                     // Start selection on long press - call synchronously on main thread
-                    print("Touch event handler long press Start Selection at location: \(location), selectionType: \(selectionType)")
                     if Thread.isMainThread {
                         map.startSelection(at: location)
                         longPressHandled[id] = true // Mark as handled
-                        print("After startSelection: selectionActive=\(map.selectionActive)")
                         // Note: Scrolling will be disabled during drawing (in .changed case)
                         // But if user lifts finger without drawing, scrolling will be restored in .ended case
                     } else {
@@ -214,6 +212,7 @@ public class CapacitorGoogleMapsPlugin: CAPPlugin, GMSMapViewDelegate {
         guard let webView = self.bridge?.webView else { return false }
 
         let location = gesture.location(in: webView)
+        let interceptorTouchCount = (gesture as? TouchInterceptorGestureRecognizer)?.currentTouchCount
 
         // --- Touch ended/cancelled: finish selection if active, always restore scrolling ---
         if gesture.state == .ended || gesture.state == .cancelled || gesture.state == .failed {
@@ -231,7 +230,8 @@ public class CapacitorGoogleMapsPlugin: CAPPlugin, GMSMapViewDelegate {
                 }
             }
             if let wkWebView = self.bridge?.webView as? WKWebView {
-                wkWebView.scrollView.isScrollEnabled = true
+                let anyShapeMode = maps.values.contains { $0.getSelectionType() == "shape" }
+                wkWebView.scrollView.isScrollEnabled = !anyShapeMode
             }
             return false
         }
@@ -254,6 +254,39 @@ public class CapacitorGoogleMapsPlugin: CAPPlugin, GMSMapViewDelegate {
 
             let mapRect = map.getMapBounds()
             guard mapRect.contains(location) else { continue }
+
+            if map.getSelectionType() == "shape" {
+                let touchCount = max(interceptorTouchCount ?? gesture.numberOfTouches, 1)
+                print("\(shapeLogPrefix) shape touch mapId=\(id) state=\(gestureStateToString(gesture.state)) touches=\(touchCount) active=\(map.selectionActive)")
+
+                if gesture.state == .began && touchCount == 1 && !map.selectionActive {
+                    print("\(shapeLogPrefix) startSelection mapId=\(id)")
+                    map.startSelection(at: location)
+                }
+
+                if let gMapView = map.mapViewController.GMapView {
+                    // Freeze map for one-finger draw; allow map pan/zoom for multi-touch.
+                    gMapView.settings.scrollGestures = touchCount > 1
+                }
+                if let wkWebView = self.bridge?.webView as? WKWebView {
+                    wkWebView.scrollView.isScrollEnabled = false
+                }
+
+                if map.selectionActive && touchCount == 1 && gesture.state == .changed {
+                    print("\(shapeLogPrefix) handleSelectionMove mapId=\(id)")
+                    map.handleSelectionMove(at: location)
+                    return true
+                }
+
+                // Block one-finger map pan while shape mode is active.
+                if touchCount == 1 && (gesture.state == .began || gesture.state == .changed) {
+                    print("\(shapeLogPrefix) one-finger consumed mapId=\(id)")
+                    return true
+                }
+                // Allow two-finger gestures (zoom/pan/rotate) on map.
+                print("\(shapeLogPrefix) multi-touch pass-through mapId=\(id) touches=\(touchCount)")
+                return false
+            }
 
             // Map has selection type set — check if actively drawing
             if map.getSelectionType() != nil && map.selectionActive && gesture.state == .changed {
@@ -1495,6 +1528,15 @@ public class CapacitorGoogleMapsPlugin: CAPPlugin, GMSMapViewDelegate {
             let selectionType = call.getString("selectionType")
 
             map.setSelectionType(selectionType)
+            print("\(shapeLogPrefix) setSelectionType mapId=\(id) selectionType=\(selectionType ?? "nil")")
+            if let gMapView = map.mapViewController.GMapView {
+                // Keep map gestures enabled; one-finger pan is intercepted in touch handler for shape mode.
+                gMapView.settings.scrollGestures = true
+            }
+            if let wkWebView = self.bridge?.webView as? WKWebView {
+                let anyShapeMode = maps.values.contains { $0.getSelectionType() == "shape" }
+                wkWebView.scrollView.isScrollEnabled = !anyShapeMode
+            }
 
             call.resolve()
         } catch {
@@ -2009,6 +2051,7 @@ extension CapacitorGoogleMapsPlugin: UIGestureRecognizerDelegate {
 
 // MARK: - TouchInterceptorGestureRecognizer
 class TouchInterceptorGestureRecognizer: UIGestureRecognizer {
+    private let shapeLogPrefix = "[ARBO_SHAPE_DEBUG]"
     private let touchHandler: (UIGestureRecognizer) -> Bool
     private let longPressHandler: ((CGPoint) -> Void)?
     private let scrollBlockHandler: ((Bool) -> Void)?
@@ -2019,6 +2062,7 @@ class TouchInterceptorGestureRecognizer: UIGestureRecognizer {
 
     // True after long press timer fires and before touch ends
     var longPressActivated: Bool = false
+    var currentTouchCount: Int = 0
 
     var isWaitingForLongPress: Bool {
         return longPressTimer != nil
@@ -2035,7 +2079,9 @@ class TouchInterceptorGestureRecognizer: UIGestureRecognizer {
         guard let touch = touches.first, let view = view else { return }
 
         let touchCount = event.allTouches?.count ?? touches.count
+        currentTouchCount = touchCount
         if touchCount > 1 || touches.count > 1 {
+            print("\(shapeLogPrefix) interceptor touchesBegan ignored multi-touch count=\(touchCount)")
             return
         }
 
@@ -2062,14 +2108,16 @@ class TouchInterceptorGestureRecognizer: UIGestureRecognizer {
         RunLoop.main.add(timer, forMode: .common)
         longPressTimer = timer
 
-        _ = touchHandler(self)
         state = .began
+        print("\(shapeLogPrefix) interceptor touchesBegan state=began count=\(touchCount)")
+        _ = touchHandler(self)
     }
 
     override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent) {
         guard let touch = touches.first, let view = view else { return }
 
         let touchCount = event.allTouches?.count ?? touches.count
+        currentTouchCount = touchCount
         if touchCount > 1 || touches.count > 1 {
             longPressTimer?.invalidate()
             longPressTimer = nil
@@ -2078,6 +2126,7 @@ class TouchInterceptorGestureRecognizer: UIGestureRecognizer {
                 scrollBlockHandler?(false)
             }
             state = .changed
+            print("\(shapeLogPrefix) interceptor touchesMoved multi-touch count=\(touchCount)")
             _ = touchHandler(self)
             return
         }
@@ -2093,10 +2142,12 @@ class TouchInterceptorGestureRecognizer: UIGestureRecognizer {
         }
 
         state = .changed
+        print("\(shapeLogPrefix) interceptor touchesMoved state=changed count=\(touchCount)")
         _ = touchHandler(self)
     }
 
     override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent) {
+        currentTouchCount = event.allTouches?.count ?? 0
         longPressTimer?.invalidate()
         longPressTimer = nil
 
@@ -2111,6 +2162,7 @@ class TouchInterceptorGestureRecognizer: UIGestureRecognizer {
     }
 
     override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent) {
+        currentTouchCount = event.allTouches?.count ?? 0
         longPressTimer?.invalidate()
         longPressTimer = nil
 

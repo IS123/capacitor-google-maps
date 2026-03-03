@@ -1305,6 +1305,15 @@ public class Map {
         } else {
             // Shape selection
             if let points = selectionPoints, !points.isEmpty {
+                // Ignore simple taps/short drags in shape mode.
+                // A valid lasso requires at least 3 points.
+                guard points.count >= 3 else {
+                    selectionPoints = nil
+                    startPoint = nil
+                    selectionActive = false
+                    return false
+                }
+
                 // Close the polygon by adding the first point at the end (like Android)
                 var closed = points
                 if let firstPoint = points.first {

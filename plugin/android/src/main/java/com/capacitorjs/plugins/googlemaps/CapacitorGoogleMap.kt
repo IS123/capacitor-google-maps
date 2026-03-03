@@ -188,14 +188,23 @@ class CapacitorGoogleMap(
     }
 
     fun dispatchTouchEvent(event: MotionEvent) {
-        CoroutineScope(Dispatchers.Main).launch {
+        val dispatch = {
             val offsetViewBounds = getMapBounds()
 
-            val relativeTop = offsetViewBounds.top;
-            val relativeLeft = offsetViewBounds.left;
+            val relativeTop = offsetViewBounds.top
+            val relativeLeft = offsetViewBounds.left
 
-			event.setLocation(event.x - relativeLeft, event.y - relativeTop)
-			mapView.dispatchTouchEvent(event)
+            // Don't mutate the original MotionEvent (it may be cached/used elsewhere).
+            val e = MotionEvent.obtain(event)
+            e.setLocation(e.x - relativeLeft, e.y - relativeTop)
+            mapView.dispatchTouchEvent(e)
+            e.recycle()
+        }
+
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            dispatch()
+        } else {
+            Handler(Looper.getMainLooper()).post { dispatch() }
         }
     }
 
@@ -256,9 +265,9 @@ class CapacitorGoogleMap(
 									val existingMarker = markers[existingId]
 
 									existingMarker?.googleMapMarker?.position = marker.position
-                                    
+
 									existingMarker?.googleMapMarker?.isDraggable = marker.draggable
-                                    
+
 									if (existingMarker?.iconId !== marker.iconId) {
 										updateMarkerIcon(marker.mId, marker.mId, marker.iconUrl!!)
 									}
@@ -918,6 +927,21 @@ fun updateMarkerIcon(mId: String, iconId: String, iconUrl: String) {
 		googleMap ?: throw GoogleMapNotAvailable()
 
 		selectionType = selType
+		// Default state: keep map gestures enabled. Shape mode lock is handled per-touch.
+		setSelectionScrollLock(false)
+	}
+
+	fun setSelectionScrollLock(lockSingleFinger: Boolean) {
+		googleMap ?: return
+		val ui = googleMap?.uiSettings ?: return
+		val unlock = !lockSingleFinger
+		// In shape mode we only want to block one-finger pan while drawing.
+		// Keep multi-touch map gestures enabled to allow pinch/zoom/rotate.
+		ui.isScrollGesturesEnabled = unlock
+		ui.isZoomGesturesEnabled = true
+		ui.isRotateGesturesEnabled = true
+		ui.isTiltGesturesEnabled = true
+		ui.isScrollGesturesEnabledDuringRotateOrZoom = true
 	}
 
 	fun getSelectionType(): String? {
@@ -1336,8 +1360,13 @@ fun updateMarkerIcon(mId: String, iconId: String, iconUrl: String) {
 
 			} else {
 				if (selectionPoints != null) {
-					selectionPoints?.add(end)
-					selectionLine?.points = selectionPoints!!
+					val points = selectionPoints!!
+					val lastPoint = points.lastOrNull()
+					// Reduce point density to keep selection end fast on large paths.
+					if (lastPoint == null || SphericalUtil.computeDistanceBetween(lastPoint, end) >= 2.0) {
+						points.add(end)
+						selectionLine?.points = points
+					}
 				}
 			}
 		}
@@ -1374,7 +1403,8 @@ fun updateMarkerIcon(mId: String, iconId: String, iconUrl: String) {
 
 		} else {
 			if (selectionPoints != null) {
-				val closed = ArrayList(selectionPoints)
+				val simplified = com.google.maps.android.PolyUtil.simplify(selectionPoints, 1.5)
+				val closed = ArrayList(simplified)
 
 				val polygon = googleMap!!.addPolygon(
 					PolygonOptions()
@@ -1387,7 +1417,7 @@ fun updateMarkerIcon(mId: String, iconId: String, iconUrl: String) {
 				val inside = markers.filter { m ->
 					com.google.maps.android.PolyUtil.containsLocation(
 						m.value.position,
-						selectionPoints,
+						simplified,
 						true
 					)
 				}.map { it.value.mId }
@@ -1407,7 +1437,7 @@ fun updateMarkerIcon(mId: String, iconId: String, iconUrl: String) {
 				val res = JSObject()
 
                 val points = JSONArray()
-                selectionPoints?.forEach {
+                simplified.forEach {
                     val latlng = JSObject()
 
                     latlng.put("lat", it.latitude)
