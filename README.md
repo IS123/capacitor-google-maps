@@ -1500,7 +1500,7 @@ Supports markers of either either "legacy" or "advanced" types.
 <code>google.maps.<a href="#marker">Marker</a> | google.maps.marker.AdvancedMarkerElement</code>
 
 
-#### SelectionType
+#### Fixed SelectionType
 
 <code>'square' | 'shape'</code> | 
 
@@ -1519,3 +1519,5 @@ Supports markers of either either "legacy" or "advanced" types.
 | **`None`**      | <code>'None'</code>      | No base map tiles.                       |
 
 </docgen-api>
+
+
