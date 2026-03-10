@@ -5,7 +5,18 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="a5a5e034-7690-46ce-97ef-80543969d627" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/../plugin/src/definitions.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../plugin/src/definitions.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../README.md" beforeDir="false" afterPath="$PROJECT_DIR$/../README.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../dist/docs.json" beforeDir="false" afterPath="$PROJECT_DIR$/../dist/docs.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../ios/Plugin/CapacitorGoogleMapsPlugin.swift" beforeDir="false" afterPath="$PROJECT_DIR$/../ios/Plugin/CapacitorGoogleMapsPlugin.swift" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../ios/Plugin/Map.swift" beforeDir="false" afterPath="$PROJECT_DIR$/../ios/Plugin/Map.swift" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../plugin/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/../plugin/README.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../plugin/dist/docs.json" beforeDir="false" afterPath="$PROJECT_DIR$/../plugin/dist/docs.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../plugin/dist/esm/definitions.js.map" beforeDir="false" afterPath="$PROJECT_DIR$/../plugin/dist/esm/definitions.js.map" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../plugin/dist/esm/implementation.js.map" beforeDir="false" afterPath="$PROJECT_DIR$/../plugin/dist/esm/implementation.js.map" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../plugin/dist/esm/index.js.map" beforeDir="false" afterPath="$PROJECT_DIR$/../plugin/dist/esm/index.js.map" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../plugin/dist/esm/map.js.map" beforeDir="false" afterPath="$PROJECT_DIR$/../plugin/dist/esm/map.js.map" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../plugin/dist/esm/web.js.map" beforeDir="false" afterPath="$PROJECT_DIR$/../plugin/dist/esm/web.js.map" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../pnpm-lock.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/../pnpm-lock.yaml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -14,6 +25,18 @@
   </component>
   <component name="ClangdSettings">
     <option name="formatViaClangd" value="false" />
+  </component>
+  <component name="ExternalProjectsManager">
+    <system id="GRADLE">
+      <state>
+        <projects_view>
+          <tree_state>
+            <expand />
+            <select />
+          </tree_state>
+        </projects_view>
+      </state>
+    </system>
   </component>
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$/.." />
@@ -33,9 +56,10 @@
     "RunOnceActivity.cidr.known.project.marker": "true",
     "RunOnceActivity.git.unshallow": "true",
     "RunOnceActivity.readMode.enableVisualFormatting": "true",
+    "android.gradle.sync.needed": "true",
     "cf.first.check.clang-format": "false",
     "cidr.known.project.marker": "true",
-    "git-widget-placeholder": "v5",
+    "git-widget-placeholder": "area-select",
     "kotlin-language-version-configured": "true",
     "last_opened_file_path": "C:/Users/volod/work/capacitor-google-maps/plugin/android"
   }

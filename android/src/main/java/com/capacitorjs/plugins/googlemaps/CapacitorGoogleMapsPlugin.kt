@@ -48,7 +48,6 @@ class CapacitorGoogleMapsPlugin : Plugin(), OnMapsSdkInitializedCallback {
     private var shapeForwardingToMap: HashMap<String, Boolean> = HashMap()
     private var shapeStartTouchSlopPx: Float = 0f
     private val tag: String = "CAP-GOOGLE-MAPS"
-    private val shapeLogPrefix: String = "[ARBO_SHAPE_DEBUG]"
     private var touchEnabled: HashMap<String, Boolean> = HashMap()
 	internal val markerIcons = HashMap<String, Bitmap>()
 	private var gestureDetector: GestureDetector? = null
@@ -100,94 +99,72 @@ class CapacitorGoogleMapsPlugin : Plugin(), OnMapsSdkInitializedCallback {
 
                             val touchX = event.x
                             val touchY = event.y
-                            // Log.d(tag, "$shapeLogPrefix onTouch action=${event.actionMasked} pointers=${event.pointerCount} x=$touchX y=$touchY")
 
                             for ((id, map) in maps) {
                                 if (touchEnabled[id] == false) {
                                     continue
                                 }
                                 val mapRect = map.getMapBounds()
-                                if (mapRect.contains(touchX.toInt(), touchY.toInt())) {
-                                    val selectionType = map.getSelectionType()
-                                    Log.d(
-                                        tag,
-                                        "$shapeLogPrefix inMap mapId=$id selectionType=$selectionType selectionActive=${map.selectionActive} action=${event.actionMasked} pointers=${event.pointerCount}"
-                                    )
+                                if (!mapRect.contains(touchX.toInt(), touchY.toInt())) {
+                                    continue
+                                }
+                                val selectionType = map.getSelectionType()
                                     if (selectionType !== null) {
 										if (selectionType == "shape") {
 											val pointerCount = maxOf(event.pointerCount, 1)
 
 											when (event.actionMasked) {
 											MotionEvent.ACTION_DOWN -> {
-												// In shape mode, never forward single-pointer events to the map.
-												// This keeps one-finger interaction dedicated to selection logic only.
 												shapeAwaitingFreshDown[id] = false
 												shapeDownX[id] = touchX
 												shapeDownY[id] = touchY
 												shapeForwardingToMap[id] = false
 												shapePendingMapDownEvent[id]?.recycle()
 												shapePendingMapDownEvent[id] = MotionEvent.obtain(event)
-												map.setSelectionScrollLock(false)
-												// Do not consume DOWN to keep page controls/taps interactive.
+												map.setSelectionScrollLock(true)
 												return false
 											}
 											MotionEvent.ACTION_POINTER_DOWN, MotionEvent.ACTION_POINTER_UP -> {
-												// If selection already started with one finger, stop it when multi-touch begins.
-												if (map.selectionActive) {
-													Log.d(tag, "$shapeLogPrefix shape ending pre-emptive selection on multi-touch. mapId=$id action=${event.actionMasked}")
-													map.handleSelectionEnd(event)
-												}
-												// Start forwarding multi-touch to native MapView. It must receive the original DOWN first.
+												if (map.selectionActive) map.handleSelectionEnd(event)
 												if (event.actionMasked == MotionEvent.ACTION_POINTER_DOWN) {
 													val pendingDown = shapePendingMapDownEvent.remove(id)
 													if (pendingDown != null) {
-														// Log.d(tag, "$shapeLogPrefix shape forward cached DOWN for multitouch mapId=$id")
 														map.dispatchTouchEvent(pendingDown)
 														pendingDown.recycle()
 													}
 													shapeForwardingToMap[id] = true
 												}
-												// After any multi-touch interaction, require a new DOWN before lasso can start again.
 												shapeAwaitingFreshDown[id] = true
 												map.setSelectionScrollLock(false)
-												Log.d(tag, "$shapeLogPrefix shape deferAfterMultiTouch mapId=$id action=${event.actionMasked} pointers=$pointerCount")
-												// Forward multi-touch to native map view for pinch/zoom/scroll.
 												map.dispatchTouchEvent(event)
 												return true
 											}
 												MotionEvent.ACTION_MOVE -> {
 												if (pointerCount == 1) {
-												if (shapeAwaitingFreshDown[id] == true) {
-													return false
-												}
+													map.setSelectionScrollLock(true)
+													if (shapeAwaitingFreshDown[id] == true) {
+														return false
+													}
 													if (!map.selectionActive) {
 														val downX = shapeDownX[id] ?: touchX
 														val downY = shapeDownY[id] ?: touchY
 														val dx = touchX - downX
 														val dy = touchY - downY
 														val passedSlop = (dx * dx + dy * dy) >= (shapeStartTouchSlopPx * shapeStartTouchSlopPx)
-														if (!passedSlop) {
-															// Until lasso actually starts, let WebView handle gesture.
-															return false
-														}
+														if (!passedSlop) return false
 													}
 													if (!map.selectionActive) {
 														val localEvent = MotionEvent.obtain(event)
 														localEvent.setLocation(touchX / map.config.devicePixelRatio, touchY / map.config.devicePixelRatio)
 														map.startSelection(localEvent)
-														Log.d(tag, "$shapeLogPrefix shape startSelection mapId=$id")
+														localEvent.recycle()
 													}
-
-													map.setSelectionScrollLock(true)
-													Log.d(tag, "$shapeLogPrefix shape scrollLock=true mapId=$id")
 													map.handleSelectionMove(event)
-													return true
-													}
+													return false
+												}
 												map.setSelectionScrollLock(false)
-													Log.d(tag, "$shapeLogPrefix shape forward MOVE(multitouch) mapId=$id pointers=$pointerCount")
-													// Forward multi-touch to native map view for pinch/zoom/scroll.
-													map.dispatchTouchEvent(event)
-													return true
+												map.dispatchTouchEvent(event)
+												return true
 												}
 												MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
 												shapeAwaitingFreshDown[id] = false
@@ -195,20 +172,14 @@ class CapacitorGoogleMapsPlugin : Plugin(), OnMapsSdkInitializedCallback {
 												shapeDownY.remove(id)
 												shapePendingMapDownEvent.remove(id)?.recycle()
 												if (shapeForwardingToMap[id] == true) {
-													// Finish the forwarded gesture sequence in the MapView.
-													// Log.d(tag, "$shapeLogPrefix shape forward UP/CANCEL(multitouch) mapId=$id action=${event.actionMasked}")
 													map.dispatchTouchEvent(event)
 												}
 												shapeForwardingToMap[id] = false
-													map.setSelectionScrollLock(false)
-												if (!map.selectionActive) {
-													return false
-												}
-													map.handleSelectionEnd(event)
-													return true
+												map.setSelectionScrollLock(false)
+												if (map.selectionActive) map.handleSelectionEnd(event)
+												return false
 												}
 											}
-											Log.d(tag, "$shapeLogPrefix shape pass-through mapId=$id action=${event.actionMasked} pointers=$pointerCount")
 											return false
 										}
 
@@ -238,7 +209,6 @@ class CapacitorGoogleMapsPlugin : Plugin(), OnMapsSdkInitializedCallback {
 											notifyListeners("isMapInFocus", payload)
 
 											if (event.action == MotionEvent.ACTION_DOWN || event.action == MotionEvent.ACTION_MOVE) {
-												Log.d(tag, "$shapeLogPrefix nonShape active consume mapId=$id action=${event.actionMasked}")
 												return true
 											}
 										} else {
@@ -264,7 +234,6 @@ class CapacitorGoogleMapsPlugin : Plugin(), OnMapsSdkInitializedCallback {
 
 											gestureDetector?.onTouchEvent(event);
 											if (event.action == MotionEvent.ACTION_DOWN || event.action == MotionEvent.ACTION_MOVE) {
-												Log.d(tag, "$shapeLogPrefix nonShape waitingLongPress consume mapId=$id action=${event.actionMasked}")
 												return true
 											}
 										}
@@ -286,13 +255,10 @@ class CapacitorGoogleMapsPlugin : Plugin(), OnMapsSdkInitializedCallback {
 										payload.put("mapId", map.id)
 
 										notifyListeners("isMapInFocus", payload)
-										Log.d(tag, "$shapeLogPrefix noSelectionType pass mapId=$id action=${event.actionMasked}")
 										return false
 									}
                                 }
                             }
-                        }
-
                         return v?.onTouchEvent(event) ?: true
                     }
                 }

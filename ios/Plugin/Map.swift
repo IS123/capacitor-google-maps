@@ -97,6 +97,7 @@ public class Map {
     // Selection properties
     private var selectionType: String?
     var selectionActive: Bool = false
+    private var shapeOverlayView: UIView?
     private var startPoint: CLLocationCoordinate2D?
     private var selectionLine: GMSPolyline?
     private var selectionPoints: [CLLocationCoordinate2D]?
@@ -186,6 +187,9 @@ public class Map {
                 self.mapViewController.view.frame.size.height = newHeight
                 CATransaction.commit()
             }
+            if selectionType == "shape", let overlay = shapeOverlayView {
+                overlay.frame = self.mapViewController.view.frame
+            }
         }
     }
 
@@ -201,6 +205,9 @@ public class Map {
                 self.mapViewController.view.frame.size.height = mapBounds.height
                 CATransaction.commit()
                 target.addSubview(self.mapViewController.view)
+                if self.selectionType == "shape" {
+                    self.updateShapeOverlay(show: true)
+                }
             }
         }
     }
@@ -234,6 +241,8 @@ public class Map {
     func destroy() {
         DispatchQueue.main.async {
             self.isDestroyed = true
+            self.shapeOverlayView?.removeFromSuperview()
+            self.shapeOverlayView = nil
 
             self.mapViewController.GMapView?.delegate = nil
             self.mapViewController.GMapView?.removeFromSuperview()
@@ -1124,29 +1133,76 @@ public class Map {
 
     func setSelectionType(_ type: String?) {
         selectionType = type
+        let isShape = type == "shape"
+        setSelectionScrollLock(lockSingleFinger: isShape)
+        updateShapeOverlay(show: false)
+        updateContainerScrollEnabled(enable: !isShape)
+    }
+
+    /// 1 палець — lock (малювання), 2+ — unlock (zoom/scroll).
+    func applyScrollLockForTouchCount(_ touchCount: Int) {
+        guard selectionType == "shape" else { return }
+        let lock = touchCount <= 1
+        setSelectionScrollLock(lockSingleFinger: lock)
+        updateContainerScrollEnabled(enable: !lock)
+    }
+
+    /// Контейнер карти (WKChildScrollView). У shape mode: enable тільки для 2+ пальців (викликається з плагіна).
+    func setContainerScrollEnabled(_ enable: Bool) {
+        updateContainerScrollEnabled(enable: enable)
+    }
+
+    private func updateContainerScrollEnabled(enable: Bool) {
+        runOnMainThread {
+            if let scroll = self.targetViewController as? UIScrollView {
+                scroll.isScrollEnabled = enable
+            }
+        }
+    }
+
+    /// Overlay перехоплює 1 палець (lasso). Для 2+ — custom hitTest повертає nil, touch йде на карту (zoom).
+    private func updateShapeOverlay(show: Bool) {
+        runOnMainThread {
+            guard let target = self.targetViewController,
+                  let mapView = self.mapViewController.view else { return }
+            if show {
+                if self.shapeOverlayView == nil {
+                    let overlay = UIView(frame: mapView.frame)
+                    overlay.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+                    overlay.backgroundColor = .clear
+                    overlay.isUserInteractionEnabled = true
+                    overlay.isMultipleTouchEnabled = true
+                    target.addSubview(overlay)
+                    target.bringSubviewToFront(overlay)
+                    self.shapeOverlayView = overlay
+                } else {
+                    self.shapeOverlayView?.frame = mapView.frame
+                }
+            } else {
+                self.shapeOverlayView?.removeFromSuperview()
+                self.shapeOverlayView = nil
+            }
+        }
+    }
+
+    func setSelectionScrollLock(lockSingleFinger: Bool) {
+        guard let gMapView = mapViewController.GMapView else { return }
+        gMapView.settings.scrollGestures = !lockSingleFinger
     }
 
     func startSelection(at location: CGPoint) {
         guard let mapView = mapViewController.GMapView,
               let targetView = targetViewController else {
-            print("startSelection: mapView or targetView is nil")
             return
         }
 
-        // Convert location from webView coordinates to mapView coordinates
         guard let webView = delegate.bridge?.webView else {
-            print("startSelection: webView is nil")
             return
         }
 
-        // First convert from webView to targetView
         let locationInTargetView = webView.convert(location, to: targetView)
-        // Then get the point in mapView's coordinate system
         let locationInMapView = mapView.convert(locationInTargetView, from: targetView)
-        // Convert to coordinate using mapView's projection
         let coordinate = mapView.projection.coordinate(for: locationInMapView)
-
-        print("startSelection: location=\(location), locationInTargetView=\(locationInTargetView), locationInMapView=\(locationInMapView), coordinate=\(coordinate)")
 
         startPoint = coordinate
         selectionActive = true
@@ -1159,47 +1215,31 @@ public class Map {
                 selectionPoints?.append(startPoint)
             }
         }
-
-        print("startSelection: selectionActive=\(selectionActive), selectionType=\(selectionType ?? "nil")")
     }
 
     func handleSelectionMove(at location: CGPoint) -> Bool {
-        // CRITICAL: Check if selection is still active before doing anything
         guard selectionActive else {
-            print("handleSelectionMove: selectionActive is false, ignoring move - selection was deactivated")
             return false
         }
 
-        // Double-check that we have required data
         guard let mapView = mapViewController.GMapView,
               let startPoint = startPoint,
               let targetView = targetViewController else {
-            print("handleSelectionMove: mapView, startPoint or targetView is nil - clearing selection")
-            // Clear selection if required data is missing
             clearSelection()
             return false
         }
 
-        // Triple-check selectionActive after getting required data (might have changed)
         guard selectionActive else {
-            print("handleSelectionMove: selectionActive became false while processing, aborting")
             return false
         }
 
-        // Convert location from webView coordinates to mapView coordinates
-        // location is in webView coordinates, need to convert to targetView (map container) coordinates
         guard let webView = delegate.bridge?.webView else {
-            print("handleSelectionMove: webView is nil")
             return false
         }
 
-        // First convert from webView to targetView
         let locationInTargetView = webView.convert(location, to: targetView)
-        // Then get the point in mapView's coordinate system
         let locationInMapView = mapView.convert(locationInTargetView, from: targetView)
         let endCoordinate = mapView.projection.coordinate(for: locationInMapView)
-
-        print("handleSelectionMove: location=\(location), locationInTargetView=\(locationInTargetView), locationInMapView=\(locationInMapView), endCoordinate=\(endCoordinate)")
 
         if selectionType == "square" {
             let p1 = startPoint
@@ -1215,8 +1255,8 @@ public class Map {
 
             if selectionSquare == nil {
                 selectionSquare = GMSPolygon(path: path)
-                selectionSquare?.fillColor = UIColor.blue.withAlphaComponent(0.22)
-                selectionSquare?.strokeColor = UIColor.blue
+                selectionSquare?.fillColor = UIColor(red: 20/255, green: 1.0, blue: 0, alpha: 0.22)
+                selectionSquare?.strokeColor = UIColor(red: 20/255, green: 1.0, blue: 0, alpha: 1.0)
                 selectionSquare?.strokeWidth = 2.0
                 selectionSquare?.map = mapView
             } else {
@@ -1232,7 +1272,7 @@ public class Map {
                 path.add(endCoordinate)
 
                 selectionLine = GMSPolyline(path: path)
-                selectionLine?.strokeColor = UIColor.blue
+                selectionLine?.strokeColor = UIColor(red: 20/255, green: 1.0, blue: 0, alpha: 1.0)
                 selectionLine?.strokeWidth = 2.0
                 selectionLine?.map = mapView
             } else {
@@ -1260,7 +1300,6 @@ public class Map {
 
         // Convert location from webView coordinates to mapView coordinates
         guard let webView = delegate.bridge?.webView else {
-            print("handleSelectionEnd: webView is nil")
             return false
         }
 
@@ -1291,15 +1330,9 @@ public class Map {
                 payload["mapId"] = self.id
                 payload["mIds"] = mIdsArray
 
-                print("handleSelectionEnd (square): Sending onSelectionEnd event with payload: mapId=\(self.id), mIds count=\(mIdsArray.count)")
-                print("handleSelectionEnd (square): Payload details - mapId=\(self.id), mIds=\(mIdsArray)")
-
-                // Ensure we're on main thread for notifyListeners
                 DispatchQueue.main.async { [weak self] in
                     guard let self = self else { return }
-                    print("handleSelectionEnd (square): Calling notifyListeners on main thread")
                     self.delegate.notifyListeners("onSelectionEnd", data: payload)
-                    print("handleSelectionEnd (square): notifyListeners called, payload: mapId=\(payload["mapId"] ?? "nil"), mIds count=\((payload["mIds"] as? [String])?.count ?? 0)")
                 }
             }
         } else {
@@ -1325,8 +1358,8 @@ public class Map {
 
                 let polygon = GMSPolygon(path: path)
                 polygon.strokeWidth = 2.0
-                polygon.strokeColor = UIColor.blue
-                polygon.fillColor = UIColor(red: 30/255, green: 144/255, blue: 255/255, alpha: 0.2)
+                polygon.strokeColor = UIColor(red: 20/255, green: 1.0, blue: 0, alpha: 1.0)
+                polygon.fillColor = UIColor(red: 20/255, green: 1.0, blue: 0, alpha: 0.2)
                 polygon.map = mapView
 
                 // Use original points (without closing) for containsLocation check
@@ -1362,17 +1395,11 @@ public class Map {
                 payload["mIds"] = inside
                 payload["selectionPoints"] = pointsArray
 
-                print("handleSelectionEnd (shape): Sending onSelectionEnd event with payload: mapId=\(self.id), mIds count=\(inside.count), points count=\(pointsArray.count)")
-                print("handleSelectionEnd (shape): Payload details - mapId=\(self.id), mIds=\(inside), points=\(pointsArray)")
-
                 selectionPoints = nil
 
-                // Ensure we're on main thread for notifyListeners
                 DispatchQueue.main.async { [weak self] in
                     guard let self = self else { return }
-                    print("handleSelectionEnd (shape): Calling notifyListeners on main thread")
                     self.delegate.notifyListeners("onSelectionEnd", data: payload)
-                    print("handleSelectionEnd (shape): notifyListeners called, payload: mapId=\(payload["mapId"] ?? "nil"), mIds count=\((payload["mIds"] as? [String])?.count ?? 0), points count=\((payload["selectionPoints"] as? [JSObject])?.count ?? 0)")
                 }
             }
         }
@@ -1385,7 +1412,6 @@ public class Map {
     }
 
     func clearSelection() {
-        print("clearSelection: Clearing all selection state")
         selectionActive = false
         startPoint = nil
         selectionPoints = nil
@@ -1396,10 +1422,7 @@ public class Map {
         selectionLine?.map = nil
         selectionLine = nil
 
-        // Restore scrolling when clearing selection
-        if let gMapView = mapViewController.GMapView {
-            gMapView.settings.scrollGestures = true
-        }
+        setSelectionScrollLock(lockSingleFinger: false)
     }
 
     private func getMarkersInsideSquare(
