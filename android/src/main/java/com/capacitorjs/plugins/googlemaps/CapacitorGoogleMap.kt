@@ -1355,7 +1355,7 @@ fun updateMarkerIcon(mId: String, iconId: String, iconUrl: String) {
 						.add(startPoint)
 						.add(end)
 						.width(5f)
-						.color(Color.BLUE)
+						.color(Color.parseColor("#14FF00"))
 				)
 
 			} else {
@@ -1410,8 +1410,8 @@ fun updateMarkerIcon(mId: String, iconId: String, iconUrl: String) {
 					PolygonOptions()
 						.addAll(closed)
 						.strokeWidth(5f)
-						.strokeColor(Color.BLUE)
-						.fillColor(Color.argb(50, 30, 144, 255))
+						.strokeColor(Color.parseColor("#14FF00"))
+						.fillColor(Color.argb(50, 20, 255, 0))
 				)
 
 				val inside = markers.filter { m ->
