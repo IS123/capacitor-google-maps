@@ -1,6 +1,9 @@
 # Change Log
 
 *Improved
+	Fixed Android scrolling
+
+*Improved
 	Lasso iOS, Android
 	Move iOS Andoir
 

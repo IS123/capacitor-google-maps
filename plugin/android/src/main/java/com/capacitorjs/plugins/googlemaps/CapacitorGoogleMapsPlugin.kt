@@ -238,11 +238,11 @@ class CapacitorGoogleMapsPlugin : Plugin(), OnMapsSdkInitializedCallback {
 											}
 										}
 									} else {
+										// selectionType is null: original plugin behavior - cache, notify, return true
 										if (event.action == MotionEvent.ACTION_DOWN) {
 											if (cachedTouchEvents[id] == null) {
 												cachedTouchEvents[id] = mutableListOf<MotionEvent>()
 											}
-
 											cachedTouchEvents[id]?.clear()
 										}
 
@@ -255,7 +255,7 @@ class CapacitorGoogleMapsPlugin : Plugin(), OnMapsSdkInitializedCallback {
 										payload.put("mapId", map.id)
 
 										notifyListeners("isMapInFocus", payload)
-										return false
+										return true
 									}
                                 }
                             }
