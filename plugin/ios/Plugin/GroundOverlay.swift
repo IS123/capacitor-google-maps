@@ -30,14 +30,15 @@ public struct GroundOverlay {
         self.bounds = GroundOverlay.calculateBounds(latitude: self.latitude, longitude: self.longitude, width: self.width, height: self.height)
     }
     
-    public func createGroundOverlay(completion: @escaping (GMSGroundOverlay?) -> Void) {
+    @discardableResult
+    public func createGroundOverlay(completion: @escaping (GMSGroundOverlay?) -> Void) -> URLSessionDataTask? {
         guard let imageUrl = URL(string: self.imagePath) else {
             print("CapacitorGoogleMaps Warning: invalid image URL: \(self.imagePath)")
             completion(nil)
-            return
+            return nil
         }
 
-        URLSession.shared.dataTask(with: imageUrl) { data, _, error in
+        let task = URLSession.shared.dataTask(with: imageUrl) { data, _, error in
             guard let data = data, error == nil, var icon = UIImage(data: data) else {
                 print("CapacitorGoogleMaps Warning: could not load image: \(self.imagePath)")
                 completion(nil)
@@ -50,7 +51,9 @@ public struct GroundOverlay {
 
             let newOverlay = GMSGroundOverlay(bounds: self.bounds, icon: icon)
             completion(newOverlay)
-        }.resume()
+        }
+        task.resume()
+        return task
     }
     
     private static func calculateBounds() {

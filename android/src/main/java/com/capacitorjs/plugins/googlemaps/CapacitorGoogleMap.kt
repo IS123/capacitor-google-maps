@@ -66,6 +66,8 @@ class CapacitorGoogleMap(
     OnMapLoadedCallback {
     private var mapView: MapView
     private var googleMap: GoogleMap? = null
+    private var groundOverlayHelper: CapacitorGoogleMapsGroundOverlay? = null
+    private var currentGroundOverlay: com.google.android.gms.maps.model.GroundOverlay? = null
     private val markers = ConcurrentHashMap<String, CapacitorGoogleMapMarker>()
     private val mIds = ConcurrentHashMap<String, String>()
     private val polygons = HashMap<String, CapacitorGoogleMapsPolygon>()
@@ -852,21 +854,23 @@ fun updateMarkerIcon(mId: String, iconId: String, iconUrl: String) {
 
             val position = LatLng(latitude, longitude)
 
+            groundOverlayHelper?.cancelAll()
             val pl = CapacitorGoogleMapsGroundOverlay(delegate.bridge)
+            groundOverlayHelper = pl
 
             val callback = PluginAsync(
                 onPostExecuteFunc = { result ->
                     if (result == null) {
-                        //callbackContext.error("Cannot create a ground overlay")
-                        //return
                         println("Error: result NULL")
                     } else {
                         try {
+                            val map = googleMap ?: return@PluginAsync
+                            currentGroundOverlay?.remove()
                             val bitmapDescriptor = BitmapDescriptorFactory.fromBitmap(result.image)
                             val groundOverlayOptions =
                                 GroundOverlayOptions().image(bitmapDescriptor)
                                     .position(position, result.image.width.toFloat(), result.image.height.toFloat())
-                            googleMap!!.addGroundOverlay(groundOverlayOptions)
+                            currentGroundOverlay = map.addGroundOverlay(groundOverlayOptions)
                         } catch (e: java.lang.Exception) {
                             Log.e("CapacitorGoogleMaps", e.stackTraceToString())
                         } finally {

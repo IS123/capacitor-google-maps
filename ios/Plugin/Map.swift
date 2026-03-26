@@ -91,6 +91,8 @@ public class Map {
     var markerIcons = [String: UIImage]()
     var mIds = [String: Int]()
     private var addMarkersGeneration: Int = 0
+    private var pendingOverlayTask: URLSessionDataTask?
+    private var currentGroundOverlay: GMSGroundOverlay?
     var isDestroyed: Bool = false
     var destroyCompletion: (() -> Void)?
 
@@ -311,16 +313,23 @@ public class Map {
     }
 
     func addGroundOverlay(overlay: GroundOverlay) {
-        overlay.createGroundOverlay { newOverlay in
+        pendingOverlayTask?.cancel()
+
+        pendingOverlayTask = overlay.createGroundOverlay { [weak self] newOverlay in
+            guard let self = self, !self.isDestroyed else { return }
             guard let newOverlay = newOverlay else {
                 print("Error while creating GroundOverlay")
                 return
             }
 
-            DispatchQueue.main.async {
+            DispatchQueue.main.async { [weak self] in
+                guard let self = self, !self.isDestroyed,
+                      let mapView = self.mapViewController.GMapView else { return }
+                self.currentGroundOverlay?.map = nil
                 newOverlay.opacity = 1.0
                 newOverlay.bearing = 0
-                newOverlay.map = self.mapViewController.GMapView
+                newOverlay.map = mapView
+                self.currentGroundOverlay = newOverlay
             }
         }
     }
