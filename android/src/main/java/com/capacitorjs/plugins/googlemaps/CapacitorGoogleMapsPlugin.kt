@@ -419,10 +419,6 @@ class CapacitorGoogleMapsPlugin : Plugin(), OnMapsSdkInitializedCallback {
             val markerObjectArray = call.getArray("markers", null)
             markerObjectArray ?: throw InvalidArgumentsError("markers array is missing")
 
-            if (markerObjectArray.length() == 0) {
-                throw InvalidArgumentsError("markers array requires at least one marker")
-            }
-
             val map = maps[id]
             map ?: throw MapNotFoundError()
 

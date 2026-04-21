@@ -283,26 +283,26 @@ class CapacitorGoogleMap(
 
 						withContext(Dispatchers.Main) {
 							val toRemove = existingMIdsSnapshot - currentMIds
-							removeMarkersBymId(toRemove.toList()) {
-								markersToAdd.forEach { marker ->
-									val googleMapMarker = googleMap?.addMarker(marker.markerOptions!!)
-									marker.googleMapMarker = googleMapMarker
+							removeMarkersBymIdInternal(toRemove.toList())
 
-									googleMapMarker?.let { gm ->
-										if (clusterManager != null) {
-											googleMapMarker.remove()
-										}
+							markersToAdd.forEach { marker ->
+								val googleMapMarker = googleMap?.addMarker(marker.markerOptions!!)
+								marker.googleMapMarker = googleMapMarker
 
-										mIds[marker.mId] = gm.id
-										markers[gm.id] = marker
-										markerIds += gm.id
+								googleMapMarker?.let { gm ->
+									if (clusterManager != null) {
+										googleMapMarker.remove()
 									}
-								}
 
-								clusterManager?.apply {
-									addItems(markersToAdd)
-									cluster()
+									mIds[marker.mId] = gm.id
+									markers[gm.id] = marker
+									markerIds += gm.id
 								}
+							}
+
+							clusterManager?.apply {
+								addItems(markersToAdd)
+								cluster()
 							}
 						}
 
@@ -315,6 +315,28 @@ class CapacitorGoogleMap(
 
 	private fun ensureMapAvailable() {
 		if (googleMap == null) throw GoogleMapNotAvailable()
+	}
+
+	private suspend fun removeMarkersBymIdInternal(ids: List<String>) {
+		val deletedMarkers: MutableList<CapacitorGoogleMapMarker> = mutableListOf()
+
+		ids.forEach { mId ->
+			val markerId = mIds[mId]
+			val marker = markerId?.let { markers[it] }
+
+			if (marker != null && markerId != null) {
+				marker.googleMapMarker?.remove()
+				markers.remove(markerId)
+				mIds.remove(mId)
+
+				deletedMarkers.add(marker)
+			}
+		}
+
+		if (clusterManager != null) {
+			clusterManager?.removeItems(deletedMarkers)
+			clusterManager?.cluster()
+		}
 	}
 
     fun addMarker(marker: CapacitorGoogleMapMarker, callback: (result: Result<String>) -> Unit) {
@@ -562,7 +584,8 @@ class CapacitorGoogleMap(
         try {
             googleMap ?: throw GoogleMapNotAvailable()
 
-            val marker = markers[mIds[mId]];
+            val markerId = mIds[mId]
+            val marker = markerId?.let { markers[it] }
             marker ?: throw MarkerNotFoundError()
 
             CoroutineScope(Dispatchers.Main).launch {
@@ -573,7 +596,9 @@ class CapacitorGoogleMap(
 
                 marker.googleMapMarker?.remove()
                 mIds.remove(mId)
-                markers.remove(mIds[mId])
+                if (markerId != null) {
+                    markers.remove(markerId)
+                }
 
                 callback(null)
             }
@@ -610,26 +635,8 @@ class CapacitorGoogleMap(
             googleMap ?: throw GoogleMapNotAvailable()
 
             CoroutineScope(Dispatchers.Main).launch {
-                val deletedMarkers: MutableList<CapacitorGoogleMapMarker> = mutableListOf()
-
-                ids.forEach {
-                    val marker = markers[mIds[it]]
-                    if (marker != null) {
-                        marker.googleMapMarker?.remove()
-                        markers.remove(mIds[it])
-                        mIds.remove(it)
-
-                        deletedMarkers.add(marker)
-                    }
-                }
-
-                if (clusterManager != null) {
-                    clusterManager?.removeItems(deletedMarkers)
-                    clusterManager?.cluster()
-					callback(null)
-                } else {
-					callback(null)
-				}
+                removeMarkersBymIdInternal(ids)
+				callback(null)
             }
         } catch (e: GoogleMapsError) {
             callback(e)
