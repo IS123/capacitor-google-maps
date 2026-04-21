@@ -36,30 +36,32 @@ import {
   UpdateMarkersBymIdArgs,
 } from './implementation';
 
+type WebMapInstance = {
+  element: HTMLElement;
+  map: google.maps.Map;
+  mIds: Record<string, string>;
+  markers: {
+    [id: string]: google.maps.marker.AdvancedMarkerElement;
+  };
+  polygons: {
+    [id: string]: google.maps.Polygon;
+  };
+  circles: {
+    [id: string]: google.maps.Circle;
+  };
+  polylines: {
+    [id: string]: google.maps.Polyline;
+  };
+  markerClusterer?: MarkerClusterer;
+  trafficLayer?: google.maps.TrafficLayer;
+};
+
 export class CapacitorGoogleMapsWeb extends WebPlugin implements CapacitorGoogleMapsPlugin {
   private gMapsRef: typeof google.maps | undefined = undefined;
   private AdvancedMarkerElement: typeof google.maps.marker.AdvancedMarkerElement | undefined = undefined;
   private PinElement: typeof google.maps.marker.PinElement | undefined = undefined;
   private maps: {
-    [id: string]: {
-      element: HTMLElement;
-      map: google.maps.Map;
-      mIds: Record<string, string>;
-      markers: {
-        [id: string]: google.maps.marker.AdvancedMarkerElement;
-      };
-      polygons: {
-        [id: string]: google.maps.Polygon;
-      };
-      circles: {
-        [id: string]: google.maps.Circle;
-      };
-      polylines: {
-        [id: string]: google.maps.Polyline;
-      };
-      markerClusterer?: MarkerClusterer;
-      trafficLayer?: google.maps.TrafficLayer;
-    };
+    [id: string]: WebMapInstance;
   } = {};
   private currMarkerId = 0;
   private currPolygonId = 0;
@@ -277,6 +279,15 @@ export class CapacitorGoogleMapsWeb extends WebPlugin implements CapacitorGoogle
       throw new Error('Google Map could not be found.');
     }
 
+    if (_args.markers.length === 0) {
+      await this.removeMarkersBymId({
+        id: _args.id,
+        mIds: Object.keys(map.mIds),
+      });
+
+      return { ids: [] };
+    }
+
     for (const markerArgs of _args.markers) {
       if (map.mIds[markerArgs.mId]) {
         const markerId = map.mIds[markerArgs.mId];
@@ -307,7 +318,7 @@ export class CapacitorGoogleMapsWeb extends WebPlugin implements CapacitorGoogle
 
     const markersToRemove = Object.keys(map.mIds).filter(id => !currentMids.includes(id));
 
-    this.removeMarkersBymId({
+    await this.removeMarkersBymId({
       id: _args.id,
       mIds: markersToRemove
     });

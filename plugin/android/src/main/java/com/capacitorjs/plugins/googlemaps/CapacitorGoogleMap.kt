@@ -66,6 +66,8 @@ class CapacitorGoogleMap(
     OnMapLoadedCallback {
     private var mapView: MapView
     private var googleMap: GoogleMap? = null
+    private var groundOverlayHelper: CapacitorGoogleMapsGroundOverlay? = null
+    private var currentGroundOverlay: com.google.android.gms.maps.model.GroundOverlay? = null
     private val markers = ConcurrentHashMap<String, CapacitorGoogleMapMarker>()
     private val mIds = ConcurrentHashMap<String, String>()
     private val polygons = HashMap<String, CapacitorGoogleMapsPolygon>()
@@ -281,26 +283,26 @@ class CapacitorGoogleMap(
 
 						withContext(Dispatchers.Main) {
 							val toRemove = existingMIdsSnapshot - currentMIds
-							removeMarkersBymId(toRemove.toList()) {
-								markersToAdd.forEach { marker ->
-									val googleMapMarker = googleMap?.addMarker(marker.markerOptions!!)
-									marker.googleMapMarker = googleMapMarker
+							removeMarkersBymIdInternal(toRemove.toList())
 
-									googleMapMarker?.let { gm ->
-										if (clusterManager != null) {
-											googleMapMarker.remove()
-										}
+							markersToAdd.forEach { marker ->
+								val googleMapMarker = googleMap?.addMarker(marker.markerOptions!!)
+								marker.googleMapMarker = googleMapMarker
 
-										mIds[marker.mId] = gm.id
-										markers[gm.id] = marker
-										markerIds += gm.id
+								googleMapMarker?.let { gm ->
+									if (clusterManager != null) {
+										googleMapMarker.remove()
 									}
-								}
 
-								clusterManager?.apply {
-									addItems(markersToAdd)
-									cluster()
+									mIds[marker.mId] = gm.id
+									markers[gm.id] = marker
+									markerIds += gm.id
 								}
+							}
+
+							clusterManager?.apply {
+								addItems(markersToAdd)
+								cluster()
 							}
 						}
 
@@ -313,6 +315,28 @@ class CapacitorGoogleMap(
 
 	private fun ensureMapAvailable() {
 		if (googleMap == null) throw GoogleMapNotAvailable()
+	}
+
+	private suspend fun removeMarkersBymIdInternal(ids: List<String>) {
+		val deletedMarkers: MutableList<CapacitorGoogleMapMarker> = mutableListOf()
+
+		ids.forEach { mId ->
+			val markerId = mIds[mId]
+			val marker = markerId?.let { markers[it] }
+
+			if (marker != null && markerId != null) {
+				marker.googleMapMarker?.remove()
+				markers.remove(markerId)
+				mIds.remove(mId)
+
+				deletedMarkers.add(marker)
+			}
+		}
+
+		if (clusterManager != null) {
+			clusterManager?.removeItems(deletedMarkers)
+			clusterManager?.cluster()
+		}
 	}
 
     fun addMarker(marker: CapacitorGoogleMapMarker, callback: (result: Result<String>) -> Unit) {
@@ -560,7 +584,8 @@ class CapacitorGoogleMap(
         try {
             googleMap ?: throw GoogleMapNotAvailable()
 
-            val marker = markers[mIds[mId]];
+            val markerId = mIds[mId]
+            val marker = markerId?.let { markers[it] }
             marker ?: throw MarkerNotFoundError()
 
             CoroutineScope(Dispatchers.Main).launch {
@@ -571,7 +596,9 @@ class CapacitorGoogleMap(
 
                 marker.googleMapMarker?.remove()
                 mIds.remove(mId)
-                markers.remove(mIds[mId])
+                if (markerId != null) {
+                    markers.remove(markerId)
+                }
 
                 callback(null)
             }
@@ -608,26 +635,8 @@ class CapacitorGoogleMap(
             googleMap ?: throw GoogleMapNotAvailable()
 
             CoroutineScope(Dispatchers.Main).launch {
-                val deletedMarkers: MutableList<CapacitorGoogleMapMarker> = mutableListOf()
-
-                ids.forEach {
-                    val marker = markers[mIds[it]]
-                    if (marker != null) {
-                        marker.googleMapMarker?.remove()
-                        markers.remove(mIds[it])
-                        mIds.remove(it)
-
-                        deletedMarkers.add(marker)
-                    }
-                }
-
-                if (clusterManager != null) {
-                    clusterManager?.removeItems(deletedMarkers)
-                    clusterManager?.cluster()
-					callback(null)
-                } else {
-					callback(null)
-				}
+                removeMarkersBymIdInternal(ids)
+				callback(null)
             }
         } catch (e: GoogleMapsError) {
             callback(e)
@@ -852,21 +861,23 @@ fun updateMarkerIcon(mId: String, iconId: String, iconUrl: String) {
 
             val position = LatLng(latitude, longitude)
 
+            groundOverlayHelper?.cancelAll()
             val pl = CapacitorGoogleMapsGroundOverlay(delegate.bridge)
+            groundOverlayHelper = pl
 
             val callback = PluginAsync(
                 onPostExecuteFunc = { result ->
                     if (result == null) {
-                        //callbackContext.error("Cannot create a ground overlay")
-                        //return
                         println("Error: result NULL")
                     } else {
                         try {
+                            val map = googleMap ?: return@PluginAsync
+                            currentGroundOverlay?.remove()
                             val bitmapDescriptor = BitmapDescriptorFactory.fromBitmap(result.image)
                             val groundOverlayOptions =
                                 GroundOverlayOptions().image(bitmapDescriptor)
                                     .position(position, result.image.width.toFloat(), result.image.height.toFloat())
-                            googleMap!!.addGroundOverlay(groundOverlayOptions)
+                            currentGroundOverlay = map.addGroundOverlay(groundOverlayOptions)
                         } catch (e: java.lang.Exception) {
                             Log.e("CapacitorGoogleMaps", e.stackTraceToString())
                         } finally {

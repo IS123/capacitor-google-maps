@@ -719,10 +719,6 @@ public class CapacitorGoogleMapsPlugin: CAPPlugin, GMSMapViewDelegate {
                 throw GoogleMapErrors.invalidArguments("markers array is missing")
             }
 
-            if markerObjs.isEmpty {
-                throw GoogleMapErrors.invalidArguments("markers requires at least one marker")
-            }
-
             guard let map = self.maps[id] else {
                 throw GoogleMapErrors.mapNotFound
             }

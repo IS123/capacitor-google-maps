@@ -314,8 +314,9 @@ public class Map {
 
     func addGroundOverlay(overlay: GroundOverlay) {
         pendingOverlayTask?.cancel()
+        pendingOverlayTask = nil
 
-        pendingOverlayTask = overlay.createGroundOverlay { [weak self] newOverlay in
+        _ = overlay.createGroundOverlay(completion: { [weak self] newOverlay in
             guard let self = self, !self.isDestroyed else { return }
             guard let newOverlay = newOverlay else {
                 print("Error while creating GroundOverlay")
@@ -331,7 +332,7 @@ public class Map {
                 newOverlay.map = mapView
                 self.currentGroundOverlay = newOverlay
             }
-        }
+        })
     }
 
     func addMarkers(markers: [Marker], completion: @escaping ([Int]) -> Void) {
@@ -364,8 +365,7 @@ public class Map {
             }
 
             if index >= total {
-                // Empty addMarkers payload must not be treated as full replacement.
-                if currentGeneration == self.addMarkersGeneration && total > 0 {
+                if currentGeneration == self.addMarkersGeneration {
                     let difference = Set(self.mIds.keys).subtracting(currentMids)
                     let mIdsToRemove = Array(difference)
 

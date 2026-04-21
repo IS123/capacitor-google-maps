@@ -1349,6 +1349,13 @@ class CapacitorGoogleMapsWeb extends core.WebPlugin {
         if (!map) {
             throw new Error('Google Map could not be found.');
         }
+        if (_args.markers.length === 0) {
+            await this.removeMarkersBymId({
+                id: _args.id,
+                mIds: Object.keys(map.mIds),
+            });
+            return { ids: [] };
+        }
         for (const markerArgs of _args.markers) {
             if (map.mIds[markerArgs.mId]) {
                 const markerId = map.mIds[markerArgs.mId];
@@ -1370,7 +1377,7 @@ class CapacitorGoogleMapsWeb extends core.WebPlugin {
             this.currMarkerId++;
         }
         const markersToRemove = Object.keys(map.mIds).filter(id => !currentMids.includes(id));
-        this.removeMarkersBymId({
+        await this.removeMarkersBymId({
             id: _args.id,
             mIds: markersToRemove
         });
