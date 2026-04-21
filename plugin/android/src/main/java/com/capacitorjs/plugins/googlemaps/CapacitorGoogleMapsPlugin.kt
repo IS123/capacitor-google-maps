@@ -1409,6 +1409,26 @@ class CapacitorGoogleMapsPlugin : Plugin(), OnMapsSdkInitializedCallback {
     }
 
     @PluginMethod()
+    fun removeGroundOverlay(call: PluginCall) {
+        try {
+            val id = call.getString("id")
+            id ?: throw InvalidMapIdError()
+
+            val map = maps[id]
+            map ?: throw MapNotFoundError()
+
+            CoroutineScope(Dispatchers.Main).launch {
+                map.removeGroundOverlay()
+                call.resolve()
+            }
+        } catch (e: GoogleMapsError) {
+            handleError(call, e)
+        } catch (e: Exception) {
+            handleError(call, e)
+        }
+    }
+
+    @PluginMethod()
     fun getZoomLevel(call: PluginCall) {
         try {
             val id = call.getString("id")

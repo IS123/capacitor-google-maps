@@ -862,6 +862,8 @@ fun updateMarkerIcon(mId: String, iconId: String, iconUrl: String) {
             val position = LatLng(latitude, longitude)
 
             groundOverlayHelper?.cancelAll()
+            currentGroundOverlay?.remove()
+            currentGroundOverlay = null
             val pl = CapacitorGoogleMapsGroundOverlay(delegate.bridge)
             groundOverlayHelper = pl
 
@@ -872,7 +874,6 @@ fun updateMarkerIcon(mId: String, iconId: String, iconUrl: String) {
                     } else {
                         try {
                             val map = googleMap ?: return@PluginAsync
-                            currentGroundOverlay?.remove()
                             val bitmapDescriptor = BitmapDescriptorFactory.fromBitmap(result.image)
                             val groundOverlayOptions =
                                 GroundOverlayOptions().image(bitmapDescriptor)
@@ -898,6 +899,13 @@ fun updateMarkerIcon(mId: String, iconId: String, iconUrl: String) {
 
         } catch (e: GoogleMapsError) {
         }
+    }
+
+    fun removeGroundOverlay() {
+        groundOverlayHelper?.cancelAll()
+        groundOverlayHelper = null
+        currentGroundOverlay?.remove()
+        currentGroundOverlay = null
     }
 
     fun getZoomLevel(callback: (zoomLevel: Float?) -> Unit) {

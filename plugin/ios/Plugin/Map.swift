@@ -315,8 +315,10 @@ public class Map {
     func addGroundOverlay(overlay: GroundOverlay) {
         pendingOverlayTask?.cancel()
         pendingOverlayTask = nil
+        currentGroundOverlay?.map = nil
+        currentGroundOverlay = nil
 
-        _ = overlay.createGroundOverlay(completion: { [weak self] newOverlay in
+        pendingOverlayTask = overlay.createGroundOverlay(completion: { [weak self] newOverlay in
             guard let self = self, !self.isDestroyed else { return }
             guard let newOverlay = newOverlay else {
                 print("Error while creating GroundOverlay")
@@ -326,13 +328,21 @@ public class Map {
             DispatchQueue.main.async { [weak self] in
                 guard let self = self, !self.isDestroyed,
                       let mapView = self.mapViewController.GMapView else { return }
-                self.currentGroundOverlay?.map = nil
                 newOverlay.opacity = 1.0
                 newOverlay.bearing = 0
                 newOverlay.map = mapView
                 self.currentGroundOverlay = newOverlay
             }
         })
+    }
+
+    func removeGroundOverlay() {
+        pendingOverlayTask?.cancel()
+        pendingOverlayTask = nil
+        DispatchQueue.main.async { [weak self] in
+            self?.currentGroundOverlay?.map = nil
+            self?.currentGroundOverlay = nil
+        }
     }
 
     func addMarkers(markers: [Marker], completion: @escaping ([Int]) -> Void) {

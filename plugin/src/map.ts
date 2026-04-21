@@ -102,6 +102,7 @@ export interface GoogleMapInterface {
   disableAllMarkersDrag(): Promise<void>;
   takeSnapshot(format?: string, quality?: number): Promise<{snapshot: string | HTMLElement}>;
   addGroundOverlay(groundOverlayOptions: GroundOverlayArgs): Promise<void>;
+  removeGroundOverlay(): Promise<void>;
   getZoomLevel(): Promise<number | undefined>;
   hasIcon(iconId: string): Promise<boolean>;
   setSelectionType(args: { selectionType?: SelectionType }): Promise<void>;
@@ -711,6 +712,10 @@ export class GoogleMap {
       height: opts.height,
       imagePath: opts.imagePath
     });
+  }
+
+  async removeGroundOverlay(): Promise<void> {
+    return CapacitorGoogleMaps.removeGroundOverlay({ id: this.id });
   }
 
   async getZoomLevel(): Promise<{ zoomLevel: number | undefined }> {

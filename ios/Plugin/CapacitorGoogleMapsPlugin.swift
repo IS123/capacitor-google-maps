@@ -1502,6 +1502,25 @@ public class CapacitorGoogleMapsPlugin: CAPPlugin, GMSMapViewDelegate {
         }
     }
 
+    @objc func removeGroundOverlay(_ call: CAPPluginCall) {
+        do {
+            guard let id = call.getString("id") else {
+                throw GoogleMapErrors.invalidMapId
+            }
+
+            guard let map = self.maps[id] else {
+                throw GoogleMapErrors.mapNotFound
+            }
+
+            map.removeGroundOverlay()
+
+            call.resolve()
+
+        } catch {
+            handleError(call, error: error)
+        }
+    }
+
     @objc func setSelectionType(_ call: CAPPluginCall) {
         do {
             guard let id = call.getString("id") else {
