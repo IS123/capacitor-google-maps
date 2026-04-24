@@ -851,8 +851,6 @@ fun updateMarkerIcon(mId: String, iconId: String, iconUrl: String) {
     fun addGroundOverlay(
         latitude: Double,
         longitude: Double,
-        width: Float,
-        height: Float,
         imagePath: String,
         onComplete: (() -> Unit)? = null
     ) {
