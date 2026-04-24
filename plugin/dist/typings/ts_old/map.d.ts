@@ -84,6 +84,7 @@ export interface GoogleMapInterface {
         snapshot: string | HTMLElement;
     }>;
     addGroundOverlay(groundOverlayOptions: GroundOverlayArgs): Promise<void>;
+    removeGroundOverlay(): Promise<void>;
     getZoomLevel(): Promise<number | undefined>;
     hasIcon(iconId: string): Promise<boolean>;
     setSelectionType(args: {
@@ -301,6 +302,7 @@ export declare class GoogleMap {
         snapshot: string | HTMLElement;
     }>;
     addGroundOverlay(opts: GroundOverlayArgs): Promise<void>;
+    removeGroundOverlay(): Promise<void>;
     getZoomLevel(): Promise<{
         zoomLevel: number | undefined;
     }>;

@@ -96,6 +96,9 @@ export declare class CapacitorGoogleMapsWeb extends WebPlugin implements Capacit
         snapshot: string | HTMLElement;
     }>;
     addGroundOverlay(_args: GroundOverlayArgs): Promise<void>;
+    removeGroundOverlay(_args: {
+        id: string;
+    }): Promise<void>;
     getZoomLevel(_args: {
         id: string;
     }): Promise<{

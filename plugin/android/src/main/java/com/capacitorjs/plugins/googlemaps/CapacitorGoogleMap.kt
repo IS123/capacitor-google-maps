@@ -851,8 +851,6 @@ fun updateMarkerIcon(mId: String, iconId: String, iconUrl: String) {
     fun addGroundOverlay(
         latitude: Double,
         longitude: Double,
-        width: Float,
-        height: Float,
         imagePath: String,
         onComplete: (() -> Unit)? = null
     ) {
@@ -878,7 +876,9 @@ fun updateMarkerIcon(mId: String, iconId: String, iconUrl: String) {
                             val groundOverlayOptions =
                                 GroundOverlayOptions().image(bitmapDescriptor)
                                     .position(position, result.image.width.toFloat(), result.image.height.toFloat())
-                            currentGroundOverlay = map.addGroundOverlay(groundOverlayOptions)
+                            CoroutineScope(Dispatchers.Main).launch {
+                                currentGroundOverlay = map.addGroundOverlay(groundOverlayOptions)
+                            }
                         } catch (e: java.lang.Exception) {
                             Log.e("CapacitorGoogleMaps", e.stackTraceToString())
                         } finally {

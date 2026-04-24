@@ -516,6 +516,9 @@ export class GoogleMap {
             imagePath: opts.imagePath
         });
     }
+    async removeGroundOverlay() {
+        return CapacitorGoogleMaps.removeGroundOverlay({ id: this.id });
+    }
     async getZoomLevel() {
         return CapacitorGoogleMaps.getZoomLevel({
             id: this.id

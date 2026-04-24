@@ -577,6 +577,9 @@ var capacitorCapacitorGoogleMaps = (function (exports, core, markerclusterer) {
                 imagePath: opts.imagePath
             });
         }
+        async removeGroundOverlay() {
+            return CapacitorGoogleMaps.removeGroundOverlay({ id: this.id });
+        }
         async getZoomLevel() {
             return CapacitorGoogleMaps.getZoomLevel({
                 id: this.id
@@ -1620,6 +1623,9 @@ var capacitorCapacitorGoogleMaps = (function (exports, core, markerclusterer) {
             return { snapshot: snapshot };
         }
         async addGroundOverlay(_args) {
+            throw new Error('Method not supported on web.');
+        }
+        async removeGroundOverlay(_args) {
             throw new Error('Method not supported on web.');
         }
         async getZoomLevel(_args) {
