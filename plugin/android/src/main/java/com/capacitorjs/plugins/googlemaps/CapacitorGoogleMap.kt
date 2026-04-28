@@ -860,8 +860,10 @@ fun updateMarkerIcon(mId: String, iconId: String, iconUrl: String) {
             val position = LatLng(latitude, longitude)
 
             groundOverlayHelper?.cancelAll()
-            currentGroundOverlay?.remove()
-            currentGroundOverlay = null
+            CoroutineScope(Dispatchers.Main).launch {
+                currentGroundOverlay?.remove()
+                currentGroundOverlay = null
+            }
             val pl = CapacitorGoogleMapsGroundOverlay(delegate.bridge)
             groundOverlayHelper = pl
 
