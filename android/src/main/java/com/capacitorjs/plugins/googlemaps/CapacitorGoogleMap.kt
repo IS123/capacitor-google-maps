@@ -267,6 +267,9 @@ class CapacitorGoogleMap(
 									val existingMarker = markers[existingId]
 
 									existingMarker?.googleMapMarker?.position = marker.position
+									// Keep originalCoordinate in sync so recomputeSpread groups correctly
+									existingMarker?.originalCoordinate = marker.coordinate
+									existingMarker?.coordinate = marker.coordinate
 
 									existingMarker?.googleMapMarker?.isDraggable = marker.draggable
 
@@ -306,6 +309,9 @@ class CapacitorGoogleMap(
 							}
 
 							recomputeSpread()
+
+							// Re-cluster after spread so the cluster manager picks up updated positions
+							clusterManager?.cluster()
 						}
 
 						emit(Result.success(markerIds))
@@ -374,6 +380,7 @@ class CapacitorGoogleMap(
                     markerId = googleMapMarker.id
 
                     recomputeSpread()
+                    clusterManager?.cluster()
 
                     callback(Result.success(markerId))
                 }
@@ -605,6 +612,7 @@ class CapacitorGoogleMap(
                 }
 
                 recomputeSpread()
+                clusterManager?.cluster()
                 callback(null)
             }
         } catch (e: GoogleMapsError) {
@@ -629,6 +637,7 @@ class CapacitorGoogleMap(
                 markers.remove(id)
 
                 recomputeSpread()
+                clusterManager?.cluster()
                 callback(null)
             }
         } catch (e: GoogleMapsError) {
@@ -643,6 +652,7 @@ class CapacitorGoogleMap(
             CoroutineScope(Dispatchers.Main).launch {
                 removeMarkersBymIdInternal(ids)
                 recomputeSpread()
+                clusterManager?.cluster()
 				callback(null)
             }
         } catch (e: GoogleMapsError) {
@@ -673,6 +683,7 @@ class CapacitorGoogleMap(
                 }
 
                 recomputeSpread()
+                clusterManager?.cluster()
                 callback(null)
             }
         } catch (e: GoogleMapsError) {
@@ -1279,14 +1290,18 @@ fun updateMarkerIcon(mId: String, iconId: String, iconUrl: String) {
             }
 
             val dLat = R_METERS / 111320.0
-            val dLng = R_METERS / (111320.0 * Math.cos(Math.toRadians(orig0.latitude)))
+            val cosLat = Math.max(Math.cos(Math.toRadians(orig0.latitude)), 1e-10)
+            val dLng = R_METERS / (111320.0 * cosLat)
 
             group.forEachIndexed { i, m ->
                 val angle = 2.0 * Math.PI * i / N
                 val orig = m.originalCoordinate!!
+                var newLng = orig.longitude + dLng * Math.cos(angle)
+                // Wrap longitude to [-180, 180]
+                newLng = ((newLng + 180.0) % 360.0 + 360.0) % 360.0 - 180.0
                 val newPos = LatLng(
                     orig.latitude + dLat * Math.sin(angle),
-                    orig.longitude + dLng * Math.cos(angle)
+                    newLng
                 )
                 m.googleMapMarker?.position = newPos
                 m.coordinate = newPos

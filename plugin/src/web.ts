@@ -934,17 +934,24 @@ export class CapacitorGoogleMapsWeb extends WebPlugin implements CapacitorGoogle
       }
 
       const dLat = R_METERS / 111320;
-      const dLng = R_METERS / (111320 * Math.cos((orig0.lat * Math.PI) / 180));
+      const cosLat = Math.max(Math.cos((orig0.lat * Math.PI) / 180), 1e-10);
+      const dLng = R_METERS / (111320 * cosLat);
 
       markerIds.forEach((markerId, i) => {
         const angle = (2 * Math.PI * i) / N;
         const orig = map.originalCoords[markerId];
+        let newLng = orig.lng + dLng * Math.cos(angle);
+        // Wrap longitude to [-180, 180]
+        newLng = ((newLng + 180) % 360 + 360) % 360 - 180;
         map.markers[markerId].position = {
           lat: orig.lat + dLat * Math.sin(angle),
-          lng: orig.lng + dLng * Math.cos(angle),
+          lng: newLng,
         };
       });
     }
+
+    // Force the clusterer to re-render with the updated positions
+    map.markerClusterer?.render();
   }
 
   private buildMarkerOpts(marker: Marker, map: google.maps.Map): google.maps.marker.AdvancedMarkerElement {

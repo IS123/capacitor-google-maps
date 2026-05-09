@@ -76,6 +76,10 @@ class GMViewController: UIViewController {
             clusterManager.cluster()
         }
     }
+
+    func recluster() {
+        clusterManager?.cluster()
+    }
 }
 
 // swiftlint:disable type_body_length
@@ -316,6 +320,9 @@ public class Map {
             }
 
             self.recomputeSpread()
+            if self.mapViewController.clusteringEnabled {
+                self.mapViewController.recluster()
+            }
         }
 
         return markerHash
@@ -455,6 +462,9 @@ public class Map {
 
                 if index >= total {
                     self.recomputeSpread()
+                    if self.mapViewController.clusteringEnabled {
+                        self.mapViewController.recluster()
+                    }
                 }
 
                 DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
@@ -491,10 +501,12 @@ public class Map {
                 coords1: newMarker.coordinate,
                 coords2: marker.position
             ) {
-                marker.position = CLLocationCoordinate2D(
+                let newCoord = CLLocationCoordinate2D(
                     latitude: newMarker.coordinate.lat,
                     longitude: newMarker.coordinate.lng
                 )
+                marker.position = newCoord
+                self.originalCoords[markerId] = newCoord
             }
 
             if let userData = marker.userData as? String,
@@ -606,6 +618,9 @@ public class Map {
                 self.markers.removeValue(forKey: id)
                 self.originalCoords.removeValue(forKey: id)
                 self.recomputeSpread()
+                if self.mapViewController.clusteringEnabled {
+                    self.mapViewController.recluster()
+                }
             }
         } else {
             throw GoogleMapErrors.markerNotFound
@@ -628,6 +643,9 @@ public class Map {
                 self.originalCoords.removeValue(forKey: markerHash)
                 self.mIds.removeValue(forKey: mId)
                 self.recomputeSpread()
+                if self.mapViewController.clusteringEnabled {
+                    self.mapViewController.recluster()
+                }
             }
         } else {
             throw GoogleMapErrors.markerNotFound
@@ -779,6 +797,9 @@ public class Map {
             }
 
             self.recomputeSpread()
+            if self.mapViewController.clusteringEnabled {
+                self.mapViewController.recluster()
+            }
         }
     }
 
@@ -808,6 +829,9 @@ public class Map {
             }
 
             self.recomputeSpread()
+            if self.mapViewController.clusteringEnabled {
+                self.mapViewController.recluster()
+            }
         }
     }
 
@@ -941,7 +965,9 @@ public class Map {
             groups[key, default: []].append(hash)
         }
 
-        for (_, hashes) in groups {
+        for (_, var hashes) in groups {
+            // Sort for deterministic index assignment across re-renders
+            hashes.sort()
             let N = hashes.count
             guard let firstOrig = originalCoords[hashes[0]] else { continue }
 
@@ -950,15 +976,21 @@ public class Map {
                 continue
             }
 
+            let cosLat = max(cos(firstOrig.latitude * .pi / 180.0), 1e-10)
             let dLat = R_METERS / 111320.0
-            let dLng = R_METERS / (111320.0 * cos(firstOrig.latitude * .pi / 180.0))
+            let dLng = R_METERS / (111320.0 * cosLat)
 
             for (i, hash) in hashes.enumerated() {
                 guard let orig = originalCoords[hash] else { continue }
                 let angle = 2.0 * .pi * Double(i) / Double(N)
+                var newLng = orig.longitude + dLng * cos(angle)
+                // Wrap longitude to [-180, 180]
+                newLng = newLng.truncatingRemainder(dividingBy: 360.0)
+                if newLng > 180.0 { newLng -= 360.0 }
+                if newLng < -180.0 { newLng += 360.0 }
                 markers[hash]?.position = CLLocationCoordinate2D(
                     latitude: orig.latitude + dLat * sin(angle),
-                    longitude: orig.longitude + dLng * cos(angle)
+                    longitude: newLng
                 )
             }
         }
