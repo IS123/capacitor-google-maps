@@ -267,7 +267,6 @@ class CapacitorGoogleMap(
 									val existingMarker = markers[existingId]
 
 									existingMarker?.googleMapMarker?.position = marker.position
-									// Keep originalCoordinate in sync so recomputeSpread groups correctly
 									existingMarker?.originalCoordinate = marker.coordinate
 									existingMarker?.coordinate = marker.coordinate
 
@@ -309,8 +308,6 @@ class CapacitorGoogleMap(
 							}
 
 							recomputeSpread()
-
-							// Re-cluster after spread so the cluster manager picks up updated positions
 							clusterManager?.cluster()
 						}
 
@@ -1270,7 +1267,6 @@ fun updateMarkerIcon(mId: String, iconId: String, iconUrl: String) {
     private fun recomputeSpread() {
         val R_METERS = 8.0
 
-        // Group markers by original coordinate (rounded to 6 decimal places)
         val groups = mutableMapOf<String, MutableList<CapacitorGoogleMapMarker>>()
         for ((_, marker) in markers) {
             val orig = marker.originalCoordinate ?: marker.coordinate
@@ -1297,7 +1293,6 @@ fun updateMarkerIcon(mId: String, iconId: String, iconUrl: String) {
                 val angle = 2.0 * Math.PI * i / N
                 val orig = m.originalCoordinate!!
                 var newLng = orig.longitude + dLng * Math.cos(angle)
-                // Wrap longitude to [-180, 180]
                 newLng = ((newLng + 180.0) % 360.0 + 360.0) % 360.0 - 180.0
                 val newPos = LatLng(
                     orig.latitude + dLat * Math.sin(angle),
@@ -1726,7 +1721,7 @@ fun updateMarkerIcon(mId: String, iconId: String, iconUrl: String) {
 
         val data = JSObject()
         data.put("mapId", this@CapacitorGoogleMap.id)
-        data.put("mId", mIds.entries.find { it.value == marker.id }?.key )
+        data.put("mId", mIds.entries.find { it.value == marker.id }?.key)
         data.put("markerId", marker.id)
         data.put("latitude", marker.position.latitude)
         data.put("longitude", marker.position.longitude)
@@ -1741,7 +1736,7 @@ fun updateMarkerIcon(mId: String, iconId: String, iconUrl: String) {
     override fun onMarkerDragStart(marker: Marker) {
         val data = JSObject()
         data.put("mapId", this@CapacitorGoogleMap.id)
-        data.put("mId", mIds.entries.find { it.value == marker.id }?.key )
+        data.put("mId", mIds.entries.find { it.value == marker.id }?.key)
         data.put("markerId", marker.id)
         data.put("latitude", marker.position.latitude)
         data.put("longitude", marker.position.longitude)
@@ -1758,7 +1753,7 @@ fun updateMarkerIcon(mId: String, iconId: String, iconUrl: String) {
 
         val data = JSObject()
         data.put("mapId", this@CapacitorGoogleMap.id)
-        data.put("mId", mIds.entries.find { it.value == marker.id }?.key )
+        data.put("mId", mIds.entries.find { it.value == marker.id }?.key)
         data.put("markerId", marker.id)
         data.put("latitude", marker.position.latitude)
         data.put("longitude", marker.position.longitude)

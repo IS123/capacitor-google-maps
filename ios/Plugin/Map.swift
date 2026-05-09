@@ -497,16 +497,18 @@ public class Map {
         }
 
         runOnMainThread {
-            if self.isCoordinatesDifferent(
-                coords1: newMarker.coordinate,
-                coords2: marker.position
-            ) {
-                let newCoord = CLLocationCoordinate2D(
-                    latitude: newMarker.coordinate.lat,
-                    longitude: newMarker.coordinate.lng
-                )
+            let newCoord = CLLocationCoordinate2D(
+                latitude: newMarker.coordinate.lat,
+                longitude: newMarker.coordinate.lng
+            )
+            // Always sync originalCoords to the canonical data coordinate unconditionally.
+            // After a drag, GMSMarker.position already equals the drop location so
+            // isCoordinatesDifferent returns false — without this line originalCoords
+            // would keep the old group key and recomputeSpread would snap the marker back.
+            self.originalCoords[markerId] = newCoord
+
+            if self.isCoordinatesDifferent(coords1: newMarker.coordinate, coords2: marker.position) {
                 marker.position = newCoord
-                self.originalCoords[markerId] = newCoord
             }
 
             if let userData = marker.userData as? String,
