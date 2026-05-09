@@ -599,6 +599,9 @@ class GoogleMap {
             imagePath: opts.imagePath
         });
     }
+    async removeGroundOverlay() {
+        return CapacitorGoogleMaps.removeGroundOverlay({ id: this.id });
+    }
     async getZoomLevel() {
         return CapacitorGoogleMaps.getZoomLevel({
             id: this.id
@@ -1642,6 +1645,9 @@ class CapacitorGoogleMapsWeb extends core.WebPlugin {
         return { snapshot: snapshot };
     }
     async addGroundOverlay(_args) {
+        throw new Error('Method not supported on web.');
+    }
+    async removeGroundOverlay(_args) {
         throw new Error('Method not supported on web.');
     }
     async getZoomLevel(_args) {

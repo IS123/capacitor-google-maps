@@ -1801,12 +1801,15 @@ public class CapacitorGoogleMapsPlugin: CAPPlugin, GMSMapViewDelegate {
 				mId = map.mIds.first(where: { $0.value == marker.hash.hashValue })?.key ?? "none"
 			}
 
+            let origClick = map?.originalCoords[marker.hash.hashValue] ?? marker.position
             self.notifyListeners("onMarkerClick", data: [
                 "mapId": mapId,
                 "markerId": String(marker.hash.hashValue),
 				"mId": mId,
                 "latitude": marker.position.latitude,
                 "longitude": marker.position.longitude,
+                "originalLatitude": origClick.latitude,
+                "originalLongitude": origClick.longitude,
                 "title": marker.title ?? "",
                 "snippet": marker.snippet ?? ""
             ])
@@ -1824,12 +1827,15 @@ public class CapacitorGoogleMapsPlugin: CAPPlugin, GMSMapViewDelegate {
 			mId = map.mIds.first(where: { $0.value == marker.hash.hashValue })?.key ?? "none"
 		}
 
+        let origStart = map?.originalCoords[marker.hash.hashValue] ?? marker.position
         self.notifyListeners("onMarkerDragStart", data: [
             "mapId": mapId,
 			"mId": mId,
             "markerId": String(marker.hash.hashValue),
             "latitude": marker.position.latitude,
             "longitude": marker.position.longitude,
+            "originalLatitude": origStart.latitude,
+            "originalLongitude": origStart.longitude,
             "title": marker.title ?? "",
             "snippet": marker.snippet ?? ""
         ])
@@ -1845,12 +1851,15 @@ public class CapacitorGoogleMapsPlugin: CAPPlugin, GMSMapViewDelegate {
 			mId = map.mIds.first(where: { $0.value == marker.hash.hashValue })?.key ?? "none"
 		}
 
+        let origDrag = map?.originalCoords[marker.hash.hashValue] ?? marker.position
         self.notifyListeners("onMarkerDrag", data: [
             "mapId": mapId,
 			"mId": mId,
             "markerId": String(marker.hash.hashValue),
             "latitude": marker.position.latitude,
             "longitude": marker.position.longitude,
+            "originalLatitude": origDrag.latitude,
+            "originalLongitude": origDrag.longitude,
             "title": marker.title ?? "",
             "snippet": marker.snippet ?? ""
         ])
@@ -1866,12 +1875,15 @@ public class CapacitorGoogleMapsPlugin: CAPPlugin, GMSMapViewDelegate {
 			mId = map.mIds.first(where: { $0.value == marker.hash.hashValue })?.key ?? "none"
 		}
 
+        let origEnd = map?.originalCoords[marker.hash.hashValue] ?? marker.position
         self.notifyListeners("onMarkerDragEnd", data: [
             "mapId": mapId,
 			"mId": mId,
             "markerId": String(marker.hash.hashValue),
             "latitude": marker.position.latitude,
             "longitude": marker.position.longitude,
+            "originalLatitude": origEnd.latitude,
+            "originalLongitude": origEnd.longitude,
             "title": marker.title ?? "",
             "snippet": marker.snippet ?? ""
         ])

@@ -490,6 +490,9 @@ export class CapacitorGoogleMapsWeb extends WebPlugin {
     async addGroundOverlay(_args) {
         throw new Error('Method not supported on web.');
     }
+    async removeGroundOverlay(_args) {
+        throw new Error('Method not supported on web.');
+    }
     async getZoomLevel(_args) {
         return {
             zoomLevel: this.maps[_args.id].map.getZoom()

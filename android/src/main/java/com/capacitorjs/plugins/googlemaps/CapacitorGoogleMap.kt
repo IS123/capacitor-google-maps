@@ -304,6 +304,8 @@ class CapacitorGoogleMap(
 								addItems(markersToAdd)
 								cluster()
 							}
+
+							recomputeSpread()
 						}
 
 						emit(Result.success(markerIds))
@@ -370,6 +372,8 @@ class CapacitorGoogleMap(
                     markers[googleMapMarker.id] = marker
 
                     markerId = googleMapMarker.id
+
+                    recomputeSpread()
 
                     callback(Result.success(markerId))
                 }
@@ -600,6 +604,7 @@ class CapacitorGoogleMap(
                     markers.remove(markerId)
                 }
 
+                recomputeSpread()
                 callback(null)
             }
         } catch (e: GoogleMapsError) {
@@ -623,6 +628,7 @@ class CapacitorGoogleMap(
                 marker.googleMapMarker?.remove()
                 markers.remove(id)
 
+                recomputeSpread()
                 callback(null)
             }
         } catch (e: GoogleMapsError) {
@@ -636,6 +642,7 @@ class CapacitorGoogleMap(
 
             CoroutineScope(Dispatchers.Main).launch {
                 removeMarkersBymIdInternal(ids)
+                recomputeSpread()
 				callback(null)
             }
         } catch (e: GoogleMapsError) {
@@ -665,6 +672,7 @@ class CapacitorGoogleMap(
                     clusterManager?.cluster()
                 }
 
+                recomputeSpread()
                 callback(null)
             }
         } catch (e: GoogleMapsError) {
@@ -878,7 +886,6 @@ fun updateMarkerIcon(mId: String, iconId: String, iconUrl: String) {
                             val groundOverlayOptions =
                                 GroundOverlayOptions().image(bitmapDescriptor)
                                     .position(position, result.image.width.toFloat(), result.image.height.toFloat())
-                                    
                             CoroutineScope(Dispatchers.Main).launch {
                                 currentGroundOverlay = map.addGroundOverlay(groundOverlayOptions)
                             }
@@ -1248,6 +1255,44 @@ fun updateMarkerIcon(mId: String, iconId: String, iconUrl: String) {
 		// 3️⃣ scale ⟶ logical size with bilinear filtering
 		return highRes
 	}
+
+    private fun recomputeSpread() {
+        val R_METERS = 8.0
+
+        // Group markers by original coordinate (rounded to 6 decimal places)
+        val groups = mutableMapOf<String, MutableList<CapacitorGoogleMapMarker>>()
+        for ((_, marker) in markers) {
+            val orig = marker.originalCoordinate ?: marker.coordinate
+            marker.originalCoordinate = orig
+            val key = "%.6f,%.6f".format(orig.latitude, orig.longitude)
+            groups.getOrPut(key) { mutableListOf() }.add(marker)
+        }
+
+        for ((_, group) in groups) {
+            val N = group.size
+            val orig0 = group[0].originalCoordinate!!
+
+            if (N == 1) {
+                group[0].googleMapMarker?.position = orig0
+                group[0].coordinate = orig0
+                continue
+            }
+
+            val dLat = R_METERS / 111320.0
+            val dLng = R_METERS / (111320.0 * Math.cos(Math.toRadians(orig0.latitude)))
+
+            group.forEachIndexed { i, m ->
+                val angle = 2.0 * Math.PI * i / N
+                val orig = m.originalCoordinate!!
+                val newPos = LatLng(
+                    orig.latitude + dLat * Math.sin(angle),
+                    orig.longitude + dLng * Math.cos(angle)
+                )
+                m.googleMapMarker?.position = newPos
+                m.coordinate = newPos
+            }
+        }
+    }
 
     private fun buildMarker(marker: CapacitorGoogleMapMarker): MarkerOptions {
         val markerOptions = MarkerOptions()
@@ -1644,6 +1689,9 @@ fun updateMarkerIcon(mId: String, iconId: String, iconUrl: String) {
         data.put("markerId", marker.id)
         data.put("latitude", marker.position.latitude)
         data.put("longitude", marker.position.longitude)
+        val origCoord = markers[marker.id]?.originalCoordinate ?: marker.position
+        data.put("originalLatitude", origCoord.latitude)
+        data.put("originalLongitude", origCoord.longitude)
         data.put("title", marker.title)
         data.put("snippet", marker.snippet)
         delegate.notify("onMarkerClick", data)
@@ -1667,6 +1715,9 @@ fun updateMarkerIcon(mId: String, iconId: String, iconUrl: String) {
         data.put("markerId", marker.id)
         data.put("latitude", marker.position.latitude)
         data.put("longitude", marker.position.longitude)
+        val origCoordDrag = markers[marker.id]?.originalCoordinate ?: marker.position
+        data.put("originalLatitude", origCoordDrag.latitude)
+        data.put("originalLongitude", origCoordDrag.longitude)
         data.put("title", marker.title)
         data.put("snippet", marker.snippet)
         delegate.notify("onMarkerDrag", data)
@@ -1679,6 +1730,9 @@ fun updateMarkerIcon(mId: String, iconId: String, iconUrl: String) {
         data.put("markerId", marker.id)
         data.put("latitude", marker.position.latitude)
         data.put("longitude", marker.position.longitude)
+        val origCoordStart = markers[marker.id]?.originalCoordinate ?: marker.position
+        data.put("originalLatitude", origCoordStart.latitude)
+        data.put("originalLongitude", origCoordStart.longitude)
         data.put("title", marker.title)
         data.put("snippet", marker.snippet)
         delegate.notify("onMarkerDragStart", data)
@@ -1693,6 +1747,9 @@ fun updateMarkerIcon(mId: String, iconId: String, iconUrl: String) {
         data.put("markerId", marker.id)
         data.put("latitude", marker.position.latitude)
         data.put("longitude", marker.position.longitude)
+        val origCoordEnd = markers[marker.id]?.originalCoordinate ?: marker.position
+        data.put("originalLatitude", origCoordEnd.latitude)
+        data.put("originalLongitude", origCoordEnd.longitude)
         data.put("title", marker.title)
         data.put("snippet", marker.snippet)
         delegate.notify("onMarkerDragEnd", data)

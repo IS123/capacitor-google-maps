@@ -165,8 +165,8 @@ export interface FitBoundsArgs {
 export interface GroundOverlayArgs {
     latitude: number;
     longitude: number;
-    width: number;
-    height: number;
+    width?: number;
+    height?: number;
     imagePath: string;
 }
 export interface SetMarkersDraggableArgs {
@@ -246,6 +246,9 @@ export interface CapacitorGoogleMapsPlugin extends Plugin {
         snapshot: string | HTMLElement;
     }>;
     addGroundOverlay(args: GroundOverlayArgs & {
+        id: string;
+    }): Promise<void>;
+    removeGroundOverlay(args: {
         id: string;
     }): Promise<void>;
     getZoomLevel(args: {
