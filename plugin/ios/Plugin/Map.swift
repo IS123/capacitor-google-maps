@@ -76,6 +76,10 @@ class GMViewController: UIViewController {
             clusterManager.cluster()
         }
     }
+
+    func recluster() {
+        clusterManager?.cluster()
+    }
 }
 
 // swiftlint:disable type_body_length
@@ -85,6 +89,8 @@ public class Map {
     var mapViewController: GMViewController
     var targetViewController: UIView?
     var markers = [Int: GMSMarker]()
+    /** True (pre-spread) coordinate for each marker hash. */
+    var originalCoords = [Int: CLLocationCoordinate2D]()
     var polygons = [Int: GMSPolygon]()
     var circles = [Int: GMSCircle]()
     var polylines = [Int: GMSPolyline]()
@@ -300,12 +306,22 @@ public class Map {
                 newMarker.map = self.mapViewController.GMapView
             }
 
-            self.markers[newMarker.hash.hashValue] = newMarker
+            let hash = newMarker.hash.hashValue
+            self.markers[hash] = newMarker
+            self.originalCoords[hash] = CLLocationCoordinate2D(
+                latitude: marker.coordinate.lat,
+                longitude: marker.coordinate.lng
+            )
 
-            markerHash = newMarker.hash.hashValue
+            markerHash = hash
 
             if let mId = marker.mId {
                 self.mIds[mId] = markerHash
+            }
+
+            self.recomputeSpread()
+            if self.mapViewController.clusteringEnabled {
+                self.mapViewController.recluster()
             }
         }
 
@@ -421,6 +437,10 @@ public class Map {
 
                     let hash = newMarker.hash.hashValue
                     self.markers[hash] = newMarker
+                    self.originalCoords[hash] = CLLocationCoordinate2D(
+                        latitude: markerData.coordinate.lat,
+                        longitude: markerData.coordinate.lng
+                    )
                     markerHashes.append(hash)
 
                     if let mId = markerData.mId {
@@ -438,6 +458,13 @@ public class Map {
                 if currentGeneration != self.addMarkersGeneration {
                     finish(markerHashes)
                     return
+                }
+
+                if index >= total {
+                    self.recomputeSpread()
+                    if self.mapViewController.clusteringEnabled {
+                        self.mapViewController.recluster()
+                    }
                 }
 
                 DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
@@ -470,14 +497,18 @@ public class Map {
         }
 
         runOnMainThread {
-            if self.isCoordinatesDifferent(
-                coords1: newMarker.coordinate,
-                coords2: marker.position
-            ) {
-                marker.position = CLLocationCoordinate2D(
-                    latitude: newMarker.coordinate.lat,
-                    longitude: newMarker.coordinate.lng
-                )
+            let newCoord = CLLocationCoordinate2D(
+                latitude: newMarker.coordinate.lat,
+                longitude: newMarker.coordinate.lng
+            )
+            // Always sync originalCoords to the canonical data coordinate unconditionally.
+            // After a drag, GMSMarker.position already equals the drop location so
+            // isCoordinatesDifferent returns false — without this line originalCoords
+            // would keep the old group key and recomputeSpread would snap the marker back.
+            self.originalCoords[markerId] = newCoord
+
+            if self.isCoordinatesDifferent(coords1: newMarker.coordinate, coords2: marker.position) {
+                marker.position = newCoord
             }
 
             if let userData = marker.userData as? String,
@@ -587,7 +618,11 @@ public class Map {
 
                 marker.map = nil
                 self.markers.removeValue(forKey: id)
-
+                self.originalCoords.removeValue(forKey: id)
+                self.recomputeSpread()
+                if self.mapViewController.clusteringEnabled {
+                    self.mapViewController.recluster()
+                }
             }
         } else {
             throw GoogleMapErrors.markerNotFound
@@ -607,7 +642,12 @@ public class Map {
 
                 marker.map = nil
                 self.markers.removeValue(forKey: markerHash)
-
+                self.originalCoords.removeValue(forKey: markerHash)
+                self.mIds.removeValue(forKey: mId)
+                self.recomputeSpread()
+                if self.mapViewController.clusteringEnabled {
+                    self.mapViewController.recluster()
+                }
             }
         } else {
             throw GoogleMapErrors.markerNotFound
@@ -749,12 +789,18 @@ public class Map {
                     }
 
                     self.markers.removeValue(forKey: id)
+                    self.originalCoords.removeValue(forKey: id)
                     markers.append(marker)
                 }
             }
 
             if self.mapViewController.clusteringEnabled {
                 self.mapViewController.removeMarkersFromCluster(markers: markers)
+            }
+
+            self.recomputeSpread()
+            if self.mapViewController.clusteringEnabled {
+                self.mapViewController.recluster()
             }
         }
     }
@@ -773,6 +819,7 @@ public class Map {
                     marker.map = nil
 
                     self.markers.removeValue(forKey: markerHash)
+                    self.originalCoords.removeValue(forKey: markerHash)
                     self.mIds.removeValue(forKey: mId)
 
                     markers.append(marker)
@@ -781,6 +828,11 @@ public class Map {
 
             if self.mapViewController.clusteringEnabled {
                 self.mapViewController.removeMarkersFromCluster(markers: markers)
+            }
+
+            self.recomputeSpread()
+            if self.mapViewController.clusteringEnabled {
+                self.mapViewController.recluster()
             }
         }
     }
@@ -901,6 +953,49 @@ public class Map {
         }
 
         return newPolyline
+    }
+
+    func recomputeSpread() {
+        let R_METERS: Double = 8.0
+
+        // Group marker hashes by rounded original coordinate
+        var groups: [String: [Int]] = [:]
+        for (hash, gmsMarker) in markers {
+            let orig = originalCoords[hash] ?? gmsMarker.position
+            originalCoords[hash] = orig
+            let key = String(format: "%.6f,%.6f", orig.latitude, orig.longitude)
+            groups[key, default: []].append(hash)
+        }
+
+        for (_, var hashes) in groups {
+            // Sort for deterministic index assignment across re-renders
+            hashes.sort()
+            let N = hashes.count
+            guard let firstOrig = originalCoords[hashes[0]] else { continue }
+
+            if N == 1 {
+                markers[hashes[0]]?.position = firstOrig
+                continue
+            }
+
+            let cosLat = max(cos(firstOrig.latitude * .pi / 180.0), 1e-10)
+            let dLat = R_METERS / 111320.0
+            let dLng = R_METERS / (111320.0 * cosLat)
+
+            for (i, hash) in hashes.enumerated() {
+                guard let orig = originalCoords[hash] else { continue }
+                let angle = 2.0 * .pi * Double(i) / Double(N)
+                var newLng = orig.longitude + dLng * cos(angle)
+                // Wrap longitude to [-180, 180]
+                newLng = newLng.truncatingRemainder(dividingBy: 360.0)
+                if newLng > 180.0 { newLng -= 360.0 }
+                if newLng < -180.0 { newLng += 360.0 }
+                markers[hash]?.position = CLLocationCoordinate2D(
+                    latitude: orig.latitude + dLat * sin(angle),
+                    longitude: newLng
+                )
+            }
+        }
     }
 
     private func buildMarker(marker: Marker) -> GMSMarker {
