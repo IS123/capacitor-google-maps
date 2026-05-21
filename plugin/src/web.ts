@@ -70,6 +70,9 @@ export class CapacitorGoogleMapsWeb extends WebPlugin implements CapacitorGoogle
   private currCircleId = 0;
   private currPolylineId = 0;
   private currMapId = 0;
+  // Tracks whether each map is currently in a camera movement sequence.
+  // Ensures onCameraMoveStarted fires exactly once per gesture, matching iOS/Android behaviour.
+  private cameraIsMoving: Record<string, boolean> = {};
 
   private onClusterClickHandler: onClusterClickHandler = (
     _: google.maps.MapMouseEvent,
@@ -840,6 +843,7 @@ export class CapacitorGoogleMapsWeb extends WebPlugin implements CapacitorGoogle
     const map = this.maps[mapId].map;
 
     map.addListener('idle', async () => {
+      this.cameraIsMoving[mapId] = false;
       const bounds = await this.getMapBounds({ id: mapId });
       this.notifyListeners('onCameraIdle', {
         mapId: mapId,
@@ -853,6 +857,8 @@ export class CapacitorGoogleMapsWeb extends WebPlugin implements CapacitorGoogle
     });
 
     map.addListener('center_changed', () => {
+      if (this.cameraIsMoving[mapId]) return;
+      this.cameraIsMoving[mapId] = true;
       this.notifyListeners('onCameraMoveStarted', {
         mapId: mapId,
         isGesture: true,
