@@ -1795,7 +1795,7 @@ fun updateMarkerIcon(mId: String, iconId: String, iconUrl: String) {
         val currentZoomLevel = googleMap?.cameraPosition?.zoom
         if (currentZoomLevel != null && currentZoomLevel != lastZoomLevel) {
             lastZoomLevel = currentZoomLevel
-            delegate.notify("onZoomChanged", JSObject().put("zoomLevel", lastZoomLevel))
+            delegate.notify("onZoomChanged", JSObject().put("zoom", lastZoomLevel))
         }
     }
 
@@ -1820,7 +1820,7 @@ fun updateMarkerIcon(mId: String, iconId: String, iconUrl: String) {
         val currentZoomLevel = googleMap?.cameraPosition?.zoom
         if (currentZoomLevel != null && currentZoomLevel != lastZoomLevel) {
             lastZoomLevel = currentZoomLevel
-            delegate.notify("onZoomChanged", JSObject().put("zoomLevel", lastZoomLevel))
+            delegate.notify("onZoomChanged", JSObject().put("zoom", lastZoomLevel))
         }
 
         debounceJob?.cancel()

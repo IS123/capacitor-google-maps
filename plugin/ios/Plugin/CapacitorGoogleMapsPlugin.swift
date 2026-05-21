@@ -1725,7 +1725,7 @@ public class CapacitorGoogleMapsPlugin: CAPPlugin, GMSMapViewDelegate {
             lastZoomLevels[mapId] = finalZoom
             self.notifyListeners("onZoomChanged", data: [
                 "mapId": mapId,
-                "zoomLevel": finalZoom
+                "zoom": finalZoom
             ])
         }
     }
@@ -1760,7 +1760,7 @@ public class CapacitorGoogleMapsPlugin: CAPPlugin, GMSMapViewDelegate {
             lastZoomLevels[mapId] = newZoom
             self.notifyListeners("onZoomChanged", data: [
                 "mapId": mapId,
-                "zoomLevel": newZoom
+                "zoom": newZoom
             ])
         }
     }
