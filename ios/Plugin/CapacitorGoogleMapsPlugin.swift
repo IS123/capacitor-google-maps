@@ -74,6 +74,7 @@ public class CapacitorGoogleMapsPlugin: CAPPlugin, GMSMapViewDelegate {
     private var longPressGestureRecognizer: UILongPressGestureRecognizer?
     private var touchInterceptorRecognizer: TouchInterceptorGestureRecognizer?
     private var longPressHandled: [String: Bool] = [:] // Track if long press was already handled for each map
+    private var lastZoomLevels: [String: Float] = [:]
 
     func checkLocationPermission() -> String {
         let locationState: String
@@ -1718,9 +1719,15 @@ public class CapacitorGoogleMapsPlugin: CAPPlugin, GMSMapViewDelegate {
         self.notifyListeners("onBoundsChanged", data: data)
         self.notifyListeners("onCameraIdle", data: data)
 
-        // if let map = map {
-        //     _updateVisibleMarkers(mapView: mapView, map: map)
-        // }
+        // Final zoom emission on idle in case didChange missed the last step.
+        let finalZoom = cameraPosition.zoom
+        if finalZoom != lastZoomLevels[mapId] {
+            lastZoomLevels[mapId] = finalZoom
+            self.notifyListeners("onZoomChanged", data: [
+                "mapId": mapId,
+                "zoomLevel": finalZoom
+            ])
+        }
     }
 
     // onCameraMoveStarted
@@ -1729,6 +1736,33 @@ public class CapacitorGoogleMapsPlugin: CAPPlugin, GMSMapViewDelegate {
             "mapId": self.findMapIdByMapView(mapView),
             "isGesture": gesture
         ])
+    }
+
+    // onBoundsChanged (continuous) + onZoomChanged — fires on every camera position change,
+    // matching web where bounds_changed fires during pan, zoom, and on idle settle.
+    public func mapView(_ mapView: GMSMapView, didChange cameraPosition: GMSCameraPosition) {
+        let mapId = self.findMapIdByMapView(mapView)
+        let map = self.maps[mapId]
+        let bounds = map?.getMapLatLngBounds()
+
+        self.notifyListeners("onBoundsChanged", data: [
+            "mapId": mapId,
+            "bounds": formatMapBoundsForResponse(bounds: bounds, cameraPosition: cameraPosition),
+            "bearing": cameraPosition.bearing,
+            "latitude": cameraPosition.target.latitude,
+            "longitude": cameraPosition.target.longitude,
+            "tilt": cameraPosition.viewingAngle,
+            "zoom": cameraPosition.zoom
+        ])
+
+        let newZoom = cameraPosition.zoom
+        if newZoom != lastZoomLevels[mapId] {
+            lastZoomLevels[mapId] = newZoom
+            self.notifyListeners("onZoomChanged", data: [
+                "mapId": mapId,
+                "zoomLevel": newZoom
+            ])
+        }
     }
 
     // onMapClick
