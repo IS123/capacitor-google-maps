@@ -1791,11 +1791,10 @@ fun updateMarkerIcon(mId: String, iconId: String, iconUrl: String) {
         data.put("zoom", this@CapacitorGoogleMap.googleMap?.cameraPosition?.zoom)
         delegate.notify("onCameraIdle", data)
         delegate.notify("onBoundsChanged", data)
-        // Emit final zoom value on idle in case onCameraMove missed the last step.
         val currentZoomLevel = googleMap?.cameraPosition?.zoom
         if (currentZoomLevel != null && currentZoomLevel != lastZoomLevel) {
             lastZoomLevel = currentZoomLevel
-            delegate.notify("onZoomChanged", JSObject().put("zoom", lastZoomLevel))
+            delegate.notify("onZoomChanged", JSObject().put("zoomLevel", lastZoomLevel))
         }
     }
 
@@ -1804,30 +1803,6 @@ fun updateMarkerIcon(mId: String, iconId: String, iconUrl: String) {
         data.put("mapId", this@CapacitorGoogleMap.id)
         data.put("isGesture", reason == 1)
         delegate.notify("onCameraMoveStarted", data)
-    }
-
-    override fun onCameraMove() {
-        val data = JSObject()
-        data.put("mapId", this@CapacitorGoogleMap.id)
-        data.put("bounds", getLatLngBoundsJSObject(getLatLngBounds()))
-        data.put("bearing", googleMap?.cameraPosition?.bearing)
-        data.put("latitude", googleMap?.cameraPosition?.target?.latitude)
-        data.put("longitude", googleMap?.cameraPosition?.target?.longitude)
-        data.put("tilt", googleMap?.cameraPosition?.tilt)
-        data.put("zoom", googleMap?.cameraPosition?.zoom)
-        delegate.notify("onBoundsChanged", data)
-
-        val currentZoomLevel = googleMap?.cameraPosition?.zoom
-        if (currentZoomLevel != null && currentZoomLevel != lastZoomLevel) {
-            lastZoomLevel = currentZoomLevel
-            delegate.notify("onZoomChanged", JSObject().put("zoom", lastZoomLevel))
-        }
-
-        debounceJob?.cancel()
-        debounceJob = CoroutineScope(Dispatchers.Main).launch {
-            delay(100)
-            clusterManager?.cluster()
-        }
     }
 
     override fun onInfoWindowClick(marker: Marker) {
@@ -1839,6 +1814,14 @@ fun updateMarkerIcon(mId: String, iconId: String, iconUrl: String) {
         data.put("title", marker.title)
         data.put("snippet", marker.snippet)
         delegate.notify("onInfoWindowClick", data)
+    }
+
+    override fun onCameraMove() {
+        debounceJob?.cancel()
+        debounceJob = CoroutineScope(Dispatchers.Main).launch {
+            delay(100)
+            clusterManager?.cluster()
+        }
     }
 
     override fun onPolygonClick(polygon: Polygon) {

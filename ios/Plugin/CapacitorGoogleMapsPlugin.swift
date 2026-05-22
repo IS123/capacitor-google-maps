@@ -75,11 +75,6 @@ public class CapacitorGoogleMapsPlugin: CAPPlugin, GMSMapViewDelegate {
     private var touchInterceptorRecognizer: TouchInterceptorGestureRecognizer?
     private var longPressHandled: [String: Bool] = [:] // Track if long press was already handled for each map
     private var lastZoomLevels: [String: Float] = [:]
-    // O(1) reverse lookup: GMSMapView identity → mapId. Populated lazily on first delegate callback.
-    private var viewToMapId: [ObjectIdentifier: String] = [:]
-    // Latest camera position per map, written in the 60fps delegate, flushed by the 100ms timer.
-    private var pendingCameraUpdates: [String: GMSCameraPosition] = [:]
-    private var boundsTimer: DispatchSourceTimer?
 
     func checkLocationPermission() -> String {
         let locationState: String
@@ -333,7 +328,6 @@ public class CapacitorGoogleMapsPlugin: CAPPlugin, GMSMapViewDelegate {
 	}
 
     @objc func create(_ call: CAPPluginCall) {
-        startBoundsTimerIfNeeded()
         do {
             if !isInitialized {
                 guard let apiKey = call.getString("apiKey") else {
@@ -409,10 +403,6 @@ public class CapacitorGoogleMapsPlugin: CAPPlugin, GMSMapViewDelegate {
                 call.resolve()
                 return
             }
-
-            viewToMapId = viewToMapId.filter { $0.value != id }
-            pendingCameraUpdates.removeValue(forKey: id)
-            if maps.isEmpty { stopBoundsTimer() }
 
             removedMap.destroyWithCompletion {
                 call.resolve()
@@ -1371,6 +1361,25 @@ public class CapacitorGoogleMapsPlugin: CAPPlugin, GMSMapViewDelegate {
         }
     }
 
+    @objc func getZoomLevel(_ call: CAPPluginCall) {
+        do {
+            guard let id = call.getString("id") else {
+                throw GoogleMapErrors.invalidMapId
+            }
+
+            guard let map = self.maps[id] else {
+                throw GoogleMapErrors.mapNotFound
+            }
+
+            DispatchQueue.main.sync {
+                let zoom = map.mapViewController.GMapView.camera.zoom
+                call.resolve(["zoomLevel": zoom])
+            }
+        } catch {
+            handleError(call, error: error)
+        }
+    }
+
     @objc func mapBoundsContains(_ call: CAPPluginCall) {
         do {
             guard let boundsObject = call.getObject("bounds") else {
@@ -1673,53 +1682,9 @@ public class CapacitorGoogleMapsPlugin: CAPPlugin, GMSMapViewDelegate {
         call.reject(errObject.message, "\(errObject.code)", error, [:])
     }
 
-    // MARK: - Bounds timer
-
-    private func startBoundsTimerIfNeeded() {
-        guard boundsTimer == nil else { return }
-        let timer = DispatchSource.makeTimerSource(queue: DispatchQueue.main)
-        timer.schedule(deadline: .now() + 0.1, repeating: 0.1, leeway: .milliseconds(20))
-        timer.setEventHandler { [weak self] in
-            self?.flushPendingBoundsUpdates()
-        }
-        timer.resume()
-        boundsTimer = timer
-    }
-
-    private func stopBoundsTimer() {
-        boundsTimer?.cancel()
-        boundsTimer = nil
-    }
-
-    private func flushPendingBoundsUpdates() {
-        guard !pendingCameraUpdates.isEmpty else { return }
-        let updates = pendingCameraUpdates
-        pendingCameraUpdates.removeAll()
-
-        for (mapId, cameraPosition) in updates {
-            let map = self.maps[mapId]
-            let bounds = map?.getMapLatLngBounds()
-
-            self.notifyListeners("onBoundsChanged", data: [
-                "mapId": mapId,
-                "bounds": formatMapBoundsForResponse(bounds: bounds, cameraPosition: cameraPosition),
-                "bearing": cameraPosition.bearing,
-                "latitude": cameraPosition.target.latitude,
-                "longitude": cameraPosition.target.longitude,
-                "tilt": cameraPosition.viewingAngle,
-                "zoom": cameraPosition.zoom
-            ])
-        }
-    }
-
-    // MARK: - Map lookup
-
     private func findMapIdByMapView(_ mapView: GMSMapView) -> String {
-        let key = ObjectIdentifier(mapView)
-        if let cached = viewToMapId[key] { return cached }
         for (mapId, map) in self.maps {
             if map.mapViewController.GMapView === mapView {
-                viewToMapId[key] = mapId
                 return mapId
             }
         }
@@ -1754,8 +1719,6 @@ public class CapacitorGoogleMapsPlugin: CAPPlugin, GMSMapViewDelegate {
     // onCameraIdle
     public func mapView(_ mapView: GMSMapView, idleAt cameraPosition: GMSCameraPosition) {
         let mapId = self.findMapIdByMapView(mapView)
-        // Discard any buffered movement update — idle notification below supersedes it.
-        pendingCameraUpdates.removeValue(forKey: mapId)
         let map = self.maps[mapId]
         let bounds = map?.getMapLatLngBounds()
 
@@ -1794,13 +1757,8 @@ public class CapacitorGoogleMapsPlugin: CAPPlugin, GMSMapViewDelegate {
         ])
     }
 
-    // Fires at 60fps during camera movement. Intentionally trivial — just stores the latest
-    // camera position. No GMS API calls here, so it is safe regardless of which thread the
-    // SDK uses for this callback. The 100ms timer (flushPendingBoundsUpdates) does all real
-    // work on DispatchQueue.main, which is the only safe place for projection.visibleRegion().
     public func mapView(_ mapView: GMSMapView, didChange cameraPosition: GMSCameraPosition) {
         let mapId = findMapIdByMapView(mapView)
-        pendingCameraUpdates[mapId] = cameraPosition
 
         let newZoom = cameraPosition.zoom
         if newZoom != lastZoomLevels[mapId] {

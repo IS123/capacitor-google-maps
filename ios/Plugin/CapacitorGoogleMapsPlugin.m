@@ -35,6 +35,7 @@ CAP_PLUGIN(CapacitorGoogleMapsPlugin, "CapacitorGoogleMaps",
    CAP_PLUGIN_METHOD(onResize, CAPPluginReturnPromise);
    CAP_PLUGIN_METHOD(onDisplay, CAPPluginReturnPromise);
    CAP_PLUGIN_METHOD(getMapBounds, CAPPluginReturnPromise);
+   CAP_PLUGIN_METHOD(getZoomLevel, CAPPluginReturnPromise);
    CAP_PLUGIN_METHOD(fitBounds, CAPPluginReturnPromise);
    CAP_PLUGIN_METHOD(mapBoundsContains, CAPPluginReturnPromise);
    CAP_PLUGIN_METHOD(mapBoundsExtend, CAPPluginReturnPromise);
