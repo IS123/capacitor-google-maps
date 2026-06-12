@@ -10,6 +10,10 @@ public struct GroundOverlay {
     let longitude: Double
     let width: Double
     let height: Double
+
+    var identityKey: String {
+        return "\(latitude)|\(longitude)|\(width)|\(height)|\(imagePath)"
+    }
     
     init(_ call: CAPPluginCall) throws {
         guard let latitude = call.getDouble("latitude"),
@@ -40,6 +44,10 @@ public struct GroundOverlay {
 
         let task = URLSession.shared.dataTask(with: imageUrl) { data, _, error in
             guard let data = data, error == nil, var icon = UIImage(data: data) else {
+                if let urlError = error as? URLError, urlError.code == .cancelled {
+                    completion(nil)
+                    return
+                }
                 print("CapacitorGoogleMaps Warning: could not load image: \(self.imagePath)")
                 completion(nil)
                 return

@@ -98,7 +98,9 @@ public class Map {
     var mIds = [String: Int]()
     private var addMarkersGeneration: Int = 0
     private var pendingOverlayTask: URLSessionDataTask?
+    private var pendingGroundOverlayKey: String?
     private var currentGroundOverlay: GMSGroundOverlay?
+    private var currentGroundOverlayKey: String?
     var isDestroyed: Bool = false
     var destroyCompletion: (() -> Void)?
 
@@ -329,25 +331,59 @@ public class Map {
     }
 
     func addGroundOverlay(overlay: GroundOverlay) {
+        let overlayKey = overlay.identityKey
+
+        if pendingOverlayTask != nil && pendingGroundOverlayKey == overlayKey {
+            return
+        }
+
+        if currentGroundOverlay?.map != nil && currentGroundOverlayKey == overlayKey {
+            return
+        }
+
         pendingOverlayTask?.cancel()
         pendingOverlayTask = nil
+        pendingGroundOverlayKey = nil
         currentGroundOverlay?.map = nil
         currentGroundOverlay = nil
+        currentGroundOverlayKey = nil
 
+        pendingGroundOverlayKey = overlayKey
         pendingOverlayTask = overlay.createGroundOverlay(completion: { [weak self] newOverlay in
-            guard let self = self, !self.isDestroyed else { return }
+            guard let self = self else {
+                return
+            }
+            guard !self.isDestroyed else {
+                return
+            }
             guard let newOverlay = newOverlay else {
-                print("Error while creating GroundOverlay")
+                if self.pendingGroundOverlayKey == overlayKey {
+                    self.pendingOverlayTask = nil
+                    self.pendingGroundOverlayKey = nil
+                }
                 return
             }
 
             DispatchQueue.main.async { [weak self] in
-                guard let self = self, !self.isDestroyed,
-                      let mapView = self.mapViewController.GMapView else { return }
+                guard let self = self else {
+                    return
+                }
+                guard !self.isDestroyed else {
+                    return
+                }
+                guard let mapView = self.mapViewController.GMapView else {
+                    return
+                }
+                guard self.pendingGroundOverlayKey == overlayKey else {
+                    return
+                }
                 newOverlay.opacity = 1.0
                 newOverlay.bearing = 0
                 newOverlay.map = mapView
                 self.currentGroundOverlay = newOverlay
+                self.currentGroundOverlayKey = overlayKey
+                self.pendingOverlayTask = nil
+                self.pendingGroundOverlayKey = nil
             }
         })
     }
@@ -355,9 +391,14 @@ public class Map {
     func removeGroundOverlay() {
         pendingOverlayTask?.cancel()
         pendingOverlayTask = nil
+        pendingGroundOverlayKey = nil
         DispatchQueue.main.async { [weak self] in
-            self?.currentGroundOverlay?.map = nil
-            self?.currentGroundOverlay = nil
+            guard let self = self else {
+                return
+            }
+            self.currentGroundOverlay?.map = nil
+            self.currentGroundOverlay = nil
+            self.currentGroundOverlayKey = nil
         }
     }
 
