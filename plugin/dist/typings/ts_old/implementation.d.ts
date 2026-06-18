@@ -188,6 +188,9 @@ export interface CapacitorGoogleMapsPlugin extends Plugin {
     addMarkers(args: AddMarkersArgs): Promise<{
         ids: string[];
     }>;
+    setMarkers(args: AddMarkersArgs): Promise<{
+        ids: string[];
+    }>;
     removeMarker(args: RemoveMarkerArgs): Promise<void>;
     removeMarkerBymId(args: RemoveMarkerBymIdArgs): Promise<void>;
     removeMarkers(args: RemoveMarkersArgs): Promise<void>;

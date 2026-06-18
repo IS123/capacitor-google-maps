@@ -13,6 +13,7 @@ export interface GoogleMapInterface {
     disableClustering(): Promise<void>;
     addMarker(marker: Marker): Promise<string>;
     addMarkers(markers: Marker[]): Promise<string[]>;
+    setMarkers(markers: Marker[]): Promise<string[]>;
     updateMarker(id: string, marker: Marker): Promise<string>;
     updateMarkerBymId(mId: string, marker: Marker): Promise<string>;
     updateMarkersBymId(mId: string, marker: Marker): Promise<string>;
@@ -172,6 +173,13 @@ export declare class GoogleMap {
      * @returns array of created marker IDs
      */
     addMarkers(markers: Marker[]): Promise<string[]>;
+    /**
+     * Sets the markers on the map
+     *
+     * @param markers
+     * @returns array of marker IDs
+     */
+    setMarkers(markers: Marker[]): Promise<string[]>;
     /**
      * Updates the current marker on the map
      *

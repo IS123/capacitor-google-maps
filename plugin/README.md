@@ -323,6 +323,7 @@ export default MyMap;
 * [`disableClustering()`](#disableclustering)
 * [`addMarker(...)`](#addmarker)
 * [`addMarkers(...)`](#addmarkers)
+* [`setMarkers(...)`](#setmarkers)
 * [`updateMarker(...)`](#updatemarker)
 * [`updateMarkerBymId(...)`](#updatemarkerbymid)
 * [`updateMarkersBymId(...)`](#updatemarkersbymid)
@@ -461,6 +462,21 @@ addMarker(marker: Marker) => Promise<string>
 
 ```typescript
 addMarkers(markers: Marker[]) => Promise<string[]>
+```
+
+| Param         | Type                  |
+| ------------- | --------------------- |
+| **`markers`** | <code>Marker[]</code> |
+
+**Returns:** <code>Promise&lt;string[]&gt;</code>
+
+--------------------
+
+
+### setMarkers(...)
+
+```typescript
+setMarkers(markers: Marker[]) => Promise<string[]>
 ```
 
 | Param         | Type                  |
@@ -1400,14 +1416,16 @@ Controls for setting padding on the 'visible' region of the view.
 
 #### MarkerCallbackData
 
-| Prop            | Type                |
-| --------------- | ------------------- |
-| **`markerId`**  | <code>string</code> |
-| **`latitude`**  | <code>number</code> |
-| **`longitude`** | <code>number</code> |
-| **`title`**     | <code>string</code> |
-| **`snippet`**   | <code>string</code> |
-| **`mId`**       | <code>string</code> |
+| Prop                    | Type                | Description                                                                                                 |
+| ----------------------- | ------------------- | ----------------------------------------------------------------------------------------------------------- |
+| **`markerId`**          | <code>string</code> |                                                                                                             |
+| **`latitude`**          | <code>number</code> |                                                                                                             |
+| **`longitude`**         | <code>number</code> |                                                                                                             |
+| **`originalLatitude`**  | <code>number</code> | Original latitude before overlap-spreading offset is applied. Equals latitude when no spreading occurred.   |
+| **`originalLongitude`** | <code>number</code> | Original longitude before overlap-spreading offset is applied. Equals longitude when no spreading occurred. |
+| **`title`**             | <code>string</code> |                                                                                                             |
+| **`snippet`**           | <code>string</code> |                                                                                                             |
+| **`mId`**               | <code>string</code> |                                                                                                             |
 
 
 #### MarkerClickCallbackData
@@ -1487,6 +1505,18 @@ https://tools.ietf.org/html/rfc7946#section-3.1.1
 Array should contain between two and three elements.
 The previous GeoJSON specification allowed more elements (e.g., which could be used to represent M values),
 but the current specification only allows X, Y, and (optionally) Z to be defined.
+
+Note: the type will not be narrowed down to `[number, number] | [number, number, number]` due to
+marginal benefits and the large impact of breaking change.
+
+See previous discussions on the type narrowing:
+- {@link https://github.com/DefinitelyTyped/DefinitelyTyped/pull/21590|Nov 2017}
+- {@link https://github.com/DefinitelyTyped/DefinitelyTyped/discussions/67773|Dec 2023}
+- {@link https://github.com/DefinitelyTyped/DefinitelyTyped/discussions/71441| Dec 2024}
+
+One can use a
+{@link https://www.typescriptlang.org/docs/handbook/2/narrowing.html#using-type-predicates|user-defined type guard that returns a type predicate}
+to determine if a position is a 2D or 3D position.
 
 <code>number[]</code>
 

@@ -275,7 +275,7 @@ export class CapacitorGoogleMapsWeb extends WebPlugin implements CapacitorGoogle
     map.fitBounds(bounds, _args.padding);
   }
 
-  async addMarkers(_args: AddMarkersArgs): Promise<{ ids: string[] }> {
+  async setMarkers(_args: AddMarkersArgs): Promise<{ ids: string[] }> {
     const markerIds: string[] = [];
     const map = this.maps[_args.id];
     const currentMids: string[] = [];
@@ -328,6 +328,35 @@ export class CapacitorGoogleMapsWeb extends WebPlugin implements CapacitorGoogle
       id: _args.id,
       mIds: markersToRemove
     });
+
+    this.recomputeSpread(_args.id);
+
+    return { ids: markerIds };
+  }
+
+  async addMarkers(_args: AddMarkersArgs): Promise<{ ids: string[] }> {
+    const map = this.maps[_args.id];
+    const markerIds: string[] = [];
+
+     if (!map) {
+      throw new Error('Google Map could not be found.');
+    }
+
+    for (const markerArgs of _args.markers) {
+      const advancedMarker = this.buildMarkerOpts(markerArgs, map.map);
+
+      const id = '' + this.currMarkerId;
+
+      map.markers[id] = advancedMarker;
+      map.originalCoords[id] = { lat: markerArgs.coordinate.lat, lng: markerArgs.coordinate.lng };
+      map.mIds[markerArgs.mId] = id;
+
+      await this.setMarkerListeners(_args.id, id, markerArgs.mId, advancedMarker);
+
+      markerIds.push(id);
+
+      this.currMarkerId++;
+    }
 
     this.recomputeSpread(_args.id);
 

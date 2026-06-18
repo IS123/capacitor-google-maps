@@ -239,6 +239,19 @@ export class GoogleMap {
         return res.ids;
     }
     /**
+     * Sets the markers on the map
+     *
+     * @param markers
+     * @returns array of marker IDs
+     */
+    async setMarkers(markers) {
+        const res = await CapacitorGoogleMaps.setMarkers({
+            id: this.id,
+            markers,
+        });
+        return res.ids;
+    }
+    /**
      * Updates the current marker on the map
      *
      * @param marker

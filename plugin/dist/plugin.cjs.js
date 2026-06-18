@@ -322,6 +322,19 @@ class GoogleMap {
         return res.ids;
     }
     /**
+     * Sets the markers on the map
+     *
+     * @param markers
+     * @returns array of marker IDs
+     */
+    async setMarkers(markers) {
+        const res = await CapacitorGoogleMaps.setMarkers({
+            id: this.id,
+            markers,
+        });
+        return res.ids;
+    }
+    /**
      * Updates the current marker on the map
      *
      * @param marker
@@ -1170,6 +1183,9 @@ class CapacitorGoogleMapsWeb extends core.WebPlugin {
         this.currCircleId = 0;
         this.currPolylineId = 0;
         this.currMapId = 0;
+        // Tracks whether each map is currently in a camera movement sequence.
+        // Ensures onCameraMoveStarted fires exactly once per gesture, matching iOS/Android behaviour.
+        this.cameraIsMoving = {};
         this.onClusterClickHandler = (_, cluster, map) => {
             var _a;
             const mapId = this.getIdFromMap(map);
@@ -1345,7 +1361,7 @@ class CapacitorGoogleMapsWeb extends core.WebPlugin {
         const bounds = this.getLatLngBounds(_args.bounds);
         map.fitBounds(bounds, _args.padding);
     }
-    async addMarkers(_args) {
+    async setMarkers(_args) {
         const markerIds = [];
         const map = this.maps[_args.id];
         const currentMids = [];
@@ -1373,6 +1389,7 @@ class CapacitorGoogleMapsWeb extends core.WebPlugin {
             const advancedMarker = this.buildMarkerOpts(markerArgs, map.map);
             const id = '' + this.currMarkerId;
             map.markers[id] = advancedMarker;
+            map.originalCoords[id] = { lat: markerArgs.coordinate.lat, lng: markerArgs.coordinate.lng };
             map.mIds[markerArgs.mId] = id;
             currentMids.push(markerArgs.mId);
             await this.setMarkerListeners(_args.id, id, markerArgs.mId, advancedMarker);
@@ -1384,6 +1401,26 @@ class CapacitorGoogleMapsWeb extends core.WebPlugin {
             id: _args.id,
             mIds: markersToRemove
         });
+        this.recomputeSpread(_args.id);
+        return { ids: markerIds };
+    }
+    async addMarkers(_args) {
+        const map = this.maps[_args.id];
+        const markerIds = [];
+        if (!map) {
+            throw new Error('Google Map could not be found.');
+        }
+        for (const markerArgs of _args.markers) {
+            const advancedMarker = this.buildMarkerOpts(markerArgs, map.map);
+            const id = '' + this.currMarkerId;
+            map.markers[id] = advancedMarker;
+            map.originalCoords[id] = { lat: markerArgs.coordinate.lat, lng: markerArgs.coordinate.lng };
+            map.mIds[markerArgs.mId] = id;
+            await this.setMarkerListeners(_args.id, id, markerArgs.mId, advancedMarker);
+            markerIds.push(id);
+            this.currMarkerId++;
+        }
+        this.recomputeSpread(_args.id);
         return { ids: markerIds };
     }
     async addMarker(_args) {
@@ -1391,8 +1428,10 @@ class CapacitorGoogleMapsWeb extends core.WebPlugin {
         const id = '' + this.currMarkerId;
         this.maps[_args.id].mIds[_args.marker.mId] = id;
         this.maps[_args.id].markers[id] = advancedMarker;
+        this.maps[_args.id].originalCoords[id] = { lat: _args.marker.coordinate.lat, lng: _args.marker.coordinate.lng };
         await this.setMarkerListeners(_args.id, id, _args.marker.mId, advancedMarker);
         this.currMarkerId++;
+        this.recomputeSpread(_args.id);
         return { id: id };
     }
     async updateMarker(args) {
@@ -1404,6 +1443,7 @@ class CapacitorGoogleMapsWeb extends core.WebPlugin {
         if (oldMarker) {
             oldMarker.map = null;
             delete map.markers[args.markerId];
+            delete map.originalCoords[args.markerId];
         }
         if (mId) {
             delete map.mIds[mId];
@@ -1412,7 +1452,9 @@ class CapacitorGoogleMapsWeb extends core.WebPlugin {
         const newId = String(this.currMarkerId++);
         map.mIds[args.marker.mId] = newId;
         map.markers[newId] = newMarker;
+        map.originalCoords[newId] = { lat: args.marker.coordinate.lat, lng: args.marker.coordinate.lng };
         await this.setMarkerListeners(args.id, newId, args.marker.mId, newMarker);
+        this.recomputeSpread(args.id);
         return { id: newId };
     }
     async updateMarkerIcon(args) {
@@ -1437,12 +1479,14 @@ class CapacitorGoogleMapsWeb extends core.WebPlugin {
             if (map.markers[id]) {
                 map.markers[id].map = null;
                 delete map.markers[id];
+                delete map.originalCoords[id];
                 const mId = Object.values(map.mIds).find((markerId) => markerId === id);
                 if (mId) {
                     delete map.mIds[mId];
                 }
             }
         }
+        this.recomputeSpread(_args.id);
     }
     async removeMarker(_args) {
         const map = this.maps[_args.id];
@@ -1450,17 +1494,21 @@ class CapacitorGoogleMapsWeb extends core.WebPlugin {
             map.markers[_args.markerId].map = null;
             const mId = Object.values(map.mIds).find((markerId) => markerId === _args.markerId);
             delete map.markers[_args.markerId];
+            delete map.originalCoords[_args.markerId];
             if (mId) {
                 delete map.mIds[mId];
             }
         }
+        this.recomputeSpread(_args.id);
     }
     async removeMarkerBymId(args) {
         const map = this.maps[args.id];
         const id = map.mIds[args.mId];
         map.markers[id] && (map.markers[id].map = null);
         delete map.markers[id];
+        delete map.originalCoords[id];
         delete map.mIds[args.mId];
+        this.recomputeSpread(args.id);
     }
     async removeMarkersBymId(args) {
         const map = this.maps[args.id];
@@ -1468,8 +1516,10 @@ class CapacitorGoogleMapsWeb extends core.WebPlugin {
             const id = map.mIds[mId];
             map.markers[id] && (map.markers[id].map = null);
             delete map.markers[id];
+            delete map.originalCoords[id];
             delete map.mIds[mId];
         });
+        this.recomputeSpread(args.id);
     }
     async getMarkersIds(args) {
         return this.maps[args.id].mIds;
@@ -1601,6 +1651,7 @@ class CapacitorGoogleMapsWeb extends core.WebPlugin {
             map: new window.google.maps.Map(_args.element, config),
             element: _args.element,
             markers: {},
+            originalCoords: {},
             polygons: {},
             circles: {},
             polylines: {},
@@ -1714,54 +1765,66 @@ class CapacitorGoogleMapsWeb extends core.WebPlugin {
     }
     async setMarkerListeners(mapId, markerId, mId, marker) {
         marker.addListener('click', () => {
-            var _a;
+            var _a, _b, _c;
             const position = marker.position;
+            const orig = (_b = (_a = this.maps[mapId]) === null || _a === void 0 ? void 0 : _a.originalCoords[markerId]) !== null && _b !== void 0 ? _b : position;
             this.notifyListeners('onMarkerClick', {
                 mapId: mapId,
                 markerId: markerId,
                 latitude: position.lat,
                 longitude: position.lng,
-                title: (_a = marker.title) !== null && _a !== void 0 ? _a : '',
+                originalLatitude: orig.lat,
+                originalLongitude: orig.lng,
+                title: (_c = marker.title) !== null && _c !== void 0 ? _c : '',
                 snippet: '',
                 mId
             });
         });
         if (marker.gmpDraggable) {
             marker.addListener('dragstart', () => {
-                var _a;
+                var _a, _b, _c;
                 const position = marker.position;
+                const orig = (_b = (_a = this.maps[mapId]) === null || _a === void 0 ? void 0 : _a.originalCoords[markerId]) !== null && _b !== void 0 ? _b : position;
                 this.notifyListeners('onMarkerDragStart', {
                     mapId: mapId,
                     markerId: markerId,
                     latitude: position.lat,
                     longitude: position.lng,
-                    title: (_a = marker.title) !== null && _a !== void 0 ? _a : '',
+                    originalLatitude: orig.lat,
+                    originalLongitude: orig.lng,
+                    title: (_c = marker.title) !== null && _c !== void 0 ? _c : '',
                     snippet: '',
                     mId
                 });
             });
             marker.addListener('drag', () => {
-                var _a;
+                var _a, _b, _c;
                 const position = marker.position;
+                const orig = (_b = (_a = this.maps[mapId]) === null || _a === void 0 ? void 0 : _a.originalCoords[markerId]) !== null && _b !== void 0 ? _b : position;
                 this.notifyListeners('onMarkerDrag', {
                     mapId: mapId,
                     markerId: markerId,
                     latitude: position.lat,
                     longitude: position.lng,
-                    title: (_a = marker.title) !== null && _a !== void 0 ? _a : '',
+                    originalLatitude: orig.lat,
+                    originalLongitude: orig.lng,
+                    title: (_c = marker.title) !== null && _c !== void 0 ? _c : '',
                     snippet: '',
                     mId
                 });
             });
             marker.addListener('dragend', () => {
-                var _a;
+                var _a, _b, _c;
                 const position = marker.position;
+                const orig = (_b = (_a = this.maps[mapId]) === null || _a === void 0 ? void 0 : _a.originalCoords[markerId]) !== null && _b !== void 0 ? _b : position;
                 this.notifyListeners('onMarkerDragEnd', {
                     mapId: mapId,
                     markerId: markerId,
                     latitude: position.lat,
                     longitude: position.lng,
-                    title: (_a = marker.title) !== null && _a !== void 0 ? _a : '',
+                    originalLatitude: orig.lat,
+                    originalLongitude: orig.lng,
+                    title: (_c = marker.title) !== null && _c !== void 0 ? _c : '',
                     snippet: '',
                     mId
                 });
@@ -1772,6 +1835,7 @@ class CapacitorGoogleMapsWeb extends core.WebPlugin {
         const map = this.maps[mapId].map;
         map.addListener('idle', async () => {
             var _a, _b;
+            this.cameraIsMoving[mapId] = false;
             const bounds = await this.getMapBounds({ id: mapId });
             this.notifyListeners('onCameraIdle', {
                 mapId: mapId,
@@ -1784,6 +1848,9 @@ class CapacitorGoogleMapsWeb extends core.WebPlugin {
             });
         });
         map.addListener('center_changed', () => {
+            if (this.cameraIsMoving[mapId])
+                return;
+            this.cameraIsMoving[mapId] = true;
             this.notifyListeners('onCameraMoveStarted', {
                 mapId: mapId,
                 isGesture: true,
@@ -1827,6 +1894,53 @@ class CapacitorGoogleMapsWeb extends core.WebPlugin {
         this.notifyListeners('onMapReady', {
             mapId: mapId,
         });
+    }
+    /**
+     * Distributes co-located markers (same coordinate within 1e-6 deg precision) in a circle
+     * of ~8 m radius so they don't overlap. Stores/reads original positions in map.originalCoords.
+     */
+    recomputeSpread(mapId) {
+        var _a, _b;
+        const R_METERS = 8;
+        const map = this.maps[mapId];
+        // Ensure every marker has an original coord recorded
+        for (const markerId of Object.keys(map.markers)) {
+            if (!map.originalCoords[markerId]) {
+                const pos = map.markers[markerId].position;
+                map.originalCoords[markerId] = { lat: pos.lat, lng: pos.lng };
+            }
+        }
+        // Group markerIds by rounded original coordinate
+        const groups = {};
+        for (const markerId of Object.keys(map.markers)) {
+            const orig = map.originalCoords[markerId];
+            const key = `${orig.lat.toFixed(6)},${orig.lng.toFixed(6)}`;
+            ((_a = groups[key]) !== null && _a !== void 0 ? _a : (groups[key] = [])).push(markerId);
+        }
+        for (const markerIds of Object.values(groups)) {
+            const N = markerIds.length;
+            const orig0 = map.originalCoords[markerIds[0]];
+            if (N === 1) {
+                map.markers[markerIds[0]].position = { lat: orig0.lat, lng: orig0.lng };
+                continue;
+            }
+            const dLat = R_METERS / 111320;
+            const cosLat = Math.max(Math.cos((orig0.lat * Math.PI) / 180), 1e-10);
+            const dLng = R_METERS / (111320 * cosLat);
+            markerIds.forEach((markerId, i) => {
+                const angle = (2 * Math.PI * i) / N;
+                const orig = map.originalCoords[markerId];
+                let newLng = orig.lng + dLng * Math.cos(angle);
+                // Wrap longitude to [-180, 180]
+                newLng = ((newLng + 180) % 360 + 360) % 360 - 180;
+                map.markers[markerId].position = {
+                    lat: orig.lat + dLat * Math.sin(angle),
+                    lng: newLng,
+                };
+            });
+        }
+        // Force the clusterer to re-render with the updated positions
+        (_b = map.markerClusterer) === null || _b === void 0 ? void 0 : _b.render();
     }
     buildMarkerOpts(marker, map) {
         var _a;

@@ -39,6 +39,7 @@ export interface GoogleMapInterface {
   disableClustering(): Promise<void>;
   addMarker(marker: Marker): Promise<string>;
   addMarkers(markers: Marker[]): Promise<string[]>;
+  setMarkers(markers: Marker[]): Promise<string[]>;
   updateMarker(id: string, marker: Marker): Promise<string>;
   updateMarkerBymId(mId: string, marker: Marker): Promise<string>;
   updateMarkersBymId(mId: string, marker: Marker): Promise<string>;
@@ -399,7 +400,20 @@ export class GoogleMap {
 
     return res.ids;
   }
+  /**
+   * Sets the markers on the map
+   *
+   * @param markers
+   * @returns array of marker IDs
+   */
+  async setMarkers(markers: Marker[]): Promise<string[]> {
+    const res = await CapacitorGoogleMaps.setMarkers({
+      id: this.id,
+      markers,
+    });
 
+    return res.ids;
+  }
   /**
    * Updates the current marker on the map
    *

@@ -373,6 +373,10 @@ export interface MarkerCallbackData {
     markerId: string;
     latitude: number;
     longitude: number;
+    /** Original latitude before overlap-spreading offset is applied. Equals latitude when no spreading occurred. */
+    originalLatitude: number;
+    /** Original longitude before overlap-spreading offset is applied. Equals longitude when no spreading occurred. */
+    originalLongitude: number;
     title: string;
     snippet: string;
     mId: string;

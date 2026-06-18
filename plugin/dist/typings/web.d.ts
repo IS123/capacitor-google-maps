@@ -11,6 +11,7 @@ export declare class CapacitorGoogleMapsWeb extends WebPlugin implements Capacit
     private currCircleId;
     private currPolylineId;
     private currMapId;
+    private cameraIsMoving;
     private onClusterClickHandler;
     private getIdFromMap;
     private getIdFromMarker;
@@ -38,6 +39,9 @@ export declare class CapacitorGoogleMapsWeb extends WebPlugin implements Capacit
         id: string;
     }): Promise<LatLngBounds>;
     fitBounds(_args: FitBoundsArgs): Promise<void>;
+    setMarkers(_args: AddMarkersArgs): Promise<{
+        ids: string[];
+    }>;
     addMarkers(_args: AddMarkersArgs): Promise<{
         ids: string[];
     }>;
@@ -123,5 +127,10 @@ export declare class CapacitorGoogleMapsWeb extends WebPlugin implements Capacit
     setPolylineListeners(mapId: string, polylineId: string, polyline: google.maps.Polyline): Promise<void>;
     setMarkerListeners(mapId: string, markerId: string, mId: string, marker: google.maps.marker.AdvancedMarkerElement): Promise<void>;
     setMapListeners(mapId: string): Promise<void>;
+    /**
+     * Distributes co-located markers (same coordinate within 1e-6 deg precision) in a circle
+     * of ~8 m radius so they don't overlap. Stores/reads original positions in map.originalCoords.
+     */
+    private recomputeSpread;
     private buildMarkerOpts;
 }
