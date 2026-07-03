@@ -1143,6 +1143,12 @@ fun updateMarkerIcon(mId: String, iconId: String, iconUrl: String) {
         )
     }
 
+    // False once our view has been torn out of the hierarchy (e.g. destroy() was skipped
+    // upstream) so a leaked map entry stops claiming touches for its last-known bounds.
+    fun isAttached(): Boolean {
+        return mapView.isAttachedToWindow
+    }
+
     fun getLatLngBounds(): LatLngBounds {
         return googleMap?.projection?.visibleRegion?.latLngBounds ?: throw BoundsNotFoundError()
     }
