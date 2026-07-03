@@ -55,6 +55,13 @@ class CapacitorGoogleMapsPlugin : Plugin(), OnMapsSdkInitializedCallback {
 
 	private val touchStartedInsideMap = mutableMapOf<String, Boolean>()
 
+	// True once the current touch stream's DOWN was consumed by some map. Kept independent of
+	// that map's lifetime: if the map is destroyed mid-gesture, later MOVE/UP/CANCEL events for
+	// the same stream must still be swallowed here rather than falling through to the WebView,
+	// which never saw the DOWN - handing it a MOVE/UP with no matching DOWN desyncs the WebView's
+	// internal touch/gesture state until the app restarts.
+	private var activeGestureClaimedByMap: Boolean = false
+
 	companion object {
 		const val LOCATION = "location"
 	}
@@ -135,13 +142,31 @@ class CapacitorGoogleMapsPlugin : Plugin(), OnMapsSdkInitializedCallback {
 					val touchX = event.x
 					val touchY = event.y
 
-					for ((id, map) in maps) {
+					var staleMapIds: MutableList<String>? = null
+
+					if (event.actionMasked == MotionEvent.ACTION_DOWN) {
+						activeGestureClaimedByMap = false
+						Log.d("DEBUG-9545", "ACTION_DOWN at ($touchX,$touchY) - tracked maps: ${maps.keys}")
+					}
+
+					for ((id, map) in maps.entries.toList()) {
+						if (!map.isAttached()) {
+							val stale = staleMapIds ?: mutableListOf<String>().also { staleMapIds = it }
+							stale.add(id)
+							Log.d("DEBUG-9545", "map id=$id is detached, marking stale (bounds=${map.getMapBounds()})")
+							continue
+						}
+
 						if (touchEnabled[id] == false) {
 							continue
 						}
 						val mapRect = map.getMapBounds()
 						val isInsideMap = mapRect.contains(touchX.toInt(), touchY.toInt())
 						val selectionType = map.getSelectionType()
+
+						if (isInsideMap && event.actionMasked == MotionEvent.ACTION_DOWN) {
+							Log.d("DEBUG-9545", "map id=$id claims DOWN at ($touchX,$touchY): rect=$mapRect attached=${map.isAttached()} selectionType=$selectionType")
+						}
 						when (event.actionMasked) {
 							MotionEvent.ACTION_DOWN -> {
 								touchStartedInsideMap[id] = isInsideMap
@@ -166,6 +191,12 @@ class CapacitorGoogleMapsPlugin : Plugin(), OnMapsSdkInitializedCallback {
 						val mapOwnsGesture = touchStartedInsideMap[id] == true
 						if (!mapOwnsGesture) {
 							continue
+						}
+
+						activeGestureClaimedByMap = true
+
+						if (event.actionMasked != MotionEvent.ACTION_MOVE) {
+							Log.d("DEBUG-9545", "map id=$id owns gesture, action=${actionName(event.actionMasked)}")
 						}
 
 						if (selectionType == "shape") {
@@ -299,7 +330,8 @@ class CapacitorGoogleMapsPlugin : Plugin(), OnMapsSdkInitializedCallback {
 										return map.handleSelectionMove(event)
 									}
 
-									MotionEvent.ACTION_UP -> {
+									MotionEvent.ACTION_UP,
+									MotionEvent.ACTION_CANCEL -> {
 										touchStartedInsideMap.remove(id)
 										releaseTouchInterception()
 										return map.handleSelectionEnd(event)
@@ -390,6 +422,31 @@ class CapacitorGoogleMapsPlugin : Plugin(), OnMapsSdkInitializedCallback {
 						}
 					}
 
+					staleMapIds?.forEach { id ->
+						// Just drop bookkeeping here - map.destroy() blocks on the main
+						// thread via runBlocking and onTouch always runs on the main thread,
+						// so calling it here would deadlock. The view is already detached;
+						// whatever detached it is responsible for releasing native resources.
+						maps.remove(id)
+						touchEnabled.remove(id)
+						touchStartedInsideMap.remove(id)
+						shapeGestureStartedInside.remove(id)
+						shapeAwaitingFreshDown.remove(id)
+						shapeDownX.remove(id)
+						shapeDownY.remove(id)
+						shapePendingMapDownEvent.remove(id)?.recycle()
+						shapeForwardingToMap.remove(id)
+						cachedTouchEvents.remove(id)
+					}
+
+					if (activeGestureClaimedByMap) {
+						Log.d("DEBUG-9545", "owning map gone mid-gesture, swallowing orphaned action=${actionName(event.actionMasked)} to protect WebView touch state")
+						if (event.actionMasked == MotionEvent.ACTION_UP || event.actionMasked == MotionEvent.ACTION_CANCEL) {
+							activeGestureClaimedByMap = false
+						}
+						return true
+					}
+
 					return v?.onTouchEvent(event) ?: true
 				}
 			}
@@ -457,6 +514,7 @@ class CapacitorGoogleMapsPlugin : Plugin(), OnMapsSdkInitializedCallback {
 
 			val newMap = CapacitorGoogleMap(id, config, this)
 			maps[id] = newMap
+			Log.d("DEBUG-9545", "create id=$id - tracked maps now: ${maps.keys}")
 
 			call.resolve()
 		} catch (e: GoogleMapsError) {
@@ -477,6 +535,7 @@ class CapacitorGoogleMapsPlugin : Plugin(), OnMapsSdkInitializedCallback {
 
 			val removedMap = maps.remove(id) ?: throw MapNotFoundError()
 			removedMap.destroy()
+			Log.d("DEBUG-9545", "destroy id=$id done - tracked maps now: ${maps.keys}")
 
 			call.resolve()
 		} catch (e: GoogleMapsError) {
