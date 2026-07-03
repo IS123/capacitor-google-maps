@@ -361,7 +361,7 @@ public class Map {
         }
     }
 
-    func addMarkers(markers: [Marker], completion: @escaping ([Int]) -> Void) {
+    func setMarkers(markers: [Marker], completion: @escaping ([Int]) -> Void) {
         addMarkersGeneration += 1
         let currentGeneration = addMarkersGeneration
 
@@ -398,7 +398,7 @@ public class Map {
                     do {
                         try self.removeMarkersBymId(mIds: mIdsToRemove)
                     } catch {
-                        print("addMarkersInBatches() cleanup error: \(error)")
+                        print("setMarkers() cleanup error: \(error)")
                     }
                 }
 
@@ -474,6 +474,49 @@ public class Map {
         }
 
         addNextBatch()
+    }
+
+    func addMarkers(markers: [Marker], completion: @escaping ([Int]) -> Void) {
+        DispatchQueue.main.async {
+            var markerHashes: [Int] = []
+            var clusterMarkers: [GMSMarker] = []
+
+            for markerData in markers {
+                if let mId = markerData.mId, self.mIds[mId] != nil {
+                    continue
+                }
+
+                let newMarker = self.buildMarker(marker: markerData)
+
+                if self.mapViewController.clusteringEnabled {
+                    clusterMarkers.append(newMarker)
+                } else {
+                    newMarker.map = self.mapViewController.GMapView
+                }
+
+                let hash = newMarker.hash.hashValue
+                self.markers[hash] = newMarker
+                self.originalCoords[hash] = CLLocationCoordinate2D(
+                    latitude: markerData.coordinate.lat,
+                    longitude: markerData.coordinate.lng
+                )
+                markerHashes.append(hash)
+
+                if let mId = markerData.mId {
+                    self.mIds[mId] = hash
+                }
+            }
+
+            if self.mapViewController.clusteringEnabled {
+                self.mapViewController.addMarkersToCluster(markers: clusterMarkers)
+                self.recomputeSpread()
+                self.mapViewController.recluster()
+            } else {
+                self.recomputeSpread()
+            }
+
+            completion(markerHashes)
+        }
     }
 
     func isCoordinatesDifferent(coords1: LatLng, coords2: CLLocationCoordinate2D) -> Bool {

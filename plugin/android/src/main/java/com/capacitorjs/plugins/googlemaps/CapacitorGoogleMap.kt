@@ -294,11 +294,9 @@ class CapacitorGoogleMap(
 
 			clusterManager?.apply {
 				addItems(markersToAdd)
+                recomputeSpread()
 				cluster()
 			}
-
-			recomputeSpread()
-			clusterManager?.cluster()
 		}
 		return markerIds
 	}
