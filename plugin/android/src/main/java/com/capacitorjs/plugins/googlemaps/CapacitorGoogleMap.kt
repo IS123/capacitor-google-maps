@@ -321,9 +321,11 @@ class CapacitorGoogleMap(
 			if (existingId != null) {
 				withContext(Dispatchers.Main) {
 					val existingMarker = markers[existingId]
-					existingMarker?.googleMapMarker?.position = marker.position
 					existingMarker?.originalCoordinate = marker.coordinate
 					existingMarker?.coordinate = marker.coordinate
+					if (clusterManager == null) {
+						existingMarker?.googleMapMarker?.position = marker.position
+					}
 					existingMarker?.googleMapMarker?.isDraggable = marker.draggable
 					if (existingMarker?.iconId !== marker.iconId) {
 						updateMarkerIcon(marker.mId, marker.mId, marker.iconUrl!!)
@@ -1306,7 +1308,7 @@ fun updateMarkerIcon(mId: String, iconId: String, iconUrl: String) {
             val orig0 = group[0].originalCoordinate!!
 
             if (N == 1) {
-                group[0].googleMapMarker?.position = orig0
+                if (clusterManager == null) group[0].googleMapMarker?.position = orig0
                 group[0].coordinate = orig0
                 continue
             }
@@ -1324,7 +1326,7 @@ fun updateMarkerIcon(mId: String, iconId: String, iconUrl: String) {
                     orig.latitude + dLat * Math.sin(angle),
                     newLng
                 )
-                m.googleMapMarker?.position = newPos
+                if (clusterManager == null) m.googleMapMarker?.position = newPos
                 m.coordinate = newPos
             }
         }
