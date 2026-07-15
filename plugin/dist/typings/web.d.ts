@@ -1,6 +1,6 @@
 import { WebPlugin } from '@capacitor/core';
 import { LatLngBounds } from './definitions';
-import { type AddMarkerArgs, type CameraArgs, type AddMarkersArgs, type CapacitorGoogleMapsPlugin, type CreateMapArgs, type CurrentLocArgs, type DestroyMapArgs, type MapTypeArgs, type PaddingArgs, type RemoveMarkerArgs, type TrafficLayerArgs, type RemoveMarkersArgs, type MapBoundsContainsArgs, type EnableClusteringArgs, type FitBoundsArgs, type MapBoundsExtendArgs, type AddPolygonsArgs, type RemovePolygonsArgs, type AddCirclesArgs, type RemoveCirclesArgs, type AddPolylinesArgs, type RemovePolylinesArgs, type GroundOverlayArgs, type UpdateMarkerArgs, type UpdateMarkerIconArgs, type RemoveMarkerBymIdArgs, type RemoveMarkersBymIdArgs, UpdateMarkerBymIdArgs, UpdateMarkersBymIdArgs } from './implementation';
+import { type AddMarkerArgs, type CameraArgs, type AddMarkersArgs, type CapacitorGoogleMapsPlugin, type CreateMapArgs, type CurrentLocArgs, type DestroyMapArgs, type MapTypeArgs, type PaddingArgs, type RemoveMarkerArgs, type TrafficLayerArgs, type RemoveMarkersArgs, type MapBoundsContainsArgs, type EnableClusteringArgs, type FitBoundsArgs, type MapBoundsExtendArgs, type AddPolygonsArgs, type RemovePolygonsArgs, type AddCirclesArgs, type RemoveCirclesArgs, type AddPolylinesArgs, type RemovePolylinesArgs, type GroundOverlayArgs, type UpdateMarkerArgs, type UpdateMarkerIconArgs, type UpdateMarkerPositionArgs, type UpdateMarkerPositionBymIdArgs, type RemoveMarkerBymIdArgs, type RemoveMarkersBymIdArgs, UpdateMarkerBymIdArgs, UpdateMarkersBymIdArgs } from './implementation';
 export declare class CapacitorGoogleMapsWeb extends WebPlugin implements CapacitorGoogleMapsPlugin {
     private gMapsRef;
     private AdvancedMarkerElement;
@@ -52,6 +52,8 @@ export declare class CapacitorGoogleMapsWeb extends WebPlugin implements Capacit
         id: string;
     }>;
     updateMarkerIcon(args: UpdateMarkerIconArgs): Promise<void>;
+    updateMarkerPosition(args: UpdateMarkerPositionArgs): Promise<void>;
+    updateMarkerPositionBymId(args: UpdateMarkerPositionBymIdArgs): Promise<void>;
     removeMarkers(_args: RemoveMarkersArgs): Promise<void>;
     removeMarker(_args: RemoveMarkerArgs): Promise<void>;
     removeMarkerBymId(args: RemoveMarkerBymIdArgs): Promise<void>;
@@ -132,5 +134,13 @@ export declare class CapacitorGoogleMapsWeb extends WebPlugin implements Capacit
      * of ~8 m radius so they don't overlap. Stores/reads original positions in map.originalCoords.
      */
     private recomputeSpread;
+    /** Registers a newly created marker with the active clusterer, if clustering is enabled. */
+    private addMarkerToClusterer;
+    /**
+     * Removes a marker from the map. If clustering is enabled, the marker must be removed
+     * through the clusterer so its internal marker list stays in sync - otherwise the
+     * clusterer keeps a stale reference and can re-show the marker on its next render.
+     */
+    private removeMarkerFromMap;
     private buildMarkerOpts;
 }

@@ -371,6 +371,34 @@ var capacitorCapacitorGoogleMaps = (function (exports, core, markerclusterer) {
             });
         }
         /**
+         * Updates the position of an existing marker in place, without recreating it or changing its id
+         *
+         * @param id id of the marker to move
+         * @param coordinate new marker position
+         * @returns void
+         */
+        async updateMarkerPosition(id, coordinate) {
+            return CapacitorGoogleMaps.updateMarkerPosition({
+                id: this.id,
+                markerId: id,
+                coordinate,
+            });
+        }
+        /**
+         * Updates the position of an existing marker in place by mId, without recreating it or changing its id
+         *
+         * @param mId mId of the marker to move
+         * @param coordinate new marker position
+         * @returns void
+         */
+        async updateMarkerPositionBymId(mId, coordinate) {
+            return CapacitorGoogleMaps.updateMarkerPositionBymId({
+                id: this.id,
+                mId,
+                coordinate,
+            });
+        }
+        /**
          * Remove marker from the map
          *
          * @param id id of the marker to remove from the map
@@ -1371,6 +1399,7 @@ var capacitorCapacitorGoogleMaps = (function (exports, core, markerclusterer) {
                 map.mIds[markerArgs.mId] = id;
                 currentMids.push(markerArgs.mId);
                 await this.setMarkerListeners(_args.id, id, markerArgs.mId, advancedMarker);
+                this.addMarkerToClusterer(map, advancedMarker);
                 markerIds.push(id);
                 this.currMarkerId++;
             }
@@ -1395,6 +1424,7 @@ var capacitorCapacitorGoogleMaps = (function (exports, core, markerclusterer) {
                 map.originalCoords[id] = { lat: markerArgs.coordinate.lat, lng: markerArgs.coordinate.lng };
                 map.mIds[markerArgs.mId] = id;
                 await this.setMarkerListeners(_args.id, id, markerArgs.mId, advancedMarker);
+                this.addMarkerToClusterer(map, advancedMarker);
                 markerIds.push(id);
                 this.currMarkerId++;
             }
@@ -1402,12 +1432,14 @@ var capacitorCapacitorGoogleMaps = (function (exports, core, markerclusterer) {
             return { ids: markerIds };
         }
         async addMarker(_args) {
-            const advancedMarker = this.buildMarkerOpts(_args.marker, this.maps[_args.id].map);
+            const map = this.maps[_args.id];
+            const advancedMarker = this.buildMarkerOpts(_args.marker, map.map);
             const id = '' + this.currMarkerId;
-            this.maps[_args.id].mIds[_args.marker.mId] = id;
-            this.maps[_args.id].markers[id] = advancedMarker;
-            this.maps[_args.id].originalCoords[id] = { lat: _args.marker.coordinate.lat, lng: _args.marker.coordinate.lng };
+            map.mIds[_args.marker.mId] = id;
+            map.markers[id] = advancedMarker;
+            map.originalCoords[id] = { lat: _args.marker.coordinate.lat, lng: _args.marker.coordinate.lng };
             await this.setMarkerListeners(_args.id, id, _args.marker.mId, advancedMarker);
+            this.addMarkerToClusterer(map, advancedMarker);
             this.currMarkerId++;
             this.recomputeSpread(_args.id);
             return { id: id };
@@ -1419,7 +1451,7 @@ var capacitorCapacitorGoogleMaps = (function (exports, core, markerclusterer) {
             const mId = Object.keys(map.mIds).find(key => map.mIds[key] === args.markerId);
             const oldMarker = map.markers[args.markerId];
             if (oldMarker) {
-                oldMarker.map = null;
+                this.removeMarkerFromMap(map, oldMarker);
                 delete map.markers[args.markerId];
                 delete map.originalCoords[args.markerId];
             }
@@ -1432,6 +1464,7 @@ var capacitorCapacitorGoogleMaps = (function (exports, core, markerclusterer) {
             map.markers[newId] = newMarker;
             map.originalCoords[newId] = { lat: args.marker.coordinate.lat, lng: args.marker.coordinate.lng };
             await this.setMarkerListeners(args.id, newId, args.marker.mId, newMarker);
+            this.addMarkerToClusterer(map, newMarker);
             this.recomputeSpread(args.id);
             return { id: newId };
         }
@@ -1451,11 +1484,29 @@ var capacitorCapacitorGoogleMaps = (function (exports, core, markerclusterer) {
                 marker.content = img;
             }
         }
+        async updateMarkerPosition(args) {
+            const map = this.maps[args.id];
+            if (!map)
+                throw new Error('Map not found');
+            if (!map.markers[args.markerId])
+                return;
+            map.originalCoords[args.markerId] = { lat: args.coordinate.lat, lng: args.coordinate.lng };
+            this.recomputeSpread(args.id);
+        }
+        async updateMarkerPositionBymId(args) {
+            const map = this.maps[args.id];
+            if (!map)
+                throw new Error('Map not found');
+            const markerId = map.mIds[args.mId];
+            if (!markerId)
+                return;
+            await this.updateMarkerPosition({ id: args.id, markerId, coordinate: args.coordinate });
+        }
         async removeMarkers(_args) {
             const map = this.maps[_args.id];
             for (const id of _args.markerIds) {
                 if (map.markers[id]) {
-                    map.markers[id].map = null;
+                    this.removeMarkerFromMap(map, map.markers[id]);
                     delete map.markers[id];
                     delete map.originalCoords[id];
                     const mId = Object.values(map.mIds).find((markerId) => markerId === id);
@@ -1469,7 +1520,7 @@ var capacitorCapacitorGoogleMaps = (function (exports, core, markerclusterer) {
         async removeMarker(_args) {
             const map = this.maps[_args.id];
             if (map.markers[_args.markerId]) {
-                map.markers[_args.markerId].map = null;
+                this.removeMarkerFromMap(map, map.markers[_args.markerId]);
                 const mId = Object.values(map.mIds).find((markerId) => markerId === _args.markerId);
                 delete map.markers[_args.markerId];
                 delete map.originalCoords[_args.markerId];
@@ -1482,7 +1533,9 @@ var capacitorCapacitorGoogleMaps = (function (exports, core, markerclusterer) {
         async removeMarkerBymId(args) {
             const map = this.maps[args.id];
             const id = map.mIds[args.mId];
-            map.markers[id] && (map.markers[id].map = null);
+            if (map.markers[id]) {
+                this.removeMarkerFromMap(map, map.markers[id]);
+            }
             delete map.markers[id];
             delete map.originalCoords[id];
             delete map.mIds[args.mId];
@@ -1492,7 +1545,9 @@ var capacitorCapacitorGoogleMaps = (function (exports, core, markerclusterer) {
             const map = this.maps[args.id];
             args.mIds.forEach(mId => {
                 const id = map.mIds[mId];
-                map.markers[id] && (map.markers[id].map = null);
+                if (map.markers[id]) {
+                    this.removeMarkerFromMap(map, map.markers[id]);
+                }
                 delete map.markers[id];
                 delete map.originalCoords[id];
                 delete map.mIds[mId];
@@ -1584,6 +1639,10 @@ var capacitorCapacitorGoogleMaps = (function (exports, core, markerclusterer) {
         }
         async enableClustering(_args) {
             var _a;
+            const existingClusterer = this.maps[_args.id].markerClusterer;
+            if (existingClusterer) {
+                existingClusterer.setMap(null);
+            }
             const markers = [];
             for (const id in this.maps[_args.id].markers) {
                 markers.push(this.maps[_args.id].markers[id]);
@@ -1919,6 +1978,25 @@ var capacitorCapacitorGoogleMaps = (function (exports, core, markerclusterer) {
             }
             // Force the clusterer to re-render with the updated positions
             (_b = map.markerClusterer) === null || _b === void 0 ? void 0 : _b.render();
+        }
+        /** Registers a newly created marker with the active clusterer, if clustering is enabled. */
+        addMarkerToClusterer(map, marker) {
+            if (map.markerClusterer) {
+                map.markerClusterer.addMarker(marker);
+            }
+        }
+        /**
+         * Removes a marker from the map. If clustering is enabled, the marker must be removed
+         * through the clusterer so its internal marker list stays in sync - otherwise the
+         * clusterer keeps a stale reference and can re-show the marker on its next render.
+         */
+        removeMarkerFromMap(map, marker) {
+            if (map.markerClusterer) {
+                map.markerClusterer.removeMarker(marker);
+            }
+            else {
+                marker.map = null;
+            }
         }
         buildMarkerOpts(marker, map) {
             var _a;

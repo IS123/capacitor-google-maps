@@ -227,6 +227,52 @@
         "slug": "updatemarkericon"
       },
       {
+        "name": "updateMarkerPosition",
+        "signature": "(id: string, coordinate: LatLng) => Promise<void>",
+        "parameters": [
+          {
+            "name": "id",
+            "docs": "",
+            "type": "string"
+          },
+          {
+            "name": "coordinate",
+            "docs": "",
+            "type": "LatLng"
+          }
+        ],
+        "returns": "Promise<void>",
+        "tags": [],
+        "docs": "",
+        "complexTypes": [
+          "LatLng"
+        ],
+        "slug": "updatemarkerposition"
+      },
+      {
+        "name": "updateMarkerPositionBymId",
+        "signature": "(mId: string, coordinate: LatLng) => Promise<void>",
+        "parameters": [
+          {
+            "name": "mId",
+            "docs": "",
+            "type": "string"
+          },
+          {
+            "name": "coordinate",
+            "docs": "",
+            "type": "LatLng"
+          }
+        ],
+        "returns": "Promise<void>",
+        "tags": [],
+        "docs": "",
+        "complexTypes": [
+          "LatLng"
+        ],
+        "slug": "updatemarkerpositionbymid"
+      },
+      {
         "name": "removeMarker",
         "signature": "(id: string) => Promise<void>",
         "parameters": [

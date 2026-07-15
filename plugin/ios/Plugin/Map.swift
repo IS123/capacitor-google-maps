@@ -532,6 +532,31 @@ public class Map {
         return false
     }
 
+    func updateMarkerPosition(markerId: Int, coordinate: LatLng) throws {
+        guard let marker = self.markers[markerId] else {
+            throw GoogleMapErrors.markerNotFound
+        }
+
+        runOnMainThread {
+            let newCoord = CLLocationCoordinate2D(latitude: coordinate.lat, longitude: coordinate.lng)
+            self.originalCoords[markerId] = newCoord
+            marker.position = newCoord
+
+            self.recomputeSpread()
+            if self.mapViewController.clusteringEnabled {
+                self.mapViewController.recluster()
+            }
+        }
+    }
+
+    func updateMarkerPositionBymId(mId: String, coordinate: LatLng) throws {
+        guard let markerId = self.mIds[mId] else {
+            throw GoogleMapErrors.markerNotFound
+        }
+
+        try self.updateMarkerPosition(markerId: markerId, coordinate: coordinate)
+    }
+
     func updateMarker(markerId: Int, newMarker: Marker) -> Void {
         guard let marker = self.markers[markerId] else {
             print("updateMarker(): no marker found for \(markerId) id")

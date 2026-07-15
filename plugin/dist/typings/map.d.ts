@@ -1,4 +1,4 @@
-import type { CameraConfig, Marker, MapPadding, MapListenerCallback, MapReadyCallbackData, CameraIdleCallbackData, CameraMoveStartedCallbackData, ClusterClickCallbackData, MapClickCallbackData, MarkerClickCallbackData, MyLocationButtonClickCallbackData, Polygon, PolygonClickCallbackData, Circle, CircleClickCallbackData, Polyline, PolylineCallbackData, SelectionType, SelectionEndCallbackData } from './definitions';
+import type { CameraConfig, LatLng, Marker, MapPadding, MapListenerCallback, MapReadyCallbackData, CameraIdleCallbackData, CameraMoveStartedCallbackData, ClusterClickCallbackData, MapClickCallbackData, MarkerClickCallbackData, MyLocationButtonClickCallbackData, Polygon, PolygonClickCallbackData, Circle, CircleClickCallbackData, Polyline, PolylineCallbackData, SelectionType, SelectionEndCallbackData } from './definitions';
 import { LatLngBounds, MapType } from './definitions';
 import type { CreateMapArgs, GroundOverlayArgs } from './implementation';
 export interface GoogleMapInterface {
@@ -18,6 +18,8 @@ export interface GoogleMapInterface {
     updateMarkerBymId(mId: string, marker: Marker): Promise<string>;
     updateMarkersBymId(mId: string, marker: Marker): Promise<string>;
     updateMarkerIcon(id: string, iconId: string, iconUrl: string): Promise<void>;
+    updateMarkerPosition(id: string, coordinate: LatLng): Promise<void>;
+    updateMarkerPositionBymId(mId: string, coordinate: LatLng): Promise<void>;
     removeMarker(id: string): Promise<void>;
     removeMarkerBymId(mId: string): Promise<void>;
     removeMarkers(ids: string[]): Promise<void>;
@@ -210,6 +212,22 @@ export declare class GoogleMap {
      * @returns void
      */
     updateMarkerIcon(mId: string, iconId: string, iconUrl: string): Promise<void>;
+    /**
+     * Updates the position of an existing marker in place, without recreating it or changing its id
+     *
+     * @param id id of the marker to move
+     * @param coordinate new marker position
+     * @returns void
+     */
+    updateMarkerPosition(id: string, coordinate: LatLng): Promise<void>;
+    /**
+     * Updates the position of an existing marker in place by mId, without recreating it or changing its id
+     *
+     * @param mId mId of the marker to move
+     * @param coordinate new marker position
+     * @returns void
+     */
+    updateMarkerPositionBymId(mId: string, coordinate: LatLng): Promise<void>;
     /**
      * Remove marker from the map
      *
