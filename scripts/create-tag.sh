@@ -42,8 +42,9 @@ tag_exists() {
 
 if tag_exists "${TAG}"; then
   echo "Tag ${TAG} already exists (locally or on origin)." >&2
-  echo "Last 3 tags:" >&2
-  git tag --sort=-creatordate | head -3 >&2
+  TAG_PREFIX="${TAG%%-*}"
+  echo "Last 5 tags matching ${TAG_PREFIX}*:" >&2
+  git tag -l "${TAG_PREFIX}*" --sort=-creatordate | head -5 >&2
   exit 1
 fi
 
@@ -75,10 +76,10 @@ if [[ "$CONFIRM" =~ ^[Nn]$ ]]; then
 fi
 
 echo "==> Tagging ${TAG}"
-# git tag -a "${TAG}" -m "${TAG}"
+git tag -a "${TAG}" -m "${TAG}"
 
 echo "==> Pushing tag ${TAG} (branch ${CURRENT_BRANCH} is not pushed)"
-# git push origin "${TAG}"
+git push origin "${TAG}"
 
 echo "==> Restoring ${CURRENT_BRANCH} to its original state (build commit stays only under the tag)"
 git reset --hard "${CURRENT_COMMIT}"
