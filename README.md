@@ -16,6 +16,9 @@ npx cap sync
 
 - Modified root package.json with `prepare` script runs `on-postinstall.js` script on install. It moves dist files from plugin to root folder.
 - When merge origin main branch make sure files of root package.json is the same as in plugin's.
+- There are two `version` fields and they mean different things:
+  - Root `package.json` `version` is what consumers actually get. This is the version to bump and tag when releasing the fork (see "When ready to deploy" below).
+  - `plugin/package.json` `version` tracks which upstream `ionic-team/capacitor-google-maps` release the `plugin/` source was last synced from. It isn't read by any build/install step in this fork - only bump it when merging in new upstream changes, not on fork releases.
 
 When you develop locally you can install from local repo folder in main app:
 
