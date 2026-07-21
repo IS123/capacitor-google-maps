@@ -3,7 +3,6 @@ import Foundation
 import Capacitor
 import GoogleMaps
 import GoogleMapsUtils
-import WebKit
 
 extension GMSMapViewType {
     static func fromString(mapType: String) -> GMSMapViewType {
@@ -69,12 +68,6 @@ public class CapacitorGoogleMapsPlugin: CAPPlugin, GMSMapViewDelegate {
     private var maps = [String: Map]()
     private var isInitialized = false
     private var locationManager = CLLocationManager()
-    private var cachedTouchEvents: [String: [UITouch]] = [:]
-    private var touchEnabled: [String: Bool] = [:]
-    private var longPressGestureRecognizer: UILongPressGestureRecognizer?
-    private var touchInterceptorRecognizer: TouchInterceptorGestureRecognizer?
-    private var longPressHandled: [String: Bool] = [:] // Track if long press was already handled for each map
-    private var lastZoomLevels: [String: Float] = [:]
 
     func checkLocationPermission() -> String {
         let locationState: String
@@ -91,224 +84,6 @@ public class CapacitorGoogleMapsPlugin: CAPPlugin, GMSMapViewDelegate {
         }
 
         return locationState
-    }
-
-    public override func load() {
-        super.load()
-
-        // Setup touch handling on webView
-        if let webView = self.bridge?.webView {
-            setupTouchHandling(on: webView)
-        }
-    }
-
-    private func setupTouchHandling(on webView: UIView) {
-        let touchInterceptor = TouchInterceptorGestureRecognizer(
-            touchHandler: { [weak self] gesture in
-                guard let self = self else { return false }
-                return self.handleTouchEvent(gesture: gesture)
-            },
-            longPressHandler: { [weak self] location in
-                self?.handleLongPressAtLocation(location)
-            },
-            scrollBlockHandler: { [weak self] block in
-                guard let self = self else { return }
-                // Block/unblock scrolling. For shape (lasso) mode, keep scroll disabled always —
-                // scrollBlockHandler(block: false) was re-enabling scroll during draw.
-                for (_, map) in self.maps {
-                    if map.getSelectionType() == "shape" {
-                        map.setSelectionScrollLock(lockSingleFinger: true)
-                    } else if map.getSelectionType() != nil {
-                        map.setSelectionScrollLock(lockSingleFinger: block)
-                    }
-                }
-                if let wkWebView = self.bridge?.webView as? WKWebView {
-                    wkWebView.scrollView.isScrollEnabled = !block
-                }
-            }
-        )
-        touchInterceptor.cancelsTouchesInView = false
-        touchInterceptor.delegate = self
-        self.touchInterceptorRecognizer = touchInterceptor
-        webView.addGestureRecognizer(touchInterceptor)
-
-        // Setup long press gesture recognizer separately as backup
-        longPressGestureRecognizer = UILongPressGestureRecognizer(target: self, action: #selector(handleLongPress(_:)))
-        longPressGestureRecognizer?.minimumPressDuration = 0.5
-        longPressGestureRecognizer?.cancelsTouchesInView = false
-        longPressGestureRecognizer?.delegate = self
-        longPressGestureRecognizer?.delaysTouchesBegan = false
-        longPressGestureRecognizer?.delaysTouchesEnded = false
-
-        if let longPress = longPressGestureRecognizer {
-            webView.addGestureRecognizer(longPress)
-        }
-    }
-
-    private func isAnySelectionActive() -> Bool {
-        return maps.values.contains { $0.selectionActive }
-    }
-
-    @objc private func handleLongPress(_ gesture: UILongPressGestureRecognizer) {
-        guard gesture.state == .began else { return }
-
-        guard let webView = self.bridge?.webView else { return }
-        let location = gesture.location(in: webView)
-
-        handleLongPressAtLocation(location)
-    }
-
-    func handleLongPressAtLocation(_ location: CGPoint) {
-        for (id, map) in maps {
-            if touchEnabled[id] == false {
-                continue
-            }
-
-            let mapRect = map.getMapBounds()
-
-            if mapRect.contains(location) {
-                if let selectionType = map.getSelectionType() {
-                    if selectionType == "shape" {
-                        continue
-                    }
-                    // Only start selection if it's not already active (prevent double activation)
-                    guard !map.selectionActive else {
-                        continue // Use continue instead of return to check other maps
-                    }
-
-                    // CRITICAL: Check if long press was already handled for this map AND selection is still active
-                    // This prevents multiple calls from timer firing multiple times, but allows new long press after selection ends
-                    if longPressHandled[id] == true && map.selectionActive {
-                        continue
-                    }
-
-                    // If selection is not active, reset the flag to allow new long press
-                    if !map.selectionActive {
-                        longPressHandled[id] = false
-                    }
-
-                    // Start selection on long press - call synchronously on main thread
-                    if Thread.isMainThread {
-                        map.startSelection(at: location)
-                        longPressHandled[id] = true // Mark as handled
-                        // Note: Scrolling will be disabled during drawing (in .changed case)
-                        // But if user lifts finger without drawing, scrolling will be restored in .ended case
-                    } else {
-                        DispatchQueue.main.sync {
-                            map.startSelection(at: location)
-                            longPressHandled[id] = true // Mark as handled
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    private func handleTouchEvent(gesture: UIGestureRecognizer) -> Bool {
-        guard let webView = self.bridge?.webView else { return false }
-
-        let location = gesture.location(in: webView)
-        let interceptorTouchCount = (gesture as? TouchInterceptorGestureRecognizer)?.currentTouchCount
-        let touchCount = max(interceptorTouchCount ?? gesture.numberOfTouches, 1)
-
-        // Shape mode: 1 палець — lock (lasso), 2+ — unlock (zoom/scroll).
-        if gesture.state == .began || gesture.state == .changed {
-            let tc = max(interceptorTouchCount ?? 1, 1)
-            for map in maps.values where map.getSelectionType() == "shape" {
-                map.applyScrollLockForTouchCount(tc)
-            }
-            if let wkWebView = self.bridge?.webView as? WKWebView {
-                let anyShape = maps.values.contains { $0.getSelectionType() == "shape" }
-                let webScrollEnable = !anyShape || tc >= 2
-                wkWebView.scrollView.isScrollEnabled = webScrollEnable
-            }
-        }
-
-        // --- Touch ended/cancelled: finish selection if active, re-lock for shape (0 fingers = готовність до 1 пальця) ---
-        if gesture.state == .ended || gesture.state == .cancelled || gesture.state == .failed {
-            for (id, map) in maps {
-                if map.selectionActive {
-                    map.handleSelectionEnd(at: location)
-                    map.clearSelection()
-                }
-                longPressHandled[id] = false
-                cachedTouchEvents[id]?.removeAll()
-
-                if map.getSelectionType() == "shape" {
-                    map.applyScrollLockForTouchCount(0)
-                } else {
-                    map.setSelectionScrollLock(lockSingleFinger: false)
-                }
-            }
-            if let wkWebView = self.bridge?.webView as? WKWebView {
-                let anyShape = maps.values.contains { $0.getSelectionType() == "shape" }
-                wkWebView.scrollView.isScrollEnabled = !anyShape
-            }
-            return false
-        }
-
-        // --- New touch began: if selection was left active from a previous gesture, clear it ---
-        if gesture.state == .began {
-            for (id, map) in maps {
-                if map.selectionActive {
-                    map.clearSelection()
-                    if map.getSelectionType() != "shape" {
-                        map.setSelectionScrollLock(lockSingleFinger: false)
-                    }
-                }
-            }
-        }
-
-        // --- Route touches to the appropriate map ---
-        for (id, map) in maps {
-            if touchEnabled[id] == false { continue }
-
-            let mapRect = map.getMapBounds()
-            guard mapRect.contains(location) else { continue }
-
-            if map.getSelectionType() == "shape" {
-                let tc = max(interceptorTouchCount ?? gesture.numberOfTouches, 1)
-                map.applyScrollLockForTouchCount(tc)
-
-                if gesture.state == .began && tc == 1 && !map.selectionActive {
-                    map.startSelection(at: location)
-                }
-
-                if map.selectionActive && tc == 1 && gesture.state == .changed {
-                    map.handleSelectionMove(at: location)
-                    return true
-                }
-
-                if tc == 1 && (gesture.state == .began || gesture.state == .changed) {
-                    return true
-                }
-                return false
-            }
-
-            // Map has selection type set — check if actively drawing
-            if map.getSelectionType() != nil && map.selectionActive && gesture.state == .changed {
-                let tc = max(interceptorTouchCount ?? gesture.numberOfTouches, 1)
-                map.applyScrollLockForTouchCount(tc)
-                map.handleSelectionMove(at: location)
-                return true
-            }
-
-            // Not actively drawing — notify listeners for focus tracking
-            let devicePixelRatio = UIScreen.main.scale
-            let payload: [String: Any] = [
-                "x": location.x / CGFloat(devicePixelRatio),
-                "y": location.y / CGFloat(devicePixelRatio),
-                "mapId": map.id
-            ]
-            self.notifyListeners("isMapInFocus", data: payload)
-
-            // Allow normal map interaction (scroll, zoom, tap)
-            if gesture.state == .began || gesture.state == .changed {
-                return true
-            }
-        }
-
-        return false
     }
 
 	@objc func getMarkersIds(_ call: CAPPluginCall) {
@@ -422,7 +197,6 @@ public class CapacitorGoogleMapsPlugin: CAPPlugin, GMSMapViewDelegate {
                 throw GoogleMapErrors.mapNotFound
             }
 
-            touchEnabled[id] = true
             map.enableTouch()
 
             call.resolve()
@@ -441,43 +215,7 @@ public class CapacitorGoogleMapsPlugin: CAPPlugin, GMSMapViewDelegate {
                 throw GoogleMapErrors.mapNotFound
             }
 
-            touchEnabled[id] = false
             map.disableTouch()
-
-            call.resolve()
-        } catch {
-            handleError(call, error: error)
-        }
-    }
-
-    @objc func dispatchMapEvent(_ call: CAPPluginCall) {
-        do {
-            guard let id = call.getString("id") else {
-                throw GoogleMapErrors.invalidMapId
-            }
-
-            guard let map = self.maps[id] else {
-                throw GoogleMapErrors.mapNotFound
-            }
-
-            let focus = call.getBool("focus", false) ?? false
-
-            let events = cachedTouchEvents[id]
-            if let events = events, !events.isEmpty {
-                // In iOS, we need to dispatch events differently
-                // Since we can't directly create UITouch, we'll notify through JavaScript
-                if focus {
-					print("Focus event")
-                    // Map is in focus, dispatch to map
-                    map.dispatchTouchEvents(events: events)
-                } else {
-					print("Focus event ELSE")
-                    // Map is not in focus, dispatch to webView
-                    // Note: In iOS, we can't directly dispatch to webView like in Android
-                    // This would need to be handled through JavaScript bridge
-                }
-                cachedTouchEvents[id]?.removeAll()
-            }
 
             call.resolve()
         } catch {
@@ -588,63 +326,6 @@ public class CapacitorGoogleMapsPlugin: CAPPlugin, GMSMapViewDelegate {
 		}
 	}
 
-	@objc func updateMarkerPosition(_ call: CAPPluginCall) {
-		do {
-			guard let id = call.getString("id") else {
-				throw GoogleMapErrors.invalidMapId
-			}
-
-			guard let markerId = call.getString("markerId"),
-				  let markerId = Int(markerId) else {
-				throw GoogleMapErrors.invalidArguments("markerId is missing")
-			}
-
-			guard let coordinateObj = call.getObject("coordinate") else {
-				throw GoogleMapErrors.invalidArguments("coordinate is missing")
-			}
-
-			let coordinate = try getLatLng(coordinateObj)
-
-			guard let map = self.maps[id] else {
-				throw GoogleMapErrors.mapNotFound
-			}
-
-			try map.updateMarkerPosition(markerId: markerId, coordinate: coordinate)
-
-			call.resolve()
-		} catch {
-			handleError(call, error: error)
-		}
-	}
-
-	@objc func updateMarkerPositionBymId(_ call: CAPPluginCall) {
-		do {
-			guard let id = call.getString("id") else {
-				throw GoogleMapErrors.invalidMapId
-			}
-
-			guard let mId = call.getString("mId") else {
-				throw GoogleMapErrors.invalidArguments("mId is missing")
-			}
-
-			guard let coordinateObj = call.getObject("coordinate") else {
-				throw GoogleMapErrors.invalidArguments("coordinate is missing")
-			}
-
-			let coordinate = try getLatLng(coordinateObj)
-
-			guard let map = self.maps[id] else {
-				throw GoogleMapErrors.mapNotFound
-			}
-
-			try map.updateMarkerPositionBymId(mId: mId, coordinate: coordinate)
-
-			call.resolve()
-		} catch {
-			handleError(call, error: error)
-		}
-	}
-
 	@objc func updateMarkerBymId(_ call: CAPPluginCall) {
 		do {
 			guard let id = call.getString("id") else {
@@ -669,11 +350,11 @@ public class CapacitorGoogleMapsPlugin: CAPPlugin, GMSMapViewDelegate {
 				throw GoogleMapErrors.markerNotFound
 			}
 
-			// Update marker in place to keep stable native marker instances.
-			// remove+add path can trigger unintended cleanup on iOS.
-			map.updateMarker(markerId: markerHash, newMarker: marker)
+			try map.removeMarker(id: markerHash)
 
-			call.resolve(["id": String(markerHash)])
+			let markerId = try map.addMarker(marker: marker)
+
+			call.resolve(["id": String(markerId)])
 
 		} catch {
 			handleError(call, error: error)
@@ -715,10 +396,13 @@ public class CapacitorGoogleMapsPlugin: CAPPlugin, GMSMapViewDelegate {
 				guard let markerHash = map.mIds[mId],
 					  let marker = markers.first(where: { $0.mId == mId }) else {
 					print("updateMarkersBymId(): Marker not found \(mId)")
-					continue
+					return
 				}
 
-				map.updateMarker(markerId: markerHash, newMarker: marker)
+				try map.removeMarker(id: markerHash)
+
+				let markerId = try map.addMarker(marker: marker)
+
 				markerHashes.append(String(markerHash))
 			}
 
@@ -739,65 +423,20 @@ public class CapacitorGoogleMapsPlugin: CAPPlugin, GMSMapViewDelegate {
 				throw GoogleMapErrors.invalidArguments("mId is missing")
 			}
 
-			guard let iconId = call.getString("iconId") else {
-				throw GoogleMapErrors.invalidArguments("iconId is missing")
-			}
-
-			// iconUrl contains the actual SVG/URL data, used as fallback when imageCache misses
-			let iconUrl = call.getString("iconUrl") ?? iconId
-
-			var iconSize: CGSize?
-			if let sizeObj = call.getObject("iconSize") {
-				if let width = sizeObj["width"] as? Double, let height = sizeObj["height"] as? Double {
-					iconSize = CGSize(width: width, height: height)
-				}
+			guard let iconUrl = call.getString("iconId") else {
+				throw GoogleMapErrors.invalidArguments("iconUrl is missing")
 			}
 
 			guard let map = self.maps[id] else {
 				throw GoogleMapErrors.mapNotFound
 			}
 
-			// Try to resolve the icon from the plugin's imageCache first
-			let cachedIcon = imageCache.object(forKey: iconId as NSString)
-			// Pass both the cached image (if any) and the iconUrl for SVG/URL fallback
-			map.updateMarkerIcon(mId: mId, iconUrl: iconUrl, iconSize: iconSize, iconImage: cachedIcon)
+			try map.updateMarkerIcon(mId: mId, iconUrl: iconUrl)
 		} catch {
 			handleError(call, error: error)
 		}
 	}
 
-
-    @objc func setMarkers(_ call: CAPPluginCall) {
-        do {
-            guard let id = call.getString("id") else {
-                throw GoogleMapErrors.invalidMapId
-            }
-
-            guard let markerObjs = call.getArray("markers") as? [JSObject] else {
-                throw GoogleMapErrors.invalidArguments("markers array is missing")
-            }
-
-            guard let map = self.maps[id] else {
-                throw GoogleMapErrors.mapNotFound
-            }
-
-            var markers: [Marker] = []
-
-            try markerObjs.forEach { marker in
-                let marker = try Marker(fromJSObject: marker, imageCache: imageCache)
-                markers.append(marker)
-            }
-
-            map.setMarkers(markers: markers) { markerHashes in
-                call.resolve(["ids": markerHashes.map({ id in
-                    return String(id)
-                })])
-            }
-
-        } catch {
-            handleError(call, error: error)
-        }
-    }
 
     @objc func addMarkers(_ call: CAPPluginCall) {
         do {
@@ -807,6 +446,10 @@ public class CapacitorGoogleMapsPlugin: CAPPlugin, GMSMapViewDelegate {
 
             guard let markerObjs = call.getArray("markers") as? [JSObject] else {
                 throw GoogleMapErrors.invalidArguments("markers array is missing")
+            }
+
+            if markerObjs.isEmpty {
+                throw GoogleMapErrors.invalidArguments("markers requires at least one marker")
             }
 
             guard let map = self.maps[id] else {
@@ -1450,25 +1093,6 @@ public class CapacitorGoogleMapsPlugin: CAPPlugin, GMSMapViewDelegate {
         }
     }
 
-    @objc func getZoomLevel(_ call: CAPPluginCall) {
-        do {
-            guard let id = call.getString("id") else {
-                throw GoogleMapErrors.invalidMapId
-            }
-
-            guard let map = self.maps[id] else {
-                throw GoogleMapErrors.mapNotFound
-            }
-
-            DispatchQueue.main.sync {
-                let zoom = map.mapViewController.GMapView.camera.zoom
-                call.resolve(["zoomLevel": zoom])
-            }
-        } catch {
-            handleError(call, error: error)
-        }
-    }
-
     @objc func mapBoundsContains(_ call: CAPPluginCall) {
         do {
             guard let boundsObject = call.getObject("bounds") else {
@@ -1602,101 +1226,10 @@ public class CapacitorGoogleMapsPlugin: CAPPlugin, GMSMapViewDelegate {
 
             let overlay = try GroundOverlay(call)
 
-            map.addGroundOverlay(overlay: overlay)
+            try map.addGroundOverlay(overlay: overlay)
 
             call.resolve(["mapId": String(id)])
 
-        } catch {
-            handleError(call, error: error)
-        }
-    }
-
-    @objc func removeGroundOverlay(_ call: CAPPluginCall) {
-        do {
-            guard let id = call.getString("id") else {
-                throw GoogleMapErrors.invalidMapId
-            }
-
-            guard let map = self.maps[id] else {
-                throw GoogleMapErrors.mapNotFound
-            }
-
-            map.removeGroundOverlay()
-
-            call.resolve()
-
-        } catch {
-            handleError(call, error: error)
-        }
-    }
-
-    @objc func setSelectionType(_ call: CAPPluginCall) {
-        do {
-            guard let id = call.getString("id") else {
-                throw GoogleMapErrors.invalidMapId
-            }
-
-            guard let map = self.maps[id] else {
-                throw GoogleMapErrors.mapNotFound
-            }
-
-            let selectionType = call.getString("selectionType")
-            map.setSelectionType(selectionType)
-            let anyShape = maps.values.contains { $0.getSelectionType() == "shape" }
-            touchInterceptorRecognizer?.cancelsTouchesInView = anyShape
-            if let wkWebView = self.bridge?.webView as? WKWebView {
-                wkWebView.scrollView.isScrollEnabled = !anyShape
-            }
-            if anyShape {
-                for map in maps.values where map.getSelectionType() == "shape" {
-                    map.applyScrollLockForTouchCount(1)
-                }
-            }
-            call.resolve()
-        } catch {
-            handleError(call, error: error)
-        }
-    }
-
-    @objc func setMarkersDraggable(_ call: CAPPluginCall) {
-        do {
-            guard let id = call.getString("id") else {
-                throw GoogleMapErrors.invalidMapId
-            }
-
-            guard let map = self.maps[id] else {
-                throw GoogleMapErrors.mapNotFound
-            }
-
-            guard let mIds = call.getArray("mIds") as? [String] else {
-                throw GoogleMapErrors.invalidArguments("mIds is missing")
-            }
-
-            let draggable = call.getBool("draggable") ?? false
-
-            map.setMarkersDraggable(mIds: mIds, draggable: draggable)
-
-            call.resolve()
-        } catch {
-            handleError(call, error: error)
-        }
-    }
-
-    @objc func setAllMarkersDraggable(_ call: CAPPluginCall) {
-        do {
-            guard let id = call.getString("id") else {
-                throw GoogleMapErrors.invalidMapId
-            }
-
-            guard let map = self.maps[id] else {
-                throw GoogleMapErrors.mapNotFound
-            }
-
-            let draggable = call.getBool("draggable") ?? false
-
-            map.setAllMarkersDraggable(draggable: draggable)
-
-            call.resolve()
         } catch {
             handleError(call, error: error)
         }
@@ -1727,18 +1260,6 @@ public class CapacitorGoogleMapsPlugin: CAPPlugin, GMSMapViewDelegate {
         }
 
         return CLLocationCoordinate2D(latitude: lat, longitude: lng)
-    }
-
-    private func getLatLng(_ point: JSObject) throws -> LatLng {
-        guard let lat = point["lat"] as? Double else {
-            throw GoogleMapErrors.unhandledError("Point lat property not formatted properly.")
-        }
-
-        guard let lng = point["lng"] as? Double else {
-            throw GoogleMapErrors.unhandledError("Point lng property not formatted properly.")
-        }
-
-        return LatLng(lat: lat, lng: lng)
     }
 
     private func formatMapBoundsForResponse(bounds: GMSCoordinateBounds?, cameraPosition: GMSCameraPosition) -> PluginCallResultData {
@@ -1839,15 +1360,9 @@ public class CapacitorGoogleMapsPlugin: CAPPlugin, GMSMapViewDelegate {
         self.notifyListeners("onBoundsChanged", data: data)
         self.notifyListeners("onCameraIdle", data: data)
 
-        // Final zoom emission on idle in case didChange missed the last step.
-        let finalZoom = cameraPosition.zoom
-        if finalZoom != lastZoomLevels[mapId] {
-            lastZoomLevels[mapId] = finalZoom
-            self.notifyListeners("onZoomChanged", data: [
-                "mapId": mapId,
-                "zoom": finalZoom
-            ])
-        }
+        // if let map = map {
+        //     _updateVisibleMarkers(mapView: mapView, map: map)
+        // }
     }
 
     // onCameraMoveStarted
@@ -1856,19 +1371,6 @@ public class CapacitorGoogleMapsPlugin: CAPPlugin, GMSMapViewDelegate {
             "mapId": self.findMapIdByMapView(mapView),
             "isGesture": gesture
         ])
-    }
-
-    public func mapView(_ mapView: GMSMapView, didChange cameraPosition: GMSCameraPosition) {
-        let mapId = findMapIdByMapView(mapView)
-
-        let newZoom = cameraPosition.zoom
-        if newZoom != lastZoomLevels[mapId] {
-            lastZoomLevels[mapId] = newZoom
-            self.notifyListeners("onZoomChanged", data: [
-                "mapId": mapId,
-                "zoom": newZoom
-            ])
-        }
     }
 
     // onMapClick
@@ -1941,15 +1443,12 @@ public class CapacitorGoogleMapsPlugin: CAPPlugin, GMSMapViewDelegate {
 				mId = map.mIds.first(where: { $0.value == marker.hash.hashValue })?.key ?? "none"
 			}
 
-            let origClick = map?.originalCoords[marker.hash.hashValue] ?? marker.position
             self.notifyListeners("onMarkerClick", data: [
                 "mapId": mapId,
                 "markerId": String(marker.hash.hashValue),
 				"mId": mId,
                 "latitude": marker.position.latitude,
                 "longitude": marker.position.longitude,
-                "originalLatitude": origClick.latitude,
-                "originalLongitude": origClick.longitude,
                 "title": marker.title ?? "",
                 "snippet": marker.snippet ?? ""
             ])
@@ -1967,15 +1466,12 @@ public class CapacitorGoogleMapsPlugin: CAPPlugin, GMSMapViewDelegate {
 			mId = map.mIds.first(where: { $0.value == marker.hash.hashValue })?.key ?? "none"
 		}
 
-        let origStart = map?.originalCoords[marker.hash.hashValue] ?? marker.position
         self.notifyListeners("onMarkerDragStart", data: [
             "mapId": mapId,
 			"mId": mId,
             "markerId": String(marker.hash.hashValue),
             "latitude": marker.position.latitude,
             "longitude": marker.position.longitude,
-            "originalLatitude": origStart.latitude,
-            "originalLongitude": origStart.longitude,
             "title": marker.title ?? "",
             "snippet": marker.snippet ?? ""
         ])
@@ -1991,15 +1487,12 @@ public class CapacitorGoogleMapsPlugin: CAPPlugin, GMSMapViewDelegate {
 			mId = map.mIds.first(where: { $0.value == marker.hash.hashValue })?.key ?? "none"
 		}
 
-        let origDrag = map?.originalCoords[marker.hash.hashValue] ?? marker.position
         self.notifyListeners("onMarkerDrag", data: [
             "mapId": mapId,
 			"mId": mId,
             "markerId": String(marker.hash.hashValue),
             "latitude": marker.position.latitude,
             "longitude": marker.position.longitude,
-            "originalLatitude": origDrag.latitude,
-            "originalLongitude": origDrag.longitude,
             "title": marker.title ?? "",
             "snippet": marker.snippet ?? ""
         ])
@@ -2015,15 +1508,12 @@ public class CapacitorGoogleMapsPlugin: CAPPlugin, GMSMapViewDelegate {
 			mId = map.mIds.first(where: { $0.value == marker.hash.hashValue })?.key ?? "none"
 		}
 
-        let origEnd = map?.originalCoords[marker.hash.hashValue] ?? marker.position
         self.notifyListeners("onMarkerDragEnd", data: [
             "mapId": mapId,
 			"mId": mId,
             "markerId": String(marker.hash.hashValue),
             "latitude": marker.position.latitude,
             "longitude": marker.position.longitude,
-            "originalLatitude": origEnd.latitude,
-            "originalLongitude": origEnd.longitude,
             "title": marker.title ?? "",
             "snippet": marker.snippet ?? ""
         ])
@@ -2169,162 +1659,5 @@ extension GMSCoordinateBounds {
             latitude: (northEast.latitude + southWest.latitude) / 2,
             longitude: (northEast.longitude + southWest.longitude) / 2
         )
-    }
-}
-
-// Helper function to convert gesture state to string for debugging
-private func gestureStateToString(_ state: UIGestureRecognizer.State) -> String {
-    switch state {
-    case .possible: return "possible"
-    case .began: return "began"
-    case .changed: return "changed"
-    case .ended: return "ended"
-    case .cancelled: return "cancelled"
-    case .failed: return "failed"
-    @unknown default: return "unknown"
-    }
-}
-
-// MARK: - UIGestureRecognizerDelegate
-extension CapacitorGoogleMapsPlugin: UIGestureRecognizerDelegate {
-    public func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
-        // Allow long press to work simultaneously with touch interceptor
-        if gestureRecognizer is UILongPressGestureRecognizer || otherGestureRecognizer is UILongPressGestureRecognizer {
-            return true
-        }
-        return true
-    }
-
-    public func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRequireFailureOf otherGestureRecognizer: UIGestureRecognizer) -> Bool {
-        // Long press should not require failure of touch interceptor
-        return false
-    }
-
-    public func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldBeRequiredToFailBy otherGestureRecognizer: UIGestureRecognizer) -> Bool {
-        // Touch interceptor should not require long press to fail
-        return false
-    }
-}
-
-// MARK: - TouchInterceptorGestureRecognizer
-class TouchInterceptorGestureRecognizer: UIGestureRecognizer {
-    private let touchHandler: (UIGestureRecognizer) -> Bool
-    private let longPressHandler: ((CGPoint) -> Void)?
-    private let scrollBlockHandler: ((Bool) -> Void)?
-    private var longPressTimer: Timer?
-    private var longPressLocation: CGPoint = .zero
-    private let longPressDuration: TimeInterval = 0.4
-    private let longPressDistanceThreshold: CGFloat = 30.0
-
-    // True after long press timer fires and before touch ends
-    var longPressActivated: Bool = false
-    var currentTouchCount: Int = 0
-
-    var isWaitingForLongPress: Bool {
-        return longPressTimer != nil
-    }
-
-    init(touchHandler: @escaping (UIGestureRecognizer) -> Bool, longPressHandler: ((CGPoint) -> Void)? = nil, scrollBlockHandler: ((Bool) -> Void)? = nil) {
-        self.touchHandler = touchHandler
-        self.longPressHandler = longPressHandler
-        self.scrollBlockHandler = scrollBlockHandler
-        super.init(target: nil, action: nil)
-    }
-
-    override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent) {
-        guard let touch = touches.first, let view = view else { return }
-
-        let touchCount = event.allTouches?.count ?? touches.count
-        currentTouchCount = touchCount
-        if touchCount > 1 || touches.count > 1 {
-            return
-        }
-
-        longPressLocation = touch.location(in: view)
-        longPressActivated = false
-
-        // Do NOT block scrolling here — let the map scroll normally.
-        // Scrolling will only be blocked if/when the long press timer fires.
-
-        let timer = Timer(timeInterval: longPressDuration, repeats: false) { [weak self] timer in
-            guard let self = self else { return }
-
-            let location = self.longPressLocation
-            self.longPressActivated = true
-
-            // Long press detected — NOW block scrolling
-            self.scrollBlockHandler?(true)
-
-            self.longPressHandler?(location)
-
-            timer.invalidate()
-            self.longPressTimer = nil
-        }
-        RunLoop.main.add(timer, forMode: .common)
-        longPressTimer = timer
-
-        state = .began
-        _ = touchHandler(self)
-    }
-
-    override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent) {
-        guard let touch = touches.first, let view = view else { return }
-
-        let touchCount = event.allTouches?.count ?? touches.count
-        currentTouchCount = touchCount
-        if touchCount > 1 || touches.count > 1 {
-            longPressTimer?.invalidate()
-            longPressTimer = nil
-            if longPressActivated {
-                longPressActivated = false
-                scrollBlockHandler?(false)
-            }
-            state = .changed
-            _ = touchHandler(self)
-            return
-        }
-
-        let currentLocation = touch.location(in: view)
-        let distance = sqrt(pow(currentLocation.x - longPressLocation.x, 2) + pow(currentLocation.y - longPressLocation.y, 2))
-
-        // If still waiting for long press and moved too far, cancel it
-        if longPressTimer != nil && distance > longPressDistanceThreshold {
-            longPressTimer?.invalidate()
-            longPressTimer = nil
-            // No need to unblock scroll — we never blocked it
-        }
-
-        state = .changed
-        _ = touchHandler(self)
-    }
-
-    override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent) {
-        currentTouchCount = event.allTouches?.count ?? 0
-        longPressTimer?.invalidate()
-        longPressTimer = nil
-
-        state = .ended
-        _ = touchHandler(self)
-
-        // Always unblock scrolling on touch end
-        if longPressActivated {
-            longPressActivated = false
-            scrollBlockHandler?(false)
-        }
-    }
-
-    override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent) {
-        currentTouchCount = event.allTouches?.count ?? 0
-        longPressTimer?.invalidate()
-        longPressTimer = nil
-
-        state = .cancelled
-        _ = touchHandler(self)
-
-        // Always unblock scrolling on cancel
-        if longPressActivated {
-            longPressActivated = false
-            scrollBlockHandler?(false)
-        }
     }
 }

@@ -9,21 +9,21 @@ importers:
   .:
     dependencies:
       '@capacitor/core':
-        specifier: '>=7.0.0'
-        version: 7.2.0
+        specifier: ^5.0.0
+        version: 5.7.8
       '@googlemaps/js-api-loader':
-        specifier: ~1.16.8
-        version: 1.16.8
+        specifier: ~1.13.7
+        version: 1.13.11
       '@googlemaps/markerclusterer':
-        specifier: ~2.5.3
-        version: 2.5.3
+        specifier: ~2.0.7
+        version: 2.0.15
       '@types/google.maps':
-        specifier: ~3.58.1
-        version: 3.58.1
+        specifier: ~3.50.5
+        version: 3.50.5
     devDependencies:
       '@capacitor/ios':
         specifier: next
-        version: 7.0.0-rc.0(@capacitor/core@7.2.0)
+        version: 7.0.0-rc.0(@capacitor/core@5.7.8)
       '@types/node':
         specifier: ^20.11.25
         version: 20.14.14
@@ -123,6 +123,9 @@ packages:
     peerDependencies:
       '@capacitor/core': ^7.2.0
 
+  '@capacitor/core@5.7.8':
+    resolution: {integrity: sha512-rrZcm/2vJM0WdWRQup1TUidbjQV9PfIadSkV4rAGLD7R6PuzZSMPGT0gmoZzCRlXkqrazrWWDkurei3ozU02FA==}
+
   '@capacitor/core@7.2.0':
     resolution: {integrity: sha512-2zCnA6RJeZ9ec4470o8QMZEQTWpekw9FNoqm5TLc10jeCrhvHVI8MPgxdZVc3mOdFlyieYu4AS1fNxSqbS57Pw==}
 
@@ -168,8 +171,14 @@ packages:
     resolution: {integrity: sha512-Ys+3g2TaW7gADOJzPt83SJtCDhMjndcDMFVQ/Tj9iA1BfJzFKD9mAUXT3OenpuPHbI6P/myECxRJrofUsDx/5g==}
     engines: {node: ^12.22.0 || ^14.17.0 || >=16.0.0}
 
+  '@googlemaps/js-api-loader@1.13.11':
+    resolution: {integrity: sha512-8gKvtDYGtUa3Wg2iC0e53jBOiN5UQ1T12RMq66hjmhAtZMRjI7iuoQn1WdUyoTfYJDmYN3HHc+3l+XOT21p3bQ==}
+
   '@googlemaps/js-api-loader@1.16.8':
     resolution: {integrity: sha512-CROqqwfKotdO6EBjZO/gQGVTbeDps5V7Mt9+8+5Q+jTg5CRMi3Ii/L9PmV3USROrt2uWxtGzJHORmByxyo9pSQ==}
+
+  '@googlemaps/markerclusterer@2.0.15':
+    resolution: {integrity: sha512-/I6Esi5FtyeVHsezN9Kut8zRJoqe7KkTIJXGVqpKFf6BjC7qQ1xRajLMkOz0s8XKgLevbr+KdYjuvmj+LohOGg==}
 
   '@googlemaps/markerclusterer@2.5.3':
     resolution: {integrity: sha512-x7lX0R5yYOoiNectr10wLgCBasNcXFHiADIBdmn7jQllF2B5ENQw5XtZK+hIw4xnV0Df0xhN4LN98XqA5jaiOw==}
@@ -491,6 +500,9 @@ packages:
 
   '@types/geojson@7946.0.14':
     resolution: {integrity: sha512-WCfD5Ht3ZesJUsONdhvm84dmzWOiOzOAqOncN0++w0lBw1o8OuDNJF2McvvCef/yBqb/HYRahp1BYtODFQ8bRg==}
+
+  '@types/google.maps@3.50.5':
+    resolution: {integrity: sha512-RuZf1MJtctGlpW+Gd4a/eGtAufUDjMf+eyN1l+B3fbe2YLScJbg8KEljJfb+6vnSPFAeM1/48geVIEg3vqOkxw==}
 
   '@types/google.maps@3.58.1':
     resolution: {integrity: sha512-X9QTSvGJ0nCfMzYOnaVs/k6/4L+7F5uCS+4iUmkLEls6J9S/Phv+m/i3mDeyc49ZBgwab3EFO1HEoBY7k98EGQ==}
@@ -1835,6 +1847,9 @@ packages:
   just-diff@6.0.2:
     resolution: {integrity: sha512-S59eriX5u3/QhMNq3v/gm8Kd0w8OS6Tz2FS1NG4blv+z0MuQcBRJyFWjdovM0Rad4/P4aUPFtnkNjMjyMlMSYA==}
 
+  kdbush@3.0.0:
+    resolution: {integrity: sha512-hRkd6/XW4HTsA9vjVpY9tuXJYLSlelnkTmVFu4M9/7MIYQtFcHpbugAU7UbOfjOiVSVYl2fqgBuJ32JUmRo5Ew==}
+
   kdbush@4.0.2:
     resolution: {integrity: sha512-WbCVYJ27Sz8zi9Q7Q0xHC+05iwkm3Znipc2XTlrnJbsHMYktW4hPhXUE8Ys1engBrvffoSCqbil1JQAa7clRpA==}
 
@@ -2724,6 +2739,9 @@ packages:
     engines: {node: '>=4'}
     hasBin: true
 
+  supercluster@7.1.5:
+    resolution: {integrity: sha512-EulshI3pGUM66o6ZdH3ReiFcvHpM3vAigyK+vcxdjpJyEbIIrtbmBdY23mGgnI24uXiGFvrGq9Gkum/8U7vJWg==}
+
   supercluster@8.0.1:
     resolution: {integrity: sha512-IiOea5kJ9iqzD2t7QJq/cREyLHTtSmUT6gQsweojg9WH2sYJqZK9SswTu6jrscO6D1G5v5vYZ9ru/eq85lXeZQ==}
 
@@ -3055,6 +3073,10 @@ snapshots:
     dependencies:
       '@capacitor/core': 7.2.0
 
+  '@capacitor/core@5.7.8':
+    dependencies:
+      tslib: 2.6.3
+
   '@capacitor/core@7.2.0':
     dependencies:
       tslib: 2.6.3
@@ -3067,9 +3089,9 @@ snapshots:
       minimist: 1.2.8
       typescript: 4.2.4
 
-  '@capacitor/ios@7.0.0-rc.0(@capacitor/core@7.2.0)':
+  '@capacitor/ios@7.0.0-rc.0(@capacitor/core@5.7.8)':
     dependencies:
-      '@capacitor/core': 7.2.0
+      '@capacitor/core': 5.7.8
 
   '@capacitor/ios@7.2.0(@capacitor/core@7.2.0)':
     dependencies:
@@ -3111,7 +3133,16 @@ snapshots:
 
   '@eslint/js@8.57.0': {}
 
+  '@googlemaps/js-api-loader@1.13.11':
+    dependencies:
+      fast-deep-equal: 3.1.3
+
   '@googlemaps/js-api-loader@1.16.8': {}
+
+  '@googlemaps/markerclusterer@2.0.15':
+    dependencies:
+      fast-deep-equal: 3.1.3
+      supercluster: 7.1.5
 
   '@googlemaps/markerclusterer@2.5.3':
     dependencies:
@@ -3644,6 +3675,8 @@ snapshots:
       '@types/node': 20.14.14
 
   '@types/geojson@7946.0.14': {}
+
+  '@types/google.maps@3.50.5': {}
 
   '@types/google.maps@3.58.1': {}
 
@@ -5108,6 +5141,8 @@ snapshots:
 
   just-diff@6.0.2: {}
 
+  kdbush@3.0.0: {}
+
   kdbush@4.0.2: {}
 
   keyv@4.5.4:
@@ -6187,6 +6222,10 @@ snapshots:
       duplexer: 0.1.2
       minimist: 1.2.8
       through: 2.3.8
+
+  supercluster@7.1.5:
+    dependencies:
+      kdbush: 3.0.0
 
   supercluster@8.0.1:
     dependencies:

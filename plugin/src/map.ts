@@ -3,7 +3,6 @@ import type { PluginListenerHandle } from '@capacitor/core';
 
 import type {
   CameraConfig,
-  LatLng,
   Marker,
   MapPadding,
   MapListenerCallback,
@@ -20,8 +19,6 @@ import type {
   CircleClickCallbackData,
   Polyline,
   PolylineCallbackData,
-  SelectionType,
-  SelectionEndCallbackData,
 } from './definitions';
 import { LatLngBounds, MapType } from './definitions';
 import type { CreateMapArgs, GroundOverlayArgs } from './implementation';
@@ -40,13 +37,10 @@ export interface GoogleMapInterface {
   disableClustering(): Promise<void>;
   addMarker(marker: Marker): Promise<string>;
   addMarkers(markers: Marker[]): Promise<string[]>;
-  setMarkers(markers: Marker[]): Promise<string[]>;
   updateMarker(id: string, marker: Marker): Promise<string>;
   updateMarkerBymId(mId: string, marker: Marker): Promise<string>;
   updateMarkersBymId(mId: string, marker: Marker): Promise<string>;
   updateMarkerIcon(id: string, iconId: string, iconUrl: string): Promise<void>;
-  updateMarkerPosition(id: string, coordinate: LatLng): Promise<void>;
-  updateMarkerPositionBymId(mId: string, coordinate: LatLng): Promise<void>;
   removeMarker(id: string): Promise<void>;
   removeMarkerBymId(mId: string): Promise<void>;
   removeMarkers(ids: string[]): Promise<void>;
@@ -100,16 +94,10 @@ export interface GoogleMapInterface {
   setOnMapDoubleClickListener(callback?: MapListenerCallback<MapClickCallbackData>): Promise<void>;
   setOnMapLoadedListener(callback?: MapListenerCallback<{id: string}>): Promise<void>;
   setOnZoomChangedListener(callback?: MapListenerCallback<{zoomLevel: number | undefined}>): Promise<void>;
-  setOnSelectionEndListener(callback?: MapListenerCallback<{mIds: string[]}>): Promise<void>;
-  enableMarkersDrag(mIds: string[]): Promise<void>;
-  disableMarkersDrag(mIds: string[]): Promise<void>;
-  disableAllMarkersDrag(): Promise<void>;
   takeSnapshot(format?: string, quality?: number): Promise<{snapshot: string | HTMLElement}>;
   addGroundOverlay(groundOverlayOptions: GroundOverlayArgs): Promise<void>;
-  removeGroundOverlay(): Promise<void>;
   getZoomLevel(): Promise<number | undefined>;
   hasIcon(iconId: string): Promise<boolean>;
-  setSelectionType(args: { selectionType?: SelectionType }): Promise<void>;
 }
 
 class MapCustomElement extends HTMLElement {
@@ -159,7 +147,6 @@ export class GoogleMap {
   private onMapDoubleClickListener?: PluginListenerHandle;
   private onMapLoadedListener?: PluginListenerHandle;
   private onZoomChangedListener?: PluginListenerHandle;
-  private onSelectionEndListener?: PluginListenerHandle;
 
   private constructor(id: string) {
     this.id = id;
@@ -403,20 +390,7 @@ export class GoogleMap {
 
     return res.ids;
   }
-  /**
-   * Sets the markers on the map
-   *
-   * @param markers
-   * @returns array of marker IDs
-   */
-  async setMarkers(markers: Marker[]): Promise<string[]> {
-    const res = await CapacitorGoogleMaps.setMarkers({
-      id: this.id,
-      markers,
-    });
 
-    return res.ids;
-  }
   /**
    * Updates the current marker on the map
    *
@@ -479,36 +453,6 @@ export class GoogleMap {
       mId: mId,
       iconId,
       iconUrl
-    });
-  }
-
-  /**
-   * Updates the position of an existing marker in place, without recreating it or changing its id
-   *
-   * @param id id of the marker to move
-   * @param coordinate new marker position
-   * @returns void
-   */
-  async updateMarkerPosition(id: string, coordinate: LatLng): Promise<void> {
-    return CapacitorGoogleMaps.updateMarkerPosition({
-      id: this.id,
-      markerId: id,
-      coordinate,
-    });
-  }
-
-  /**
-   * Updates the position of an existing marker in place by mId, without recreating it or changing its id
-   *
-   * @param mId mId of the marker to move
-   * @param coordinate new marker position
-   * @returns void
-   */
-  async updateMarkerPositionBymId(mId: string, coordinate: LatLng): Promise<void> {
-    return CapacitorGoogleMaps.updateMarkerPositionBymId({
-      id: this.id,
-      mId,
-      coordinate,
     });
   }
 
@@ -761,10 +705,6 @@ export class GoogleMap {
     });
   }
 
-  async removeGroundOverlay(): Promise<void> {
-    return CapacitorGoogleMaps.removeGroundOverlay({ id: this.id });
-  }
-
   async getZoomLevel(): Promise<{ zoomLevel: number | undefined }> {
     return CapacitorGoogleMaps.getZoomLevel({
       id: this.id
@@ -775,56 +715,6 @@ export class GoogleMap {
     return CapacitorGoogleMaps.hasIcon({
       id: this.id,
       iconId: iconId
-    });
-  }
-
-  async setSelectionType(args: { selectionType?: SelectionType }): Promise<void> {
-    return CapacitorGoogleMaps.setSelectionType({
-      id: this.id,
-      selectionType: args.selectionType
-    })
-  }
-
-  async disableSelectionMode(): Promise<void> {
-    return CapacitorGoogleMaps.setSelectionType({
-      id: this.id,
-      selectionType: null,
-    });
-  }
-
-  /**
-   * Enable dragging for specific markers by their mIds
-   *
-   * @param mIds - array of marker mIds to make draggable
-   */
-  async enableMarkersDrag(mIds: string[]): Promise<void> {
-    return CapacitorGoogleMaps.setMarkersDraggable({
-      id: this.id,
-      mIds,
-      draggable: true,
-    });
-  }
-
-  /**
-   * Disable dragging for specific markers by their mIds
-   *
-   * @param mIds - array of marker mIds to make non-draggable
-   */
-  async disableMarkersDrag(mIds: string[]): Promise<void> {
-    return CapacitorGoogleMaps.setMarkersDraggable({
-      id: this.id,
-      mIds,
-      draggable: false,
-    });
-  }
-
-  /**
-   * Disable dragging for all markers on the map
-   */
-  async disableAllMarkersDrag(): Promise<void> {
-    return CapacitorGoogleMaps.setAllMarkersDraggable({
-      id: this.id,
-      draggable: false,
     });
   }
 
@@ -1060,7 +950,7 @@ export class GoogleMap {
     }
 
     if (callback) {
-		this.onMapLongClickListener = await CapacitorGoogleMaps.addListener('onMapLongClick', this.generateCallback(callback));
+      this.onMapLongClickListener = await CapacitorGoogleMaps.addListener('onMapLongClick', this.generateCallback(callback));
     } else {
       this.onMapLongClickListener = undefined;
     }
@@ -1097,7 +987,7 @@ export class GoogleMap {
     }
 
     if (callback) {
-		this.onZoomChangedListener = await CapacitorGoogleMaps.addListener('onZoomChanged', this.generateCallback(callback));
+      this.onZoomChangedListener = await CapacitorGoogleMaps.addListener('onZoomChanged', this.generateCallback(callback));
     } else {
       this.onZoomChangedListener = undefined;
     }
@@ -1291,21 +1181,6 @@ export class GoogleMap {
     }
   }
 
-  async setOnSelectionEndListener(callback?: MapListenerCallback<SelectionEndCallbackData>): Promise<void> {
-    if (this.onSelectionEndListener) {
-      this.onSelectionEndListener.remove();
-    }
-
-    if (callback) {
-      this.onSelectionEndListener = await CapacitorGoogleMaps.addListener(
-        'onSelectionEnd',
-        this.generateCallback(callback)
-      );
-    } else {
-      this.onSelectionEndListener = undefined;
-    }
-  }
-
   /**
    * Remove all event listeners on the map.
    *
@@ -1404,11 +1279,6 @@ export class GoogleMap {
     if (this.onZoomChangedListener) {
       this.onZoomChangedListener.remove();
       this.onZoomChangedListener = undefined;
-    }
-
-    if (this.onSelectionEndListener) {
-      this.onSelectionEndListener.remove();
-      this.onSelectionEndListener = undefined;
     }
   }
 

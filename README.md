@@ -14,14 +14,9 @@ npx cap sync
 - main branch is for sync with original upstream ionic @capacitor/google-maps
 - master branch is for forked version
 
-- Modified root package.json with `prepare` script runs `on-postinstall.js` script on install. It moves dist files from plugin to root folder.
+- Modified root package.json with `prepare` script runs `on-postinstall.js` script on install. It moves dist files from plugin to root folder. 
 - When merge origin main branch make sure files of root package.json is the same as in plugin's.
-- There are two `version` fields and they mean different things:
-  - Root `package.json` `version` is what consumers actually get. This is the version to bump and tag when releasing the fork (see "When ready to deploy" below).
-  - Versioning rule:
-    - Still in development / not stable yet: bump to the next version with a feature name or `alpha` suffix, e.g. `7.1.0-alpha.1` or `7.1.0-select-area.1`.
-    - Stable and ready: merge into `master` and use a plain version, e.g. `7.1.0`.
-  - `plugin/package.json` `version` tracks which upstream `ionic-team/capacitor-google-maps` release the `plugin/` source was last synced from. It isn't read by any build/install step in this fork - only bump it when merging in new upstream changes, not on fork releases.
+
 
 When you develop locally you can install from local repo folder in main app:
 
@@ -30,37 +25,10 @@ npm install @capacitor/google-maps@git+file:///Users/username/path/to/plugin-rep
 ```
 
 ### When ready to deploy.
-
-- (Optional) Bump `version` in the root `package.json`, or decide on an explicit tag name (e.g. `v7.1.0-alpha.1`).
-- Run `pnpm run create:tag` (or `pnpm run create:tag -- v7.1.0-alpha.1` for an explicit tag name).
-  - Builds `dist`, copies plugin files into root (`prepare`), and commits them **locally only**.
-  - Shows a confirmation prompt before creating and pushing the tag.
-  - Only the tag is pushed - `master` is never touched, so `dist` never lives in its git history.
-  - If the tag already exists, it aborts and lists the last 3 tags instead of overwriting anything.
-- Use `pnpm run create:tag -- --dry-run` to build and commit locally without creating or pushing a tag (useful to sanity-check the build before releasing).
-- Consumers install the new version with:
-  ```bash
-  npm install github:IS123/capacitor-google-maps#<tag>
-  ```
-
-### Using in another repository
-
-In the consumer app's `package.json`, point the dependency at the tag you want:
-
-```json
-"dependencies": {
-  "@capacitor/google-maps": "github:IS123/capacitor-google-maps#<tag>"
-}
-```
-
-Then install and sync:
-
-```bash
-npm i @capacitor/google-maps
-npx cap sync
-```
-
-To pick up a new release, update `<tag>` in `package.json` to the new tag name and re-run `npm i @capacitor/google-maps`.
+- Build the dist `pnpm run build`
+- Create a git tag with name v<semver_version> `git tag -a v6.0.0`
+- Push changes to master branch, or create a PR to master.
+- Push tag to remote `git push origin --tags`
 
 ## API Keys
 
@@ -77,7 +45,6 @@ Read about [Configuring `Info.plist`](https://capacitorjs.com/docs/ios/configura
 ### Minimum Deployment Target
 
 Version 6 of this plugin has a minimum deployment target of iOS 14.0. You will need to edit `ios/App/Podfile` and change the following line from 13.0 to 14.0:
-
 ```
 platform :ios, '14.0'
 ```
@@ -89,7 +56,6 @@ Additionally, you will need to open your project in XCode and in the `Build Sett
 Your project will also need have `skipLibCheck` set to `true` in `tsconfig.json`.
 
 ### Migrating from older versions
-
 > The main Google Maps SDK now supports running on simulators on Apple Silicon Macs, but make sure you have the latest version of [Google-Maps-iOS-Utils](https://github.com/googlemaps/google-maps-ios-utils) installed.
 
 If you added the previous workaround for getting the unreleased version, you can delete it now by removing this line from `ios/App/Podfile`:
@@ -132,6 +98,7 @@ This plugin will use the following project variables (defined in your app's `var
 - `androidxCoreKTXVersion`: version of `androidx.core:core-ktx` (default: `1.12.0`)
 - `kotlin_version`: version of `org.jetbrains.kotlin:kotlin-stdlib` (default: `1.9.10`)
 
+
 ## Usage
 
 The Google Maps Capacitor plugin ships with a web component that must be used to render the map in your application as it enables us to embed the native view more effectively on iOS. The plugin will automatically register this web component for use in your application.
@@ -169,14 +136,14 @@ capacitor-google-map {
 Next, we should create the map reference. This is done by importing the GoogleMap class from the Capacitor plugin and calling the create method, and passing in the required parameters.
 
 ```typescript
-import { GoogleMap } from "@capacitor/google-maps";
+import { GoogleMap } from '@capacitor/google-maps';
 
-const apiKey = "YOUR_API_KEY_HERE";
+const apiKey = 'YOUR_API_KEY_HERE';
 
-const mapRef = document.getElementById("map");
+const mapRef = document.getElementById('map');
 
 const newMap = await GoogleMap.create({
-  id: "my-map", // Unique identifier for this map instance
+  id: 'my-map', // Unique identifier for this map instance
   element: mapRef, // reference to the capacitor-google-map element
   apiKey: apiKey, // Your Google Maps API Key
   config: {
@@ -226,7 +193,7 @@ await newMap.destroy();
 ### Angular
 
 ```typescript
-import { GoogleMap } from "@capacitor/google-maps";
+import { GoogleMap } from '@capacitor/google-maps';
 
 @Component({
   template: `
@@ -244,13 +211,13 @@ import { GoogleMap } from "@capacitor/google-maps";
   ],
 })
 export class MyMap {
-  @ViewChild("map")
+  @ViewChild('map')
   mapRef: ElementRef<HTMLElement>;
   newMap: GoogleMap;
 
   async createMap() {
     this.newMap = await GoogleMap.create({
-      id: "my-cool-map",
+      id: 'my-cool-map',
       element: this.mapRef.nativeElement,
       apiKey: environment.apiKey,
       config: {
@@ -323,15 +290,15 @@ export default MyMap;
 </style>
 
 <script>
-  import { GoogleMap } from "@capacitor/google-maps";
+  import { GoogleMap } from '@capacitor/google-maps';
 
   const createMap = async () => {
-    const mapRef = document.getElementById("map");
+    const mapRef = document.getElementById('map');
 
     const newMap = await GoogleMap.create({
-      id: "my-map", // Unique identifier for this map instance
+      id: 'my-map', // Unique identifier for this map instance
       element: mapRef, // reference to the capacitor-google-map element
-      apiKey: "YOUR_API_KEY_HERE", // Your Google Maps API Key
+      apiKey: 'YOUR_API_KEY_HERE', // Your Google Maps API Key
       config: {
         center: {
           // The initial position to be rendered by the map
@@ -349,73 +316,64 @@ export default MyMap;
 
 <docgen-index>
 
-- [`create(...)`](#create)
-- [`enableTouch()`](#enabletouch)
-- [`disableTouch()`](#disabletouch)
-- [`enableClustering(...)`](#enableclustering)
-- [`disableClustering()`](#disableclustering)
-- [`addMarker(...)`](#addmarker)
-- [`addMarkers(...)`](#addmarkers)
-- [`setMarkers(...)`](#setmarkers)
-- [`updateMarker(...)`](#updatemarker)
-- [`updateMarkerBymId(...)`](#updatemarkerbymid)
-- [`updateMarkersBymId(...)`](#updatemarkersbymid)
-- [`updateMarkerIcon(...)`](#updatemarkericon)
-- [`updateMarkerPosition(...)`](#updatemarkerposition)
-- [`updateMarkerPositionBymId(...)`](#updatemarkerpositionbymid)
-- [`removeMarker(...)`](#removemarker)
-- [`removeMarkerBymId(...)`](#removemarkerbymid)
-- [`removeMarkers(...)`](#removemarkers)
-- [`removeMarkersBymId(...)`](#removemarkersbymid)
-- [`addPolygons(...)`](#addpolygons)
-- [`removePolygons(...)`](#removepolygons)
-- [`addCircles(...)`](#addcircles)
-- [`removeCircles(...)`](#removecircles)
-- [`addPolylines(...)`](#addpolylines)
-- [`removePolylines(...)`](#removepolylines)
-- [`destroy()`](#destroy)
-- [`setCamera(...)`](#setcamera)
-- [`getMapType()`](#getmaptype)
-- [`setMapType(...)`](#setmaptype)
-- [`enableIndoorMaps(...)`](#enableindoormaps)
-- [`enableTrafficLayer(...)`](#enabletrafficlayer)
-- [`enableAccessibilityElements(...)`](#enableaccessibilityelements)
-- [`enableCurrentLocation(...)`](#enablecurrentlocation)
-- [`setPadding(...)`](#setpadding)
-- [`getMapBounds()`](#getmapbounds)
-- [`fitBounds(...)`](#fitbounds)
-- [`setOnBoundsChangedListener(...)`](#setonboundschangedlistener)
-- [`setOnCameraIdleListener(...)`](#setoncameraidlelistener)
-- [`setOnCameraMoveStartedListener(...)`](#setoncameramovestartedlistener)
-- [`setOnClusterClickListener(...)`](#setonclusterclicklistener)
-- [`setOnClusterInfoWindowClickListener(...)`](#setonclusterinfowindowclicklistener)
-- [`setOnInfoWindowClickListener(...)`](#setoninfowindowclicklistener)
-- [`setOnMapClickListener(...)`](#setonmapclicklistener)
-- [`setOnMarkerClickListener(...)`](#setonmarkerclicklistener)
-- [`setOnPolygonClickListener(...)`](#setonpolygonclicklistener)
-- [`setOnCircleClickListener(...)`](#setoncircleclicklistener)
-- [`setOnPolylineClickListener(...)`](#setonpolylineclicklistener)
-- [`setOnMarkerDragStartListener(...)`](#setonmarkerdragstartlistener)
-- [`setOnMarkerDragListener(...)`](#setonmarkerdraglistener)
-- [`setOnMarkerDragEndListener(...)`](#setonmarkerdragendlistener)
-- [`setOnMyLocationButtonClickListener(...)`](#setonmylocationbuttonclicklistener)
-- [`setOnMyLocationClickListener(...)`](#setonmylocationclicklistener)
-- [`setOnMapDoubleClickListener(...)`](#setonmapdoubleclicklistener)
-- [`setOnMapLoadedListener(...)`](#setonmaploadedlistener)
-- [`setOnZoomChangedListener(...)`](#setonzoomchangedlistener)
-- [`setOnSelectionEndListener(...)`](#setonselectionendlistener)
-- [`enableMarkersDrag(...)`](#enablemarkersdrag)
-- [`disableMarkersDrag(...)`](#disablemarkersdrag)
-- [`disableAllMarkersDrag()`](#disableallmarkersdrag)
-- [`takeSnapshot(...)`](#takesnapshot)
-- [`addGroundOverlay(...)`](#addgroundoverlay)
-- [`removeGroundOverlay()`](#removegroundoverlay)
-- [`getZoomLevel()`](#getzoomlevel)
-- [`hasIcon(...)`](#hasicon)
-- [`setSelectionType(...)`](#setselectiontype)
-- [Interfaces](#interfaces)
-- [Type Aliases](#type-aliases)
-- [Enums](#enums)
+* [`create(...)`](#create)
+* [`enableTouch()`](#enabletouch)
+* [`disableTouch()`](#disabletouch)
+* [`enableClustering(...)`](#enableclustering)
+* [`disableClustering()`](#disableclustering)
+* [`addMarker(...)`](#addmarker)
+* [`addMarkers(...)`](#addmarkers)
+* [`updateMarker(...)`](#updatemarker)
+* [`updateMarkerBymId(...)`](#updatemarkerbymid)
+* [`updateMarkersBymId(...)`](#updatemarkersbymid)
+* [`updateMarkerIcon(...)`](#updatemarkericon)
+* [`removeMarker(...)`](#removemarker)
+* [`removeMarkerBymId(...)`](#removemarkerbymid)
+* [`removeMarkers(...)`](#removemarkers)
+* [`removeMarkersBymId(...)`](#removemarkersbymid)
+* [`addPolygons(...)`](#addpolygons)
+* [`removePolygons(...)`](#removepolygons)
+* [`addCircles(...)`](#addcircles)
+* [`removeCircles(...)`](#removecircles)
+* [`addPolylines(...)`](#addpolylines)
+* [`removePolylines(...)`](#removepolylines)
+* [`destroy()`](#destroy)
+* [`setCamera(...)`](#setcamera)
+* [`getMapType()`](#getmaptype)
+* [`setMapType(...)`](#setmaptype)
+* [`enableIndoorMaps(...)`](#enableindoormaps)
+* [`enableTrafficLayer(...)`](#enabletrafficlayer)
+* [`enableAccessibilityElements(...)`](#enableaccessibilityelements)
+* [`enableCurrentLocation(...)`](#enablecurrentlocation)
+* [`setPadding(...)`](#setpadding)
+* [`getMapBounds()`](#getmapbounds)
+* [`fitBounds(...)`](#fitbounds)
+* [`setOnBoundsChangedListener(...)`](#setonboundschangedlistener)
+* [`setOnCameraIdleListener(...)`](#setoncameraidlelistener)
+* [`setOnCameraMoveStartedListener(...)`](#setoncameramovestartedlistener)
+* [`setOnClusterClickListener(...)`](#setonclusterclicklistener)
+* [`setOnClusterInfoWindowClickListener(...)`](#setonclusterinfowindowclicklistener)
+* [`setOnInfoWindowClickListener(...)`](#setoninfowindowclicklistener)
+* [`setOnMapClickListener(...)`](#setonmapclicklistener)
+* [`setOnMarkerClickListener(...)`](#setonmarkerclicklistener)
+* [`setOnPolygonClickListener(...)`](#setonpolygonclicklistener)
+* [`setOnCircleClickListener(...)`](#setoncircleclicklistener)
+* [`setOnPolylineClickListener(...)`](#setonpolylineclicklistener)
+* [`setOnMarkerDragStartListener(...)`](#setonmarkerdragstartlistener)
+* [`setOnMarkerDragListener(...)`](#setonmarkerdraglistener)
+* [`setOnMarkerDragEndListener(...)`](#setonmarkerdragendlistener)
+* [`setOnMyLocationButtonClickListener(...)`](#setonmylocationbuttonclicklistener)
+* [`setOnMyLocationClickListener(...)`](#setonmylocationclicklistener)
+* [`setOnMapDoubleClickListener(...)`](#setonmapdoubleclicklistener)
+* [`setOnMapLoadedListener(...)`](#setonmaploadedlistener)
+* [`setOnZoomChangedListener(...)`](#setonzoomchangedlistener)
+* [`takeSnapshot(...)`](#takesnapshot)
+* [`addGroundOverlay(...)`](#addgroundoverlay)
+* [`getZoomLevel()`](#getzoomlevel)
+* [`hasIcon(...)`](#hasicon)
+* [Interfaces](#interfaces)
+* [Type Aliases](#type-aliases)
+* [Enums](#enums)
 
 </docgen-index>
 
@@ -435,7 +393,8 @@ create(options: CreateMapArgs, callback?: MapListenerCallback<MapReadyCallbackDa
 
 **Returns:** <code>Promise&lt;GoogleMap&gt;</code>
 
----
+--------------------
+
 
 ### enableTouch()
 
@@ -443,7 +402,8 @@ create(options: CreateMapArgs, callback?: MapListenerCallback<MapReadyCallbackDa
 enableTouch() => Promise<void>
 ```
 
----
+--------------------
+
 
 ### disableTouch()
 
@@ -451,7 +411,8 @@ enableTouch() => Promise<void>
 disableTouch() => Promise<void>
 ```
 
----
+--------------------
+
 
 ### enableClustering(...)
 
@@ -463,7 +424,8 @@ enableClustering(minClusterSize?: number | undefined) => Promise<void>
 | -------------------- | ------------------- | --------------------------------------------------------------------------------------- |
 | **`minClusterSize`** | <code>number</code> | The minimum number of markers that can be clustered together. The default is 4 markers. |
 
----
+--------------------
+
 
 ### disableClustering()
 
@@ -471,7 +433,8 @@ enableClustering(minClusterSize?: number | undefined) => Promise<void>
 disableClustering() => Promise<void>
 ```
 
----
+--------------------
+
 
 ### addMarker(...)
 
@@ -485,7 +448,8 @@ addMarker(marker: Marker) => Promise<string>
 
 **Returns:** <code>Promise&lt;string&gt;</code>
 
----
+--------------------
+
 
 ### addMarkers(...)
 
@@ -499,21 +463,8 @@ addMarkers(markers: Marker[]) => Promise<string[]>
 
 **Returns:** <code>Promise&lt;string[]&gt;</code>
 
----
+--------------------
 
-### setMarkers(...)
-
-```typescript
-setMarkers(markers: Marker[]) => Promise<string[]>
-```
-
-| Param         | Type                  |
-| ------------- | --------------------- |
-| **`markers`** | <code>Marker[]</code> |
-
-**Returns:** <code>Promise&lt;string[]&gt;</code>
-
----
 
 ### updateMarker(...)
 
@@ -528,7 +479,8 @@ updateMarker(id: string, marker: Marker) => Promise<string>
 
 **Returns:** <code>Promise&lt;string&gt;</code>
 
----
+--------------------
+
 
 ### updateMarkerBymId(...)
 
@@ -543,7 +495,8 @@ updateMarkerBymId(mId: string, marker: Marker) => Promise<string>
 
 **Returns:** <code>Promise&lt;string&gt;</code>
 
----
+--------------------
+
 
 ### updateMarkersBymId(...)
 
@@ -558,7 +511,8 @@ updateMarkersBymId(mId: string, marker: Marker) => Promise<string>
 
 **Returns:** <code>Promise&lt;string&gt;</code>
 
----
+--------------------
+
 
 ### updateMarkerIcon(...)
 
@@ -572,33 +526,8 @@ updateMarkerIcon(id: string, iconId: string, iconUrl: string) => Promise<void>
 | **`iconId`**  | <code>string</code> |
 | **`iconUrl`** | <code>string</code> |
 
----
+--------------------
 
-### updateMarkerPosition(...)
-
-```typescript
-updateMarkerPosition(id: string, coordinate: LatLng) => Promise<void>
-```
-
-| Param            | Type                                      |
-| ---------------- | ----------------------------------------- |
-| **`id`**         | <code>string</code>                       |
-| **`coordinate`** | <code><a href="#latlng">LatLng</a></code> |
-
----
-
-### updateMarkerPositionBymId(...)
-
-```typescript
-updateMarkerPositionBymId(mId: string, coordinate: LatLng) => Promise<void>
-```
-
-| Param            | Type                                      |
-| ---------------- | ----------------------------------------- |
-| **`mId`**        | <code>string</code>                       |
-| **`coordinate`** | <code><a href="#latlng">LatLng</a></code> |
-
----
 
 ### removeMarker(...)
 
@@ -610,7 +539,8 @@ removeMarker(id: string) => Promise<void>
 | -------- | ------------------- |
 | **`id`** | <code>string</code> |
 
----
+--------------------
+
 
 ### removeMarkerBymId(...)
 
@@ -622,7 +552,8 @@ removeMarkerBymId(mId: string) => Promise<void>
 | --------- | ------------------- |
 | **`mId`** | <code>string</code> |
 
----
+--------------------
+
 
 ### removeMarkers(...)
 
@@ -634,7 +565,8 @@ removeMarkers(ids: string[]) => Promise<void>
 | --------- | --------------------- |
 | **`ids`** | <code>string[]</code> |
 
----
+--------------------
+
 
 ### removeMarkersBymId(...)
 
@@ -646,7 +578,8 @@ removeMarkersBymId(mIds: string[]) => Promise<void>
 | ---------- | --------------------- |
 | **`mIds`** | <code>string[]</code> |
 
----
+--------------------
+
 
 ### addPolygons(...)
 
@@ -660,7 +593,8 @@ addPolygons(polygons: Polygon[]) => Promise<string[]>
 
 **Returns:** <code>Promise&lt;string[]&gt;</code>
 
----
+--------------------
+
 
 ### removePolygons(...)
 
@@ -672,7 +606,8 @@ removePolygons(ids: string[]) => Promise<void>
 | --------- | --------------------- |
 | **`ids`** | <code>string[]</code> |
 
----
+--------------------
+
 
 ### addCircles(...)
 
@@ -686,7 +621,8 @@ addCircles(circles: Circle[]) => Promise<string[]>
 
 **Returns:** <code>Promise&lt;string[]&gt;</code>
 
----
+--------------------
+
 
 ### removeCircles(...)
 
@@ -698,7 +634,8 @@ removeCircles(ids: string[]) => Promise<void>
 | --------- | --------------------- |
 | **`ids`** | <code>string[]</code> |
 
----
+--------------------
+
 
 ### addPolylines(...)
 
@@ -712,7 +649,8 @@ addPolylines(polylines: Polyline[]) => Promise<string[]>
 
 **Returns:** <code>Promise&lt;string[]&gt;</code>
 
----
+--------------------
+
 
 ### removePolylines(...)
 
@@ -724,7 +662,8 @@ removePolylines(ids: string[]) => Promise<void>
 | --------- | --------------------- |
 | **`ids`** | <code>string[]</code> |
 
----
+--------------------
+
 
 ### destroy()
 
@@ -732,7 +671,8 @@ removePolylines(ids: string[]) => Promise<void>
 destroy() => Promise<void>
 ```
 
----
+--------------------
+
 
 ### setCamera(...)
 
@@ -744,7 +684,8 @@ setCamera(config: CameraConfig) => Promise<void>
 | ------------ | ----------------------------------------------------- |
 | **`config`** | <code><a href="#cameraconfig">CameraConfig</a></code> |
 
----
+--------------------
+
 
 ### getMapType()
 
@@ -756,7 +697,8 @@ Get current map type
 
 **Returns:** <code>Promise&lt;<a href="#maptype">MapType</a>&gt;</code>
 
----
+--------------------
+
 
 ### setMapType(...)
 
@@ -768,7 +710,8 @@ setMapType(mapType: MapType) => Promise<void>
 | ------------- | ------------------------------------------- |
 | **`mapType`** | <code><a href="#maptype">MapType</a></code> |
 
----
+--------------------
+
 
 ### enableIndoorMaps(...)
 
@@ -780,7 +723,8 @@ enableIndoorMaps(enabled: boolean) => Promise<void>
 | ------------- | -------------------- |
 | **`enabled`** | <code>boolean</code> |
 
----
+--------------------
+
 
 ### enableTrafficLayer(...)
 
@@ -792,7 +736,8 @@ enableTrafficLayer(enabled: boolean) => Promise<void>
 | ------------- | -------------------- |
 | **`enabled`** | <code>boolean</code> |
 
----
+--------------------
+
 
 ### enableAccessibilityElements(...)
 
@@ -804,7 +749,8 @@ enableAccessibilityElements(enabled: boolean) => Promise<void>
 | ------------- | -------------------- |
 | **`enabled`** | <code>boolean</code> |
 
----
+--------------------
+
 
 ### enableCurrentLocation(...)
 
@@ -816,7 +762,8 @@ enableCurrentLocation(enabled: boolean) => Promise<void>
 | ------------- | -------------------- |
 | **`enabled`** | <code>boolean</code> |
 
----
+--------------------
+
 
 ### setPadding(...)
 
@@ -828,7 +775,8 @@ setPadding(padding: MapPadding) => Promise<void>
 | ------------- | ------------------------------------------------- |
 | **`padding`** | <code><a href="#mappadding">MapPadding</a></code> |
 
----
+--------------------
+
 
 ### getMapBounds()
 
@@ -840,7 +788,8 @@ Get the map's current viewport latitude and longitude bounds.
 
 **Returns:** <code>Promise&lt;LatLngBounds&gt;</code>
 
----
+--------------------
+
 
 ### fitBounds(...)
 
@@ -855,7 +804,8 @@ Sets the map viewport to contain the given bounds.
 | **`bounds`**  | <code>LatLngBounds</code> | The bounds to fit in the viewport.                                                                                        |
 | **`padding`** | <code>number</code>       | Optional padding to apply in pixels. The bounds will be fit in the part of the map that remains after padding is removed. |
 
----
+--------------------
+
 
 ### setOnBoundsChangedListener(...)
 
@@ -867,7 +817,8 @@ setOnBoundsChangedListener(callback?: MapListenerCallback<CameraIdleCallbackData
 | -------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
 | **`callback`** | <code><a href="#maplistenercallback">MapListenerCallback</a>&lt;<a href="#cameraidlecallbackdata">CameraIdleCallbackData</a>&gt;</code> |
 
----
+--------------------
+
 
 ### setOnCameraIdleListener(...)
 
@@ -879,7 +830,8 @@ setOnCameraIdleListener(callback?: MapListenerCallback<CameraIdleCallbackData> |
 | -------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
 | **`callback`** | <code><a href="#maplistenercallback">MapListenerCallback</a>&lt;<a href="#cameraidlecallbackdata">CameraIdleCallbackData</a>&gt;</code> |
 
----
+--------------------
+
 
 ### setOnCameraMoveStartedListener(...)
 
@@ -891,7 +843,8 @@ setOnCameraMoveStartedListener(callback?: MapListenerCallback<CameraMoveStartedC
 | -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **`callback`** | <code><a href="#maplistenercallback">MapListenerCallback</a>&lt;<a href="#cameramovestartedcallbackdata">CameraMoveStartedCallbackData</a>&gt;</code> |
 
----
+--------------------
+
 
 ### setOnClusterClickListener(...)
 
@@ -903,7 +856,8 @@ setOnClusterClickListener(callback?: MapListenerCallback<ClusterClickCallbackDat
 | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
 | **`callback`** | <code><a href="#maplistenercallback">MapListenerCallback</a>&lt;<a href="#clusterclickcallbackdata">ClusterClickCallbackData</a>&gt;</code> |
 
----
+--------------------
+
 
 ### setOnClusterInfoWindowClickListener(...)
 
@@ -915,7 +869,8 @@ setOnClusterInfoWindowClickListener(callback?: MapListenerCallback<ClusterClickC
 | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
 | **`callback`** | <code><a href="#maplistenercallback">MapListenerCallback</a>&lt;<a href="#clusterclickcallbackdata">ClusterClickCallbackData</a>&gt;</code> |
 
----
+--------------------
+
 
 ### setOnInfoWindowClickListener(...)
 
@@ -927,7 +882,8 @@ setOnInfoWindowClickListener(callback?: MapListenerCallback<MarkerClickCallbackD
 | -------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
 | **`callback`** | <code><a href="#maplistenercallback">MapListenerCallback</a>&lt;<a href="#markerclickcallbackdata">MarkerClickCallbackData</a>&gt;</code> |
 
----
+--------------------
+
 
 ### setOnMapClickListener(...)
 
@@ -939,7 +895,8 @@ setOnMapClickListener(callback?: MapListenerCallback<MapClickCallbackData> | und
 | -------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
 | **`callback`** | <code><a href="#maplistenercallback">MapListenerCallback</a>&lt;<a href="#mapclickcallbackdata">MapClickCallbackData</a>&gt;</code> |
 
----
+--------------------
+
 
 ### setOnMarkerClickListener(...)
 
@@ -951,7 +908,8 @@ setOnMarkerClickListener(callback?: MapListenerCallback<MarkerClickCallbackData>
 | -------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
 | **`callback`** | <code><a href="#maplistenercallback">MapListenerCallback</a>&lt;<a href="#markerclickcallbackdata">MarkerClickCallbackData</a>&gt;</code> |
 
----
+--------------------
+
 
 ### setOnPolygonClickListener(...)
 
@@ -963,7 +921,8 @@ setOnPolygonClickListener(callback?: MapListenerCallback<PolygonClickCallbackDat
 | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
 | **`callback`** | <code><a href="#maplistenercallback">MapListenerCallback</a>&lt;<a href="#polygonclickcallbackdata">PolygonClickCallbackData</a>&gt;</code> |
 
----
+--------------------
+
 
 ### setOnCircleClickListener(...)
 
@@ -975,7 +934,8 @@ setOnCircleClickListener(callback?: MapListenerCallback<CircleClickCallbackData>
 | -------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
 | **`callback`** | <code><a href="#maplistenercallback">MapListenerCallback</a>&lt;<a href="#circleclickcallbackdata">CircleClickCallbackData</a>&gt;</code> |
 
----
+--------------------
+
 
 ### setOnPolylineClickListener(...)
 
@@ -987,7 +947,8 @@ setOnPolylineClickListener(callback?: MapListenerCallback<PolylineCallbackData> 
 | -------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
 | **`callback`** | <code><a href="#maplistenercallback">MapListenerCallback</a>&lt;<a href="#polylinecallbackdata">PolylineCallbackData</a>&gt;</code> |
 
----
+--------------------
+
 
 ### setOnMarkerDragStartListener(...)
 
@@ -999,7 +960,8 @@ setOnMarkerDragStartListener(callback?: MapListenerCallback<MarkerClickCallbackD
 | -------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
 | **`callback`** | <code><a href="#maplistenercallback">MapListenerCallback</a>&lt;<a href="#markerclickcallbackdata">MarkerClickCallbackData</a>&gt;</code> |
 
----
+--------------------
+
 
 ### setOnMarkerDragListener(...)
 
@@ -1011,7 +973,8 @@ setOnMarkerDragListener(callback?: MapListenerCallback<MarkerClickCallbackData> 
 | -------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
 | **`callback`** | <code><a href="#maplistenercallback">MapListenerCallback</a>&lt;<a href="#markerclickcallbackdata">MarkerClickCallbackData</a>&gt;</code> |
 
----
+--------------------
+
 
 ### setOnMarkerDragEndListener(...)
 
@@ -1023,7 +986,8 @@ setOnMarkerDragEndListener(callback?: MapListenerCallback<MarkerClickCallbackDat
 | -------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
 | **`callback`** | <code><a href="#maplistenercallback">MapListenerCallback</a>&lt;<a href="#markerclickcallbackdata">MarkerClickCallbackData</a>&gt;</code> |
 
----
+--------------------
+
 
 ### setOnMyLocationButtonClickListener(...)
 
@@ -1035,7 +999,8 @@ setOnMyLocationButtonClickListener(callback?: MapListenerCallback<MyLocationButt
 | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **`callback`** | <code><a href="#maplistenercallback">MapListenerCallback</a>&lt;<a href="#mylocationbuttonclickcallbackdata">MyLocationButtonClickCallbackData</a>&gt;</code> |
 
----
+--------------------
+
 
 ### setOnMyLocationClickListener(...)
 
@@ -1047,7 +1012,8 @@ setOnMyLocationClickListener(callback?: MapListenerCallback<MapClickCallbackData
 | -------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
 | **`callback`** | <code><a href="#maplistenercallback">MapListenerCallback</a>&lt;<a href="#mapclickcallbackdata">MapClickCallbackData</a>&gt;</code> |
 
----
+--------------------
+
 
 ### setOnMapDoubleClickListener(...)
 
@@ -1059,7 +1025,8 @@ setOnMapDoubleClickListener(callback?: MapListenerCallback<MapClickCallbackData>
 | -------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
 | **`callback`** | <code><a href="#maplistenercallback">MapListenerCallback</a>&lt;<a href="#mapclickcallbackdata">MapClickCallbackData</a>&gt;</code> |
 
----
+--------------------
+
 
 ### setOnMapLoadedListener(...)
 
@@ -1071,7 +1038,8 @@ setOnMapLoadedListener(callback?: MapListenerCallback<{ id: string; }> | undefin
 | -------------- | ------------------------------------------------------------------------------------------ |
 | **`callback`** | <code><a href="#maplistenercallback">MapListenerCallback</a>&lt;{ id: string; }&gt;</code> |
 
----
+--------------------
+
 
 ### setOnZoomChangedListener(...)
 
@@ -1083,51 +1051,8 @@ setOnZoomChangedListener(callback?: MapListenerCallback<{ zoomLevel: number | un
 | -------------- | ------------------------------------------------------------------------------------------------- |
 | **`callback`** | <code><a href="#maplistenercallback">MapListenerCallback</a>&lt;{ zoomLevel: number; }&gt;</code> |
 
----
+--------------------
 
-### setOnSelectionEndListener(...)
-
-```typescript
-setOnSelectionEndListener(callback?: MapListenerCallback<{ mIds: string[]; }> | undefined) => Promise<void>
-```
-
-| Param          | Type                                                                                           |
-| -------------- | ---------------------------------------------------------------------------------------------- |
-| **`callback`** | <code><a href="#maplistenercallback">MapListenerCallback</a>&lt;{ mIds: string[]; }&gt;</code> |
-
----
-
-### enableMarkersDrag(...)
-
-```typescript
-enableMarkersDrag(mIds: string[]) => Promise<void>
-```
-
-| Param      | Type                  |
-| ---------- | --------------------- |
-| **`mIds`** | <code>string[]</code> |
-
----
-
-### disableMarkersDrag(...)
-
-```typescript
-disableMarkersDrag(mIds: string[]) => Promise<void>
-```
-
-| Param      | Type                  |
-| ---------- | --------------------- |
-| **`mIds`** | <code>string[]</code> |
-
----
-
-### disableAllMarkersDrag()
-
-```typescript
-disableAllMarkersDrag() => Promise<void>
-```
-
----
 
 ### takeSnapshot(...)
 
@@ -1142,7 +1067,8 @@ takeSnapshot(format?: string | undefined, quality?: number | undefined) => Promi
 
 **Returns:** <code>Promise&lt;{ snapshot: any; }&gt;</code>
 
----
+--------------------
+
 
 ### addGroundOverlay(...)
 
@@ -1154,15 +1080,8 @@ addGroundOverlay(groundOverlayOptions: GroundOverlayArgs) => Promise<void>
 | -------------------------- | --------------------------------------------------------------- |
 | **`groundOverlayOptions`** | <code><a href="#groundoverlayargs">GroundOverlayArgs</a></code> |
 
----
+--------------------
 
-### removeGroundOverlay()
-
-```typescript
-removeGroundOverlay() => Promise<void>
-```
-
----
 
 ### getZoomLevel()
 
@@ -1172,7 +1091,8 @@ getZoomLevel() => Promise<number | undefined>
 
 **Returns:** <code>Promise&lt;number&gt;</code>
 
----
+--------------------
+
 
 ### hasIcon(...)
 
@@ -1186,21 +1106,11 @@ hasIcon(iconId: string) => Promise<boolean>
 
 **Returns:** <code>Promise&lt;boolean&gt;</code>
 
----
+--------------------
 
-### setSelectionType(...)
-
-```typescript
-setSelectionType(args: { selectionType?: SelectionType; }) => Promise<void>
-```
-
-| Param      | Type                                                                         |
-| ---------- | ---------------------------------------------------------------------------- |
-| **`args`** | <code>{ selectionType?: <a href="#selectiontype">SelectionType</a>; }</code> |
-
----
 
 ### Interfaces
+
 
 #### CreateMapArgs
 
@@ -1215,6 +1125,7 @@ An interface containing the options used when creating a map.
 | **`forceCreate`** | <code>boolean</code>                                        | Destroy and re-create the map instance if a map with the supplied id already exists                                                                                                    | <code>false</code> |
 | **`region`**      | <code>string</code>                                         | The region parameter alters your application to serve different map tiles or bias the application (such as biasing geocoding results towards the region). Only available for web.      |                    |
 | **`language`**    | <code>string</code>                                         | The language parameter affects the names of controls, copyright notices, driving directions, and control labels, as well as the responses to service requests. Only available for web. |                    |
+
 
 #### GoogleMapConfig
 
@@ -1237,6 +1148,7 @@ For iOS and Android only the config options declared on <a href="#googlemapconfi
 | **`androidMapId`**     | <code>string</code>                       | A map id associated with a specific map style or feature. [Use Map IDs](https://developers.google.com/maps/documentation/get-map-id) Only for Android.    |                    | 5.4.0 |
 | **`iOSMapId`**         | <code>string</code>                       | A map id associated with a specific map style or feature. [Use Map IDs](https://developers.google.com/maps/documentation/get-map-id) Only for iOS.        |                    | 5.4.0 |
 
+
 #### LatLng
 
 An interface representing a pair of latitude and longitude coordinates.
@@ -1246,11 +1158,13 @@ An interface representing a pair of latitude and longitude coordinates.
 | **`lat`** | <code>number</code> | Coordinate latitude, in degrees. This value is in the range [-90, 90].    |
 | **`lng`** | <code>number</code> | Coordinate longitude, in degrees. This value is in the range [-180, 180]. |
 
+
 #### MapReadyCallbackData
 
 | Prop        | Type                |
 | ----------- | ------------------- |
 | **`mapId`** | <code>string</code> |
+
 
 #### Marker
 
@@ -1274,12 +1188,14 @@ A marker is an icon placed at a particular point on the map's surface.
 | **`mId`**             | <code>string</code>                                          | <a href="#marker">Marker</a>'s alternative id                                                                                                                                             |                    |       |
 | **`clearAllMarkers`** | <code>boolean</code>                                         | Is remove all other markers from map when use addMarker() function                                                                                                                        |                    |       |
 
+
 #### Size
 
 | Prop         | Type                |
 | ------------ | ------------------- |
 | **`width`**  | <code>number</code> |
 | **`height`** | <code>number</code> |
+
 
 #### Point
 
@@ -1291,6 +1207,7 @@ https://tools.ietf.org/html/rfc7946#section-3.1.2
 | **`type`**        | <code>'<a href="#point">Point</a>'</code>     | Specifies the type of GeoJSON object. |
 | **`coordinates`** | <code><a href="#position">Position</a></code> |                                       |
 
+
 #### Polygon
 
 <a href="#polygon">Polygon</a> geometry object.
@@ -1300,6 +1217,7 @@ https://tools.ietf.org/html/rfc7946#section-3.1.6
 | ----------------- | --------------------------------------------- | ------------------------------------- |
 | **`type`**        | <code>'<a href="#polygon">Polygon</a>'</code> | Specifies the type of GeoJSON object. |
 | **`coordinates`** | <code>Position[][]</code>                     |                                       |
+
 
 #### Circle
 
@@ -1318,6 +1236,7 @@ For iOS and Android only the config options declared on <a href="#circle">Circle
 | **`title`**        | <code>string</code>  | Title, a short description of the overlay. Some overlays, such as markers, will display the title on the map. The title is also the default accessibility text. Only available on iOS. |
 | **`tag`**          | <code>string</code>  |                                                                                                                                                                                        |
 
+
 #### Polyline
 
 For web, all the javascript <a href="#polyline">Polyline</a> options are available as
@@ -1334,6 +1253,7 @@ For iOS and Android only the config options declared on <a href="#polyline">Poly
 | **`tag`**           | <code>string</code>      |                                                                                                                                                                                                                                                                                                                                                                                                |
 | **`styleSpans`**    | <code>StyleSpan[]</code> | Used to specify the color of one or more segments of a polyline. The styleSpans property is an array of <a href="#stylespan">StyleSpan</a> objects. Setting the spans property is the preferred way to change the color of a polyline. Only on iOS and Android.                                                                                                                                |
 
+
 #### StyleSpan
 
 Describes the style for some region of a polyline.
@@ -1342,6 +1262,7 @@ Describes the style for some region of a polyline.
 | -------------- | ------------------- | --------------------------------------------------------------------------------- |
 | **`color`**    | <code>string</code> | The stroke color. All CSS3 colors are supported except for extended named colors. |
 | **`segments`** | <code>number</code> | The length of this span in number of segments.                                    |
+
 
 #### CameraConfig
 
@@ -1356,6 +1277,7 @@ Configuration properties for a Google Map Camera
 | **`animate`**           | <code>boolean</code>                      | Animate the transition to the new Camera properties.                                                                   | <code>false</code> |
 | **`animationDuration`** | <code>number</code>                       | This configuration option is not being used.                                                                           |                    |
 
+
 #### MapPadding
 
 Controls for setting padding on the 'visible' region of the view.
@@ -1366,6 +1288,7 @@ Controls for setting padding on the 'visible' region of the view.
 | **`left`**   | <code>number</code> |
 | **`right`**  | <code>number</code> |
 | **`bottom`** | <code>number</code> |
+
 
 #### CameraIdleCallbackData
 
@@ -1379,12 +1302,14 @@ Controls for setting padding on the 'visible' region of the view.
 | **`tilt`**      | <code>number</code>       |
 | **`zoom`**      | <code>number</code>       |
 
+
 #### CameraMoveStartedCallbackData
 
 | Prop            | Type                 |
 | --------------- | -------------------- |
 | **`mapId`**     | <code>string</code>  |
 | **`isGesture`** | <code>boolean</code> |
+
 
 #### ClusterClickCallbackData
 
@@ -1396,24 +1321,25 @@ Controls for setting padding on the 'visible' region of the view.
 | **`size`**      | <code>number</code>               |
 | **`items`**     | <code>MarkerCallbackData[]</code> |
 
+
 #### MarkerCallbackData
 
-| Prop                    | Type                | Description                                                                                                 |
-| ----------------------- | ------------------- | ----------------------------------------------------------------------------------------------------------- |
-| **`markerId`**          | <code>string</code> |                                                                                                             |
-| **`latitude`**          | <code>number</code> |                                                                                                             |
-| **`longitude`**         | <code>number</code> |                                                                                                             |
-| **`originalLatitude`**  | <code>number</code> | Original latitude before overlap-spreading offset is applied. Equals latitude when no spreading occurred.   |
-| **`originalLongitude`** | <code>number</code> | Original longitude before overlap-spreading offset is applied. Equals longitude when no spreading occurred. |
-| **`title`**             | <code>string</code> |                                                                                                             |
-| **`snippet`**           | <code>string</code> |                                                                                                             |
-| **`mId`**               | <code>string</code> |                                                                                                             |
+| Prop            | Type                |
+| --------------- | ------------------- |
+| **`markerId`**  | <code>string</code> |
+| **`latitude`**  | <code>number</code> |
+| **`longitude`** | <code>number</code> |
+| **`title`**     | <code>string</code> |
+| **`snippet`**   | <code>string</code> |
+| **`mId`**       | <code>string</code> |
+
 
 #### MarkerClickCallbackData
 
 | Prop        | Type                |
 | ----------- | ------------------- |
 | **`mapId`** | <code>string</code> |
+
 
 #### MapClickCallbackData
 
@@ -1423,6 +1349,7 @@ Controls for setting padding on the 'visible' region of the view.
 | **`latitude`**  | <code>number</code> |
 | **`longitude`** | <code>number</code> |
 
+
 #### PolygonClickCallbackData
 
 | Prop            | Type                |
@@ -1430,6 +1357,7 @@ Controls for setting padding on the 'visible' region of the view.
 | **`mapId`**     | <code>string</code> |
 | **`polygonId`** | <code>string</code> |
 | **`tag`**       | <code>string</code> |
+
 
 #### CircleClickCallbackData
 
@@ -1439,6 +1367,7 @@ Controls for setting padding on the 'visible' region of the view.
 | **`circleId`** | <code>string</code> |
 | **`tag`**      | <code>string</code> |
 
+
 #### PolylineCallbackData
 
 | Prop             | Type                |
@@ -1446,11 +1375,13 @@ Controls for setting padding on the 'visible' region of the view.
 | **`polylineId`** | <code>string</code> |
 | **`tag`**        | <code>string</code> |
 
+
 #### MyLocationButtonClickCallbackData
 
 | Prop        | Type                |
 | ----------- | ------------------- |
 | **`mapId`** | <code>string</code> |
+
 
 #### GroundOverlayArgs
 
@@ -1462,13 +1393,16 @@ Controls for setting padding on the 'visible' region of the view.
 | **`height`**    | <code>number</code> |
 | **`imagePath`** | <code>string</code> |
 
+
 ### Type Aliases
+
 
 #### MapListenerCallback
 
 The callback function to be called when map events are emitted.
 
 <code>(data: T): void</code>
+
 
 #### Position
 
@@ -1482,7 +1416,6 @@ Note: the type will not be narrowed down to `[number, number] | [number, number,
 marginal benefits and the large impact of breaking change.
 
 See previous discussions on the type narrowing:
-
 - {@link https://github.com/DefinitelyTyped/DefinitelyTyped/pull/21590|Nov 2017}
 - {@link https://github.com/DefinitelyTyped/DefinitelyTyped/discussions/67773|Dec 2023}
 - {@link https://github.com/DefinitelyTyped/DefinitelyTyped/discussions/71441| Dec 2024}
@@ -1493,17 +1426,16 @@ to determine if a position is a 2D or 3D position.
 
 <code>number[]</code>
 
+
 #### Marker
 
 Supports markers of either either "legacy" or "advanced" types.
 
 <code>google.maps.<a href="#marker">Marker</a> | google.maps.marker.AdvancedMarkerElement</code>
 
-#### SelectionType
-
-<code>'square' | 'shape'</code> |
 
 ### Enums
+
 
 #### MapType
 
