@@ -67,14 +67,6 @@ if $DRY_RUN; then
   exit 0
 fi
 
-echo ""
-read -rp "Create and push tag ${TAG}? [Y/n] " CONFIRM
-if [[ "$CONFIRM" =~ ^[Nn]$ ]]; then
-  echo "Aborted. Restoring ${CURRENT_BRANCH}."
-  git reset --hard "${CURRENT_COMMIT}"
-  exit 1
-fi
-
 echo "==> Tagging ${TAG}"
 git tag -a "${TAG}" -m "${TAG}"
 
