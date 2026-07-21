@@ -323,10 +323,13 @@ export default MyMap;
 * [`disableClustering()`](#disableclustering)
 * [`addMarker(...)`](#addmarker)
 * [`addMarkers(...)`](#addmarkers)
+* [`setMarkers(...)`](#setmarkers)
 * [`updateMarker(...)`](#updatemarker)
 * [`updateMarkerBymId(...)`](#updatemarkerbymid)
 * [`updateMarkersBymId(...)`](#updatemarkersbymid)
 * [`updateMarkerIcon(...)`](#updatemarkericon)
+* [`updateMarkerPosition(...)`](#updatemarkerposition)
+* [`updateMarkerPositionBymId(...)`](#updatemarkerpositionbymid)
 * [`removeMarker(...)`](#removemarker)
 * [`removeMarkerBymId(...)`](#removemarkerbymid)
 * [`removeMarkers(...)`](#removemarkers)
@@ -367,10 +370,16 @@ export default MyMap;
 * [`setOnMapDoubleClickListener(...)`](#setonmapdoubleclicklistener)
 * [`setOnMapLoadedListener(...)`](#setonmaploadedlistener)
 * [`setOnZoomChangedListener(...)`](#setonzoomchangedlistener)
+* [`setOnSelectionEndListener(...)`](#setonselectionendlistener)
+* [`enableMarkersDrag(...)`](#enablemarkersdrag)
+* [`disableMarkersDrag(...)`](#disablemarkersdrag)
+* [`disableAllMarkersDrag()`](#disableallmarkersdrag)
 * [`takeSnapshot(...)`](#takesnapshot)
 * [`addGroundOverlay(...)`](#addgroundoverlay)
+* [`removeGroundOverlay()`](#removegroundoverlay)
 * [`getZoomLevel()`](#getzoomlevel)
 * [`hasIcon(...)`](#hasicon)
+* [`setSelectionType(...)`](#setselectiontype)
 * [Interfaces](#interfaces)
 * [Type Aliases](#type-aliases)
 * [Enums](#enums)
@@ -466,6 +475,21 @@ addMarkers(markers: Marker[]) => Promise<string[]>
 --------------------
 
 
+### setMarkers(...)
+
+```typescript
+setMarkers(markers: Marker[]) => Promise<string[]>
+```
+
+| Param         | Type                  |
+| ------------- | --------------------- |
+| **`markers`** | <code>Marker[]</code> |
+
+**Returns:** <code>Promise&lt;string[]&gt;</code>
+
+--------------------
+
+
 ### updateMarker(...)
 
 ```typescript
@@ -525,6 +549,34 @@ updateMarkerIcon(id: string, iconId: string, iconUrl: string) => Promise<void>
 | **`id`**      | <code>string</code> |
 | **`iconId`**  | <code>string</code> |
 | **`iconUrl`** | <code>string</code> |
+
+--------------------
+
+
+### updateMarkerPosition(...)
+
+```typescript
+updateMarkerPosition(id: string, coordinate: LatLng) => Promise<void>
+```
+
+| Param            | Type                                      |
+| ---------------- | ----------------------------------------- |
+| **`id`**         | <code>string</code>                       |
+| **`coordinate`** | <code><a href="#latlng">LatLng</a></code> |
+
+--------------------
+
+
+### updateMarkerPositionBymId(...)
+
+```typescript
+updateMarkerPositionBymId(mId: string, coordinate: LatLng) => Promise<void>
+```
+
+| Param            | Type                                      |
+| ---------------- | ----------------------------------------- |
+| **`mId`**        | <code>string</code>                       |
+| **`coordinate`** | <code><a href="#latlng">LatLng</a></code> |
 
 --------------------
 
@@ -1054,6 +1106,54 @@ setOnZoomChangedListener(callback?: MapListenerCallback<{ zoomLevel: number | un
 --------------------
 
 
+### setOnSelectionEndListener(...)
+
+```typescript
+setOnSelectionEndListener(callback?: MapListenerCallback<{ mIds: string[]; }> | undefined) => Promise<void>
+```
+
+| Param          | Type                                                                                           |
+| -------------- | ---------------------------------------------------------------------------------------------- |
+| **`callback`** | <code><a href="#maplistenercallback">MapListenerCallback</a>&lt;{ mIds: string[]; }&gt;</code> |
+
+--------------------
+
+
+### enableMarkersDrag(...)
+
+```typescript
+enableMarkersDrag(mIds: string[]) => Promise<void>
+```
+
+| Param      | Type                  |
+| ---------- | --------------------- |
+| **`mIds`** | <code>string[]</code> |
+
+--------------------
+
+
+### disableMarkersDrag(...)
+
+```typescript
+disableMarkersDrag(mIds: string[]) => Promise<void>
+```
+
+| Param      | Type                  |
+| ---------- | --------------------- |
+| **`mIds`** | <code>string[]</code> |
+
+--------------------
+
+
+### disableAllMarkersDrag()
+
+```typescript
+disableAllMarkersDrag() => Promise<void>
+```
+
+--------------------
+
+
 ### takeSnapshot(...)
 
 ```typescript
@@ -1083,6 +1183,15 @@ addGroundOverlay(groundOverlayOptions: GroundOverlayArgs) => Promise<void>
 --------------------
 
 
+### removeGroundOverlay()
+
+```typescript
+removeGroundOverlay() => Promise<void>
+```
+
+--------------------
+
+
 ### getZoomLevel()
 
 ```typescript
@@ -1105,6 +1214,19 @@ hasIcon(iconId: string) => Promise<boolean>
 | **`iconId`** | <code>string</code> |
 
 **Returns:** <code>Promise&lt;boolean&gt;</code>
+
+--------------------
+
+
+### setSelectionType(...)
+
+```typescript
+setSelectionType(args: { selectionType?: SelectionType; }) => Promise<void>
+```
+
+| Param      | Type                                                                         |
+| ---------- | ---------------------------------------------------------------------------- |
+| **`args`** | <code>{ selectionType?: <a href="#selectiontype">SelectionType</a>; }</code> |
 
 --------------------
 
@@ -1324,14 +1446,16 @@ Controls for setting padding on the 'visible' region of the view.
 
 #### MarkerCallbackData
 
-| Prop            | Type                |
-| --------------- | ------------------- |
-| **`markerId`**  | <code>string</code> |
-| **`latitude`**  | <code>number</code> |
-| **`longitude`** | <code>number</code> |
-| **`title`**     | <code>string</code> |
-| **`snippet`**   | <code>string</code> |
-| **`mId`**       | <code>string</code> |
+| Prop                    | Type                | Description                                                                                                 |
+| ----------------------- | ------------------- | ----------------------------------------------------------------------------------------------------------- |
+| **`markerId`**          | <code>string</code> |                                                                                                             |
+| **`latitude`**          | <code>number</code> |                                                                                                             |
+| **`longitude`**         | <code>number</code> |                                                                                                             |
+| **`originalLatitude`**  | <code>number</code> | Original latitude before overlap-spreading offset is applied. Equals latitude when no spreading occurred.   |
+| **`originalLongitude`** | <code>number</code> | Original longitude before overlap-spreading offset is applied. Equals longitude when no spreading occurred. |
+| **`title`**             | <code>string</code> |                                                                                                             |
+| **`snippet`**           | <code>string</code> |                                                                                                             |
+| **`mId`**               | <code>string</code> |                                                                                                             |
 
 
 #### MarkerClickCallbackData
@@ -1432,6 +1556,11 @@ to determine if a position is a 2D or 3D position.
 Supports markers of either either "legacy" or "advanced" types.
 
 <code>google.maps.<a href="#marker">Marker</a> | google.maps.marker.AdvancedMarkerElement</code>
+
+
+#### SelectionType
+
+<code>'square' | 'shape'</code> | 
 
 
 ### Enums

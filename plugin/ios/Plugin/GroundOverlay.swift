@@ -10,6 +10,10 @@ public struct GroundOverlay {
     let longitude: Double
     let width: Double
     let height: Double
+
+    var identityKey: String {
+        return "\(latitude)|\(longitude)|\(width)|\(height)|\(imagePath)"
+    }
     
     init(_ call: CAPPluginCall) throws {
         guard let latitude = call.getDouble("latitude"),
@@ -30,25 +34,34 @@ public struct GroundOverlay {
         self.bounds = GroundOverlay.calculateBounds(latitude: self.latitude, longitude: self.longitude, width: self.width, height: self.height)
     }
     
-    public func createGroundOverlay() -> GMSGroundOverlay? {
-        guard let imageUrl = URL(string: self.imagePath),
-              let imageData = try? Data(contentsOf: imageUrl),
-              var icon = UIImage(data: imageData) else {
-            print("CapacitorGoogleMaps Warning: could not load image: \(self.imagePath)")
+    @discardableResult
+    public func createGroundOverlay(completion: @escaping (GMSGroundOverlay?) -> Void) -> URLSessionDataTask? {
+        guard let imageUrl = URL(string: self.imagePath) else {
+            print("CapacitorGoogleMaps Warning: invalid image URL: \(self.imagePath)")
+            completion(nil)
             return nil
         }
-        
-        print("old size \(icon.size.width)x\(icon.size.height)")
-        
-        if icon.size.height > self.maxDimension || icon.size.width > self.maxDimension {
-            icon = self.resizeImage(icon)
-        }
-        
-        print("new size \(icon.size.width)x\(icon.size.height)")
 
-        let newOverlay = GMSGroundOverlay(bounds: self.bounds, icon: icon)
-        
-        return newOverlay
+        let task = URLSession.shared.dataTask(with: imageUrl) { data, _, error in
+            guard let data = data, error == nil, var icon = UIImage(data: data) else {
+                if let urlError = error as? URLError, urlError.code == .cancelled {
+                    completion(nil)
+                    return
+                }
+                print("CapacitorGoogleMaps Warning: could not load image: \(self.imagePath)")
+                completion(nil)
+                return
+            }
+
+            if icon.size.height > self.maxDimension || icon.size.width > self.maxDimension {
+                icon = self.resizeImage(icon)
+            }
+
+            let newOverlay = GMSGroundOverlay(bounds: self.bounds, icon: icon)
+            completion(newOverlay)
+        }
+        task.resume()
+        return task
     }
     
     private static func calculateBounds() {

@@ -24,6 +24,8 @@ class CapacitorGoogleMapMarker(fromJSONObject: JSONObject): ClusterItem {
     var markerOptions: MarkerOptions? = null
     var iconId: String? = null
     var mId: String = ""
+    /** True (pre-spread) coordinate. Null until the first spread computation. */
+    var originalCoordinate: LatLng? = null
 
     init {
         if (!fromJSONObject.has("coordinate")) {
