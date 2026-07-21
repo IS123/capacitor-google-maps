@@ -52,7 +52,7 @@ echo "==> Building dist"
 pnpm run build
 
 echo "==> Copying plugin files to root (prepare)"
-npm run prepare
+npm run copy:plugin
 
 echo "==> Committing build artifacts locally (will not be pushed to ${CURRENT_BRANCH})"
 git add -f dist plugin/dist android ios CapacitorGoogleMaps.podspec README.md
