@@ -1409,8 +1409,10 @@ public class Map {
     }
 
     func setSelectionScrollLock(lockSingleFinger: Bool) {
-        guard let gMapView = mapViewController.GMapView else { return }
-        gMapView.settings.scrollGestures = !lockSingleFinger
+        DispatchQueue.main.async { [weak self] in
+            guard let gMapView = self?.mapViewController.GMapView else { return }
+            gMapView.settings.scrollGestures = !lockSingleFinger
+        }
     }
 
     func startSelection(at location: CGPoint) {
