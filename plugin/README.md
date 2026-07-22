@@ -359,6 +359,8 @@ export default MyMap;
 * [`updateMarkerBymId(...)`](#updatemarkerbymid)
 * [`updateMarkersBymId(...)`](#updatemarkersbymid)
 * [`updateMarkerIcon(...)`](#updatemarkericon)
+* [`updateMarkerPosition(...)`](#updatemarkerposition)
+* [`updateMarkerPositionBymId(...)`](#updatemarkerpositionbymid)
 * [`removeMarker(...)`](#removemarker)
 * [`removeMarkerBymId(...)`](#removemarkerbymid)
 * [`removeMarkers(...)`](#removemarkers)
@@ -563,6 +565,34 @@ updateMarkerIcon(id: string, iconId: string, iconUrl: string) => Promise<void>
 | **`id`**      | <code>string</code> |
 | **`iconId`**  | <code>string</code> |
 | **`iconUrl`** | <code>string</code> |
+
+--------------------
+
+
+### updateMarkerPosition(...)
+
+```typescript
+updateMarkerPosition(id: string, coordinate: LatLng) => Promise<void>
+```
+
+| Param            | Type                                      |
+| ---------------- | ----------------------------------------- |
+| **`id`**         | <code>string</code>                       |
+| **`coordinate`** | <code><a href="#latlng">LatLng</a></code> |
+
+--------------------
+
+
+### updateMarkerPositionBymId(...)
+
+```typescript
+updateMarkerPositionBymId(mId: string, coordinate: LatLng) => Promise<void>
+```
+
+| Param            | Type                                      |
+| ---------------- | ----------------------------------------- |
+| **`mId`**        | <code>string</code>                       |
+| **`coordinate`** | <code><a href="#latlng">LatLng</a></code> |
 
 --------------------
 

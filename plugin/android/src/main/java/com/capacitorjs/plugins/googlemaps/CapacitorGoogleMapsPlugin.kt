@@ -1044,6 +1044,66 @@ class CapacitorGoogleMapsPlugin : Plugin(), OnMapsSdkInitializedCallback {
 	}
 
 	@PluginMethod
+	fun updateMarkerPosition(call: PluginCall) {
+		try {
+			val id = call.getString("id")
+			id ?: throw InvalidMapIdError()
+
+			val markerId = call.getString("markerId")
+			markerId ?: throw InvalidArgumentsError("markerId is invalid or missing")
+
+			val coordinateObj = call.getObject("coordinate", null)
+			coordinateObj ?: throw InvalidArgumentsError("coordinate is missing")
+
+			val map = maps[id]
+			map ?: throw MapNotFoundError()
+
+			val coordinate = createLatLng(coordinateObj)
+			map.updateMarkerPosition(markerId, coordinate) { error ->
+				if (error != null) {
+					throw error
+				}
+
+				call.resolve()
+			}
+		} catch (e: GoogleMapsError) {
+			handleError(call, e)
+		} catch (e: Exception) {
+			handleError(call, e)
+		}
+	}
+
+	@PluginMethod
+	fun updateMarkerPositionBymId(call: PluginCall) {
+		try {
+			val id = call.getString("id")
+			id ?: throw InvalidMapIdError()
+
+			val mId = call.getString("mId")
+			mId ?: throw InvalidArgumentsError("mId is invalid or missing")
+
+			val coordinateObj = call.getObject("coordinate", null)
+			coordinateObj ?: throw InvalidArgumentsError("coordinate is missing")
+
+			val map = maps[id]
+			map ?: throw MapNotFoundError()
+
+			val coordinate = createLatLng(coordinateObj)
+			map.updateMarkerPositionBymId(mId, coordinate) { error ->
+				if (error != null) {
+					throw error
+				}
+
+				call.resolve()
+			}
+		} catch (e: GoogleMapsError) {
+			handleError(call, e)
+		} catch (e: Exception) {
+			handleError(call, e)
+		}
+	}
+
+	@PluginMethod
 	fun updateMarker(call: PluginCall) {
 		try {
 			val id = call.getString("id")

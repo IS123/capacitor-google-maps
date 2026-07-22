@@ -110,6 +110,18 @@ export interface UpdateMarkerIconArgs {
   iconUrl: string;
 }
 
+export interface UpdateMarkerPositionArgs {
+  id: string;
+  markerId: string;
+  coordinate: LatLng;
+}
+
+export interface UpdateMarkerPositionBymIdArgs {
+  id: string;
+  mId: string;
+  coordinate: LatLng;
+}
+
 export interface AddPolygonsArgs {
   id: string;
   polygons: Polygon[];
@@ -264,6 +276,8 @@ export interface CapacitorGoogleMapsPlugin extends Plugin {
   updateMarkerBymId(args: UpdateMarkerBymIdArgs): Promise<{ id: string }>;
   updateMarkersBymId(args: UpdateMarkersBymIdArgs): Promise<{ ids: string[] }>;
   updateMarkerIcon(args: UpdateMarkerIconArgs): Promise<void>;
+  updateMarkerPosition(args: UpdateMarkerPositionArgs): Promise<void>;
+  updateMarkerPositionBymId(args: UpdateMarkerPositionBymIdArgs): Promise<void>;
   getMarkersIds(args: { id: string }): Promise<Record<string, string>>;
   setSelectionType(args: { id: string, selectionType?: SelectionType | null }): Promise<void>;
   setMarkersDraggable(args: SetMarkersDraggableArgs): Promise<void>;
