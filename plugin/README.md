@@ -14,9 +14,14 @@ npx cap sync
 - main branch is for sync with original upstream ionic @capacitor/google-maps
 - master branch is for forked version
 
-- Modified root package.json with `prepare` script runs `on-postinstall.js` script on install. It moves dist files from plugin to root folder. 
+- Modified root package.json with `copy:plugin` script runs `on-postinstall.js` script on install. It moves dist files from plugin to root folder.
 - When merge origin main branch make sure files of root package.json is the same as in plugin's.
-
+- There are two `version` fields and they mean different things:
+  - Root `package.json` `version` is what consumers actually get. This is the version to bump and tag when releasing the fork (see "When ready to deploy" below).
+  - Versioning rule:
+    - Still in development / not stable yet: bump to the next version with a feature name or `alpha` suffix, e.g. `7.1.0-alpha.1` or `7.1.0-select-area.1`.
+    - Stable and ready: merge into `master` and use a plain version, e.g. `7.1.0`.
+  - `plugin/package.json` `version` tracks which upstream `ionic-team/capacitor-google-maps` release the `plugin/` source was last synced from. It isn't read by any build/install step in this fork - only bump it when merging in new upstream changes, not on fork releases.
 
 When you develop locally you can install from local repo folder in main app:
 
@@ -25,10 +30,37 @@ npm install @capacitor/google-maps@git+file:///Users/username/path/to/plugin-rep
 ```
 
 ### When ready to deploy.
-- Build the dist `pnpm run build`
-- Create a git tag with name v<semver_version> `git tag -a v6.0.0`
-- Push changes to master branch, or create a PR to master.
-- Push tag to remote `git push origin --tags`
+
+- (Optional) Bump `version` in the root `package.json`, or decide on an explicit tag name (e.g. `v7.1.0-alpha.1`).
+- Run `pnpm run create:tag` (or `pnpm run create:tag -- v7.1.0-alpha.1` for an explicit tag name).
+  - Builds `dist`, copies plugin files into root (`prepare`), and commits them **locally only**.
+  - Shows a confirmation prompt before creating and pushing the tag.
+  - Only the tag is pushed - `master` is never touched, so `dist` never lives in its git history.
+  - If the tag already exists, it aborts and lists the last 3 tags instead of overwriting anything.
+- Use `pnpm run create:tag -- --dry-run` to build and commit locally without creating or pushing a tag (useful to sanity-check the build before releasing).
+- Consumers install the new version with:
+  ```bash
+  npm install github:IS123/capacitor-google-maps#<tag>
+  ```
+
+### Using in another repository
+
+In the consumer app's `package.json`, point the dependency at the tag you want:
+
+```json
+"dependencies": {
+  "@capacitor/google-maps": "github:IS123/capacitor-google-maps#<tag>"
+}
+```
+
+Then install and sync:
+
+```bash
+npm i @capacitor/google-maps
+npx cap sync
+```
+
+To pick up a new release, update `<tag>` in `package.json` to the new tag name and re-run `npm i @capacitor/google-maps`.
 
 ## API Keys
 
