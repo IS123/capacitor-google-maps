@@ -20,6 +20,13 @@ public class CapacitorGoogleMapsGroundOverlay {
 	}
 	private HashMap<Integer, AsyncTask> imageLoadingTasks = new HashMap<Integer, AsyncTask>();
 
+	public void cancelAll() {
+		for (AsyncTask task : imageLoadingTasks.values()) {
+			task.cancel(true);
+		}
+		imageLoadingTasks.clear();
+	}
+
 	public void setImage_(final String imgUrl, final PluginAsyncInterface callback) {
 		if (imgUrl == null) {
 			callback.onPostExecute(null);

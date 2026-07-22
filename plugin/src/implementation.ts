@@ -12,6 +12,7 @@ import type {
   Marker,
   Polygon,
   Polyline,
+  SelectionType,
 } from './definitions';
 
 /**
@@ -208,9 +209,15 @@ export interface FitBoundsArgs {
 export interface GroundOverlayArgs {
   latitude: number;
   longitude: number;
-  width: number;
-  height: number;
+  width?: number;
+  height?: number;
   imagePath: string;
+}
+
+export interface SetMarkersDraggableArgs {
+  id: string;
+  mIds: string[];
+  draggable: boolean;
 }
 
 export interface CapacitorGoogleMapsPlugin extends Plugin {
@@ -250,6 +257,7 @@ export interface CapacitorGoogleMapsPlugin extends Plugin {
   mapBoundsExtend(args: MapBoundsExtendArgs): Promise<{ bounds: LatLngBounds }>;
   takeSnapshot(args: { id: string, format?: string, quality?: number }): Promise<{ snapshot: string | HTMLElement }>;
   addGroundOverlay(args: GroundOverlayArgs & { id: string }): Promise<void>;
+  removeGroundOverlay(args: { id: string }): Promise<void>;
   getZoomLevel(args: { id: string }): Promise<{ zoomLevel: number | undefined }>;
   hasIcon(args: { id: string, iconId: string }): Promise<{ hasIcon: boolean }>;
   updateMarker(args: UpdateMarkerArgs): Promise<{ id: string }>;
@@ -257,6 +265,9 @@ export interface CapacitorGoogleMapsPlugin extends Plugin {
   updateMarkersBymId(args: UpdateMarkersBymIdArgs): Promise<{ ids: string[] }>;
   updateMarkerIcon(args: UpdateMarkerIconArgs): Promise<void>;
   getMarkersIds(args: { id: string }): Promise<Record<string, string>>;
+  setSelectionType(args: { id: string, selectionType?: SelectionType | null }): Promise<void>;
+  setMarkersDraggable(args: SetMarkersDraggableArgs): Promise<void>;
+  setAllMarkersDraggable(args: { id: string, draggable: boolean }): Promise<void>;
 }
 
 const CapacitorGoogleMaps = registerPlugin<CapacitorGoogleMapsPlugin>('CapacitorGoogleMaps', {

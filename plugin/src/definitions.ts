@@ -422,6 +422,10 @@ export interface MarkerCallbackData {
   markerId: string;
   latitude: number;
   longitude: number;
+  /** Original latitude before overlap-spreading offset is applied. Equals latitude when no spreading occurred. */
+  originalLatitude: number;
+  /** Original longitude before overlap-spreading offset is applied. Equals longitude when no spreading occurred. */
+  originalLongitude: number;
   title: string;
   snippet: string;
   mId: string;
@@ -479,4 +483,12 @@ export interface CircleClickCallbackData {
 
 export interface MyLocationButtonClickCallbackData {
   mapId: string;
+}
+
+export type SelectionType = 'square' | 'shape' | undefined;
+
+export interface SelectionEndCallbackData {
+  mapId: string;
+  mIds: string[];
+  selectionPoints: LatLng[];
 }

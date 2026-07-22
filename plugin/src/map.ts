@@ -19,6 +19,8 @@ import type {
   CircleClickCallbackData,
   Polyline,
   PolylineCallbackData,
+  SelectionType,
+  SelectionEndCallbackData,
 } from './definitions';
 import { LatLngBounds, MapType } from './definitions';
 import type { CreateMapArgs, GroundOverlayArgs } from './implementation';
@@ -94,10 +96,16 @@ export interface GoogleMapInterface {
   setOnMapDoubleClickListener(callback?: MapListenerCallback<MapClickCallbackData>): Promise<void>;
   setOnMapLoadedListener(callback?: MapListenerCallback<{id: string}>): Promise<void>;
   setOnZoomChangedListener(callback?: MapListenerCallback<{zoomLevel: number | undefined}>): Promise<void>;
+  setOnSelectionEndListener(callback?: MapListenerCallback<{mIds: string[]}>): Promise<void>;
+  enableMarkersDrag(mIds: string[]): Promise<void>;
+  disableMarkersDrag(mIds: string[]): Promise<void>;
+  disableAllMarkersDrag(): Promise<void>;
   takeSnapshot(format?: string, quality?: number): Promise<{snapshot: string | HTMLElement}>;
   addGroundOverlay(groundOverlayOptions: GroundOverlayArgs): Promise<void>;
+  removeGroundOverlay(): Promise<void>;
   getZoomLevel(): Promise<number | undefined>;
   hasIcon(iconId: string): Promise<boolean>;
+  setSelectionType(args: { selectionType?: SelectionType }): Promise<void>;
 }
 
 class MapCustomElement extends HTMLElement {
@@ -147,6 +155,7 @@ export class GoogleMap {
   private onMapDoubleClickListener?: PluginListenerHandle;
   private onMapLoadedListener?: PluginListenerHandle;
   private onZoomChangedListener?: PluginListenerHandle;
+  private onSelectionEndListener?: PluginListenerHandle;
 
   private constructor(id: string) {
     this.id = id;
@@ -705,6 +714,10 @@ export class GoogleMap {
     });
   }
 
+  async removeGroundOverlay(): Promise<void> {
+    return CapacitorGoogleMaps.removeGroundOverlay({ id: this.id });
+  }
+
   async getZoomLevel(): Promise<{ zoomLevel: number | undefined }> {
     return CapacitorGoogleMaps.getZoomLevel({
       id: this.id
@@ -715,6 +728,56 @@ export class GoogleMap {
     return CapacitorGoogleMaps.hasIcon({
       id: this.id,
       iconId: iconId
+    });
+  }
+
+  async setSelectionType(args: { selectionType?: SelectionType }): Promise<void> {
+    return CapacitorGoogleMaps.setSelectionType({
+      id: this.id,
+      selectionType: args.selectionType
+    })
+  }
+
+  async disableSelectionMode(): Promise<void> {
+    return CapacitorGoogleMaps.setSelectionType({
+      id: this.id,
+      selectionType: null,
+    });
+  }
+
+  /**
+   * Enable dragging for specific markers by their mIds
+   *
+   * @param mIds - array of marker mIds to make draggable
+   */
+  async enableMarkersDrag(mIds: string[]): Promise<void> {
+    return CapacitorGoogleMaps.setMarkersDraggable({
+      id: this.id,
+      mIds,
+      draggable: true,
+    });
+  }
+
+  /**
+   * Disable dragging for specific markers by their mIds
+   *
+   * @param mIds - array of marker mIds to make non-draggable
+   */
+  async disableMarkersDrag(mIds: string[]): Promise<void> {
+    return CapacitorGoogleMaps.setMarkersDraggable({
+      id: this.id,
+      mIds,
+      draggable: false,
+    });
+  }
+
+  /**
+   * Disable dragging for all markers on the map
+   */
+  async disableAllMarkersDrag(): Promise<void> {
+    return CapacitorGoogleMaps.setAllMarkersDraggable({
+      id: this.id,
+      draggable: false,
     });
   }
 
@@ -950,7 +1013,7 @@ export class GoogleMap {
     }
 
     if (callback) {
-      this.onMapLongClickListener = await CapacitorGoogleMaps.addListener('onMapLongClick', this.generateCallback(callback));
+		this.onMapLongClickListener = await CapacitorGoogleMaps.addListener('onMapLongClick', this.generateCallback(callback));
     } else {
       this.onMapLongClickListener = undefined;
     }
@@ -987,7 +1050,7 @@ export class GoogleMap {
     }
 
     if (callback) {
-      this.onZoomChangedListener = await CapacitorGoogleMaps.addListener('onZoomChanged', this.generateCallback(callback));
+		this.onZoomChangedListener = await CapacitorGoogleMaps.addListener('onZoomChanged', this.generateCallback(callback));
     } else {
       this.onZoomChangedListener = undefined;
     }
@@ -1181,6 +1244,21 @@ export class GoogleMap {
     }
   }
 
+  async setOnSelectionEndListener(callback?: MapListenerCallback<SelectionEndCallbackData>): Promise<void> {
+    if (this.onSelectionEndListener) {
+      this.onSelectionEndListener.remove();
+    }
+
+    if (callback) {
+      this.onSelectionEndListener = await CapacitorGoogleMaps.addListener(
+        'onSelectionEnd',
+        this.generateCallback(callback)
+      );
+    } else {
+      this.onSelectionEndListener = undefined;
+    }
+  }
+
   /**
    * Remove all event listeners on the map.
    *
@@ -1279,6 +1357,11 @@ export class GoogleMap {
     if (this.onZoomChangedListener) {
       this.onZoomChangedListener.remove();
       this.onZoomChangedListener = undefined;
+    }
+
+    if (this.onSelectionEndListener) {
+      this.onSelectionEndListener.remove();
+      this.onSelectionEndListener = undefined;
     }
   }
 

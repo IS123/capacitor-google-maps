@@ -35,14 +35,21 @@ CAP_PLUGIN(CapacitorGoogleMapsPlugin, "CapacitorGoogleMaps",
    CAP_PLUGIN_METHOD(onResize, CAPPluginReturnPromise);
    CAP_PLUGIN_METHOD(onDisplay, CAPPluginReturnPromise);
    CAP_PLUGIN_METHOD(getMapBounds, CAPPluginReturnPromise);
+   CAP_PLUGIN_METHOD(getZoomLevel, CAPPluginReturnPromise);
    CAP_PLUGIN_METHOD(fitBounds, CAPPluginReturnPromise);
    CAP_PLUGIN_METHOD(mapBoundsContains, CAPPluginReturnPromise);
    CAP_PLUGIN_METHOD(mapBoundsExtend, CAPPluginReturnPromise);
    CAP_PLUGIN_METHOD(takeSnapshot, CAPPluginReturnPromise);
    CAP_PLUGIN_METHOD(addGroundOverlay, CAPPluginReturnPromise);
+   CAP_PLUGIN_METHOD(removeGroundOverlay, CAPPluginReturnPromise);
    CAP_PLUGIN_METHOD(hasIcon, CAPPluginReturnPromise);
+   CAP_PLUGIN_METHOD(cacheMarkerIcon, CAPPluginReturnPromise);
    CAP_PLUGIN_METHOD(updateMarker, CAPPluginReturnPromise);
    CAP_PLUGIN_METHOD(updateMarkerBymId, CAPPluginReturnPromise);
    CAP_PLUGIN_METHOD(updateMarkersBymId, CAPPluginReturnPromise);
    CAP_PLUGIN_METHOD(updateMarkerIcon, CAPPluginReturnPromise);
+   CAP_PLUGIN_METHOD(dispatchMapEvent, CAPPluginReturnPromise);
+   CAP_PLUGIN_METHOD(setSelectionType, CAPPluginReturnPromise);
+   CAP_PLUGIN_METHOD(setMarkersDraggable, CAPPluginReturnPromise);
+   CAP_PLUGIN_METHOD(setAllMarkersDraggable, CAPPluginReturnPromise);
 )
