@@ -710,6 +710,38 @@ public class CapacitorGoogleMapsPlugin: CAPPlugin, GMSMapViewDelegate {
 	}
 
 
+    @objc func setMarkers(_ call: CAPPluginCall) {
+        do {
+            guard let id = call.getString("id") else {
+                throw GoogleMapErrors.invalidMapId
+            }
+
+            guard let markerObjs = call.getArray("markers") as? [JSObject] else {
+                throw GoogleMapErrors.invalidArguments("markers array is missing")
+            }
+
+            guard let map = self.maps[id] else {
+                throw GoogleMapErrors.mapNotFound
+            }
+
+            var markers: [Marker] = []
+
+            try markerObjs.forEach { marker in
+                let marker = try Marker(fromJSObject: marker, imageCache: imageCache)
+                markers.append(marker)
+            }
+
+            map.setMarkers(markers: markers) { markerHashes in
+                call.resolve(["ids": markerHashes.map({ id in
+                    return String(id)
+                })])
+            }
+
+        } catch {
+            handleError(call, error: error)
+        }
+    }
+
     @objc func addMarkers(_ call: CAPPluginCall) {
         do {
             guard let id = call.getString("id") else {
