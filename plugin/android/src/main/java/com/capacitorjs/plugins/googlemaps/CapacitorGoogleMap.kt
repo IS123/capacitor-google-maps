@@ -77,6 +77,9 @@ class CapacitorGoogleMap(
     private val markerDispatcher = Executors.newFixedThreadPool(8).asCoroutineDispatcher()
 	private val markerUpdates = MutableSharedFlow<List<CapacitorGoogleMapMarker>>(extraBufferCapacity = 1)
 	private val markerMutex = Mutex()
+    private val mapScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
+    private val spreadGroups = HashMap<Long, MutableList<CapacitorGoogleMapMarker>>()
+    private val R_SPREAD_METERS = 8.0
 
     private val isReadyChannel = Channel<Boolean>()
     private var debounceJob: Job? = null
@@ -100,7 +103,7 @@ class CapacitorGoogleMap(
         setListeners()
 
 		// Start listening to marker updates reactively
-		CoroutineScope(Dispatchers.Main).launch {
+		mapScope.launch {
 			addMarkersReactive(markerUpdates)
 				.collect { result ->
 					result.onSuccess { ids ->
@@ -233,6 +236,8 @@ class CapacitorGoogleMap(
                     }
                     mapView.onDestroy()
                     markerDispatcher.close()
+                    mapScope.cancel()
+                    spreadGroups.clear()
                     googleMap = null
                     clusterManager = null
                 }
@@ -259,55 +264,80 @@ class CapacitorGoogleMap(
 						val currentMIds = mutableSetOf<String>()
 						val existingMIdsSnapshot = mIds.keys.toSet()
 
-						val markersToAdd = newMarkers.mapNotNull { marker ->
+						// Separate markers into two buckets up-front so build work is clear.
+						val toUpdate = mutableListOf<CapacitorGoogleMapMarker>()
+						val toAdd = mutableListOf<CapacitorGoogleMapMarker>()
+						for (marker in newMarkers) {
 							currentMIds += marker.mId
-							val existingId = mIds[marker.mId]
-							if (existingId != null) {
-								withContext(Dispatchers.Main) {
-									val existingMarker = markers[existingId]
+							if (mIds.containsKey(marker.mId)) toUpdate += marker else toAdd += marker
+						}
 
-									existingMarker?.googleMapMarker?.position = marker.position
-									existingMarker?.originalCoordinate = marker.coordinate
-									existingMarker?.coordinate = marker.coordinate
-
-									existingMarker?.googleMapMarker?.isDraggable = marker.draggable
-
-									if (existingMarker?.iconId !== marker.iconId) {
-										updateMarkerIcon(marker.mId, marker.mId, marker.iconUrl!!)
-									}
-								}
-								return@mapNotNull null
-							} else {
-								marker.markerOptions = buildMarker(marker)
-								marker
-							}
+						// Build MarkerOptions for new markers on the background dispatcher.
+						for (marker in toAdd) {
+							marker.markerOptions = buildMarker(marker)
 						}
 
 						withContext(Dispatchers.Main) {
-							val toRemove = existingMIdsSnapshot - currentMIds
-							removeMarkersBymIdInternal(toRemove.toList())
+							val dirtyKeys = mutableSetOf<Long>()
 
-							markersToAdd.forEach { marker ->
-								val googleMapMarker = googleMap?.addMarker(marker.markerOptions!!)
-								marker.googleMapMarker = googleMapMarker
+							// Update existing markers in-place.
+							for (marker in toUpdate) {
+								val existingId = mIds[marker.mId] ?: continue
+								val existingMarker = markers[existingId] ?: continue
 
-								googleMapMarker?.let { gm ->
-									if (clusterManager != null) {
-										googleMapMarker.remove()
+								val oldKey = spreadKey(existingMarker.originalCoordinate ?: existingMarker.coordinate)
+
+								existingMarker.originalCoordinate = marker.coordinate
+								existingMarker.coordinate = marker.coordinate
+								existingMarker.googleMapMarker?.isDraggable = marker.draggable
+
+								// Structural equality — avoids icon reload on every update.
+								if (existingMarker.iconId != marker.iconId) {
+									updateMarkerIcon(marker.mId, marker.mId, marker.iconUrl!!)
+								}
+
+								val newKey = spreadKey(marker.coordinate)
+								if (oldKey != newKey) {
+									val oldGroup = spreadGroups[oldKey]
+									if (oldGroup != null) {
+										oldGroup.remove(existingMarker)
+										if (oldGroup.isEmpty()) spreadGroups.remove(oldKey)
+										else dirtyKeys += oldKey
 									}
+									spreadGroups.getOrPut(newKey) { mutableListOf() }.add(existingMarker)
+								}
+								dirtyKeys += newKey
+							}
 
+							// Remove markers that are no longer in the incoming set.
+							val toRemoveIds = existingMIdsSnapshot - currentMIds
+							if (toRemoveIds.isNotEmpty()) {
+								removeMarkersBymIdInternal(toRemoveIds.toList(), dirtyKeys)
+							}
+
+							// Add new markers.
+							for (marker in toAdd) {
+								val gm = googleMap?.addMarker(marker.markerOptions!!)
+								marker.googleMapMarker = gm
+								gm?.let {
+									if (clusterManager != null) gm.remove()
 									mIds[marker.mId] = gm.id
 									markers[gm.id] = marker
 									markerIds += gm.id
 								}
+								val orig = marker.coordinate
+								marker.originalCoordinate = orig
+								val key = spreadKey(orig)
+								spreadGroups.getOrPut(key) { mutableListOf() }.add(marker)
+								dirtyKeys += key
 							}
 
-							clusterManager?.apply {
-								addItems(markersToAdd)
-								cluster()
-							}
+							clusterManager?.addItems(toAdd)
 
-							recomputeSpread()
+							// Re-spread only the groups that changed, then cluster once.
+							for (key in dirtyKeys) {
+								spreadGroups[key]?.let { spreadGroup(it) }
+							}
 							clusterManager?.cluster()
 						}
 
@@ -322,7 +352,12 @@ class CapacitorGoogleMap(
 		if (googleMap == null) throw GoogleMapNotAvailable()
 	}
 
-	private suspend fun removeMarkersBymIdInternal(ids: List<String>) {
+	// deferredSpreadKeys: when provided, dirty spread keys are accumulated into this set instead of
+	// being re-spread immediately. The caller is then responsible for re-spreading and clustering.
+	private suspend fun removeMarkersBymIdInternal(
+		ids: List<String>,
+		deferredSpreadKeys: MutableSet<Long>? = null
+	) {
 		val deletedMarkers: MutableList<CapacitorGoogleMapMarker> = mutableListOf()
 
 		ids.forEach { mId ->
@@ -333,15 +368,29 @@ class CapacitorGoogleMap(
 				marker.googleMapMarker?.remove()
 				markers.remove(markerId)
 				mIds.remove(mId)
-
 				deletedMarkers.add(marker)
 			}
 		}
 
-		if (clusterManager != null) {
-			clusterManager?.removeItems(deletedMarkers)
-			clusterManager?.cluster()
+		// Update spread groups incrementally.
+		for (marker in deletedMarkers) {
+			val orig = marker.originalCoordinate ?: marker.coordinate
+			val key = spreadKey(orig)
+			val group = spreadGroups[key]
+			if (group != null) {
+				group.remove(marker)
+				if (group.isEmpty()) {
+					spreadGroups.remove(key)
+				} else if (deferredSpreadKeys != null) {
+					deferredSpreadKeys += key
+				} else {
+					spreadGroup(group)
+				}
+			}
 		}
+
+		clusterManager?.removeItems(deletedMarkers)
+		// Caller is responsible for clusterManager?.cluster() to avoid redundant calls.
 	}
 
     fun addMarker(marker: CapacitorGoogleMapMarker, callback: (result: Result<String>) -> Unit) {
@@ -351,32 +400,34 @@ class CapacitorGoogleMap(
             var markerId: String
 
             if (mIds[marker.mId] != null) {
-                CoroutineScope(Dispatchers.Main).launch {
+                mapScope.launch {
                     updateMarkerBymId(marker.mId, marker, callback)
                 }
             } else {
-                CoroutineScope(Dispatchers.Main).launch {
-                    val markerOptions: Deferred<MarkerOptions> =
-                        CoroutineScope(Dispatchers.IO).async {
-                            this@CapacitorGoogleMap.buildMarker(marker)
-                        }
-                    val googleMapMarker = googleMap?.addMarker(markerOptions.await())
+                mapScope.launch {
+                    val markerOptions = withContext(Dispatchers.IO) {
+                        this@CapacitorGoogleMap.buildMarker(marker)
+                    }
+                    val googleMapMarker = googleMap?.addMarker(markerOptions)
 
                     marker.googleMapMarker = googleMapMarker
 
                     if (clusterManager != null) {
                         googleMapMarker?.remove()
                         clusterManager?.addItem(marker)
-                        clusterManager?.cluster()
                     }
 
                     mIds[marker.mId] = googleMapMarker!!.id
-
                     markers[googleMapMarker.id] = marker
-
                     markerId = googleMapMarker.id
 
-                    recomputeSpread()
+                    // Incremental spread: add to group and re-spread only that group.
+                    val orig = marker.coordinate
+                    marker.originalCoordinate = orig
+                    val key = spreadKey(orig)
+                    spreadGroups.getOrPut(key) { mutableListOf() }.add(marker)
+                    spreadGroups[key]?.let { spreadGroup(it) }
+
                     clusterManager?.cluster()
 
                     callback(Result.success(markerId))
@@ -493,7 +544,7 @@ class CapacitorGoogleMap(
         try {
             googleMap ?: throw GoogleMapNotAvailable()
 
-            CoroutineScope(Dispatchers.Main).launch {
+            mapScope.launch {
                 if (clusterManager != null) {
                     setClusterManagerRenderer(minClusterSize)
                     callback(null)
@@ -506,14 +557,12 @@ class CapacitorGoogleMap(
                 setClusterManagerRenderer(minClusterSize)
                 setClusterListeners()
 
-                // add existing markers to the cluster
                 if (markers.isNotEmpty()) {
-                    val copyMap = HashMap(markers);
-                    for ((_, marker) in copyMap) {
+                    for ((_, marker) in markers) {
                         marker.googleMapMarker?.remove()
-                        // marker.googleMapMarker = null
                     }
                     clusterManager?.addItems(markers.values)
+                    recomputeSpread()
                     clusterManager?.cluster()
                 }
 
@@ -528,7 +577,7 @@ class CapacitorGoogleMap(
 		try {
 			googleMap ?: throw GoogleMapNotAvailable()
 
-			CoroutineScope(Dispatchers.Main).launch {
+			mapScope.launch {
 				markerMutex.withLock {
 					clusterManager?.clearItems()
 					clusterManager?.cluster()
@@ -540,6 +589,14 @@ class CapacitorGoogleMap(
 
 					mIds.clear()
 					markers.clear()
+					spreadGroups.clear()
+
+					// Restore each marker to its true (pre-spread) coordinate before rebuilding.
+					for ((_, marker) in copyMap) {
+						val trueCoord = marker.originalCoordinate ?: marker.coordinate
+						marker.coordinate = trueCoord
+						marker.originalCoordinate = null
+					}
 
 					val markerOptionPairs = withContext(Dispatchers.IO) {
 						copyMap.values.map { marker ->
@@ -596,19 +653,21 @@ class CapacitorGoogleMap(
             val marker = markerId?.let { markers[it] }
             marker ?: throw MarkerNotFoundError()
 
-            CoroutineScope(Dispatchers.Main).launch {
-                if (clusterManager != null) {
-                    clusterManager?.removeItem(marker)
-                    clusterManager?.cluster()
-                }
+            mapScope.launch {
+                clusterManager?.removeItem(marker)
 
                 marker.googleMapMarker?.remove()
                 mIds.remove(mId)
-                if (markerId != null) {
-                    markers.remove(markerId)
+                if (markerId != null) markers.remove(markerId)
+
+                val orig = marker.originalCoordinate ?: marker.coordinate
+                val key = spreadKey(orig)
+                val group = spreadGroups[key]
+                if (group != null) {
+                    group.remove(marker)
+                    if (group.isEmpty()) spreadGroups.remove(key) else spreadGroup(group)
                 }
 
-                recomputeSpread()
                 clusterManager?.cluster()
                 callback(null)
             }
@@ -624,16 +683,20 @@ class CapacitorGoogleMap(
             val marker = markers[id]
             marker ?: throw MarkerNotFoundError()
 
-            CoroutineScope(Dispatchers.Main).launch {
-                if (clusterManager != null) {
-                    clusterManager?.removeItem(marker)
-                    clusterManager?.cluster()
-                }
+            mapScope.launch {
+                clusterManager?.removeItem(marker)
 
                 marker.googleMapMarker?.remove()
                 markers.remove(id)
 
-                recomputeSpread()
+                val orig = marker.originalCoordinate ?: marker.coordinate
+                val key = spreadKey(orig)
+                val group = spreadGroups[key]
+                if (group != null) {
+                    group.remove(marker)
+                    if (group.isEmpty()) spreadGroups.remove(key) else spreadGroup(group)
+                }
+
                 clusterManager?.cluster()
                 callback(null)
             }
@@ -646,11 +709,10 @@ class CapacitorGoogleMap(
         try {
             googleMap ?: throw GoogleMapNotAvailable()
 
-            CoroutineScope(Dispatchers.Main).launch {
-                removeMarkersBymIdInternal(ids)
-                recomputeSpread()
+            mapScope.launch {
+                removeMarkersBymIdInternal(ids)  // spreads incrementally, no cluster call
                 clusterManager?.cluster()
-				callback(null)
+                callback(null)
             }
         } catch (e: GoogleMapsError) {
             callback(e)
@@ -661,25 +723,34 @@ class CapacitorGoogleMap(
         try {
             googleMap ?: throw GoogleMapNotAvailable()
 
-            CoroutineScope(Dispatchers.Main).launch {
-                val deletedMarkers: MutableList<CapacitorGoogleMapMarker> = mutableListOf()
+            mapScope.launch {
+                val deletedMarkers = mutableListOf<CapacitorGoogleMapMarker>()
 
                 ids.forEach {
                     val marker = markers[it]
                     if (marker != null) {
                         marker.googleMapMarker?.remove()
                         markers.remove(it)
-
                         deletedMarkers.add(marker)
                     }
                 }
 
-                if (clusterManager != null) {
-                    clusterManager?.removeItems(deletedMarkers)
-                    clusterManager?.cluster()
+                clusterManager?.removeItems(deletedMarkers)
+
+                val dirtyKeys = mutableSetOf<Long>()
+                for (marker in deletedMarkers) {
+                    val orig = marker.originalCoordinate ?: marker.coordinate
+                    val key = spreadKey(orig)
+                    val group = spreadGroups[key]
+                    if (group != null) {
+                        group.remove(marker)
+                        if (group.isEmpty()) spreadGroups.remove(key) else dirtyKeys += key
+                    }
+                }
+                for (key in dirtyKeys) {
+                    spreadGroups[key]?.let { spreadGroup(it) }
                 }
 
-                recomputeSpread()
                 clusterManager?.cluster()
                 callback(null)
             }
@@ -1143,12 +1214,6 @@ fun updateMarkerIcon(mId: String, iconId: String, iconUrl: String) {
         )
     }
 
-    // False once our view has been torn out of the hierarchy (e.g. destroy() was skipped
-    // upstream) so a leaked map entry stops claiming touches for its last-known bounds.
-    fun isAttached(): Boolean {
-        return mapView.isAttachedToWindow
-    }
-
     fun getLatLngBounds(): LatLngBounds {
         return googleMap?.projection?.visibleRegion?.latLngBounds ?: throw BoundsNotFoundError()
     }
@@ -1270,43 +1335,44 @@ fun updateMarkerIcon(mId: String, iconId: String, iconUrl: String) {
 		return highRes
 	}
 
-    private fun recomputeSpread() {
-        val R_METERS = 8.0
+    private fun spreadKey(coord: LatLng): Long {
+        val lat = Math.round(coord.latitude * 1e6).toLong()
+        val lng = Math.round(coord.longitude * 1e6).toLong()
+        return (lat shl 32) or (lng and 0xFFFFFFFFL)
+    }
 
-        val groups = mutableMapOf<String, MutableList<CapacitorGoogleMapMarker>>()
+    private fun spreadGroup(group: List<CapacitorGoogleMapMarker>) {
+        val N = group.size
+        val orig0 = group[0].originalCoordinate!!
+        if (N == 1) {
+            group[0].coordinate = orig0
+            if (clusterManager == null) group[0].googleMapMarker?.position = orig0
+            return
+        }
+        val dLat = R_SPREAD_METERS / 111320.0
+        val cosLat = Math.max(Math.cos(Math.toRadians(orig0.latitude)), 1e-10)
+        val dLng = R_SPREAD_METERS / (111320.0 * cosLat)
+        group.forEachIndexed { i, m ->
+            val angle = 2.0 * Math.PI * i / N
+            val orig = m.originalCoordinate!!
+            var newLng = orig.longitude + dLng * Math.cos(angle)
+            newLng = ((newLng + 180.0) % 360.0 + 360.0) % 360.0 - 180.0
+            val newPos = LatLng(orig.latitude + dLat * Math.sin(angle), newLng)
+            m.coordinate = newPos
+            if (clusterManager == null) m.googleMapMarker?.position = newPos
+        }
+    }
+
+    // Full rebuild — only used when the entire marker set changes (enable/disable clustering).
+    private fun recomputeSpread() {
+        spreadGroups.clear()
         for ((_, marker) in markers) {
             val orig = marker.originalCoordinate ?: marker.coordinate
             marker.originalCoordinate = orig
-            val key = "%.6f,%.6f".format(orig.latitude, orig.longitude)
-            groups.getOrPut(key) { mutableListOf() }.add(marker)
+            spreadGroups.getOrPut(spreadKey(orig)) { mutableListOf() }.add(marker)
         }
-
-        for ((_, group) in groups) {
-            val N = group.size
-            val orig0 = group[0].originalCoordinate!!
-
-            if (N == 1) {
-                group[0].googleMapMarker?.position = orig0
-                group[0].coordinate = orig0
-                continue
-            }
-
-            val dLat = R_METERS / 111320.0
-            val cosLat = Math.max(Math.cos(Math.toRadians(orig0.latitude)), 1e-10)
-            val dLng = R_METERS / (111320.0 * cosLat)
-
-            group.forEachIndexed { i, m ->
-                val angle = 2.0 * Math.PI * i / N
-                val orig = m.originalCoordinate!!
-                var newLng = orig.longitude + dLng * Math.cos(angle)
-                newLng = ((newLng + 180.0) % 360.0 + 360.0) % 360.0 - 180.0
-                val newPos = LatLng(
-                    orig.latitude + dLat * Math.sin(angle),
-                    newLng
-                )
-                m.googleMapMarker?.position = newPos
-                m.coordinate = newPos
-            }
+        for ((_, group) in spreadGroups) {
+            spreadGroup(group)
         }
     }
 
@@ -1637,28 +1703,27 @@ fun updateMarkerIcon(mId: String, iconId: String, iconUrl: String) {
     }
 
     fun setClusterListeners() {
-        CoroutineScope(Dispatchers.Main).launch {
-            clusterManager?.setOnClusterItemClickListener {
-                if (null == it.googleMapMarker) false
-                else this@CapacitorGoogleMap.onMarkerClick(it.googleMapMarker!!)
-            }
+        // Called from enableClustering which already runs on mapScope (Main) — no extra launch needed.
+        clusterManager?.setOnClusterItemClickListener {
+            if (null == it.googleMapMarker) false
+            else this@CapacitorGoogleMap.onMarkerClick(it.googleMapMarker!!)
+        }
 
-            clusterManager?.setOnClusterItemInfoWindowClickListener {
-                if (null != it.googleMapMarker) {
-                    this@CapacitorGoogleMap.onInfoWindowClick(it.googleMapMarker!!)
-                }
+        clusterManager?.setOnClusterItemInfoWindowClickListener {
+            if (null != it.googleMapMarker) {
+                this@CapacitorGoogleMap.onInfoWindowClick(it.googleMapMarker!!)
             }
+        }
 
-            clusterManager?.setOnClusterInfoWindowClickListener {
-                val data = this@CapacitorGoogleMap.getClusterData(it)
-                delegate.notify("onClusterInfoWindowClick", data)
-            }
+        clusterManager?.setOnClusterInfoWindowClickListener {
+            val data = this@CapacitorGoogleMap.getClusterData(it)
+            delegate.notify("onClusterInfoWindowClick", data)
+        }
 
-            clusterManager?.setOnClusterClickListener {
-                val data = this@CapacitorGoogleMap.getClusterData(it)
-                delegate.notify("onClusterClick", data)
-                false
-            }
+        clusterManager?.setOnClusterClickListener {
+            val data = this@CapacitorGoogleMap.getClusterData(it)
+            delegate.notify("onClusterClick", data)
+            false
         }
     }
 
@@ -1824,7 +1889,7 @@ fun updateMarkerIcon(mId: String, iconId: String, iconUrl: String) {
 
     override fun onCameraMove() {
         debounceJob?.cancel()
-        debounceJob = CoroutineScope(Dispatchers.Main).launch {
+        debounceJob = mapScope.launch {
             delay(100)
             clusterManager?.cluster()
         }
