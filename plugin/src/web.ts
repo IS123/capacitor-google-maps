@@ -34,6 +34,8 @@ import {
   type RemoveMarkersBymIdArgs,
   UpdateMarkerBymIdArgs,
   UpdateMarkersBymIdArgs,
+  UpdateMarkerPositionBymIdArgs,
+  UpdateMarkerPositionArgs,
 } from './implementation';
 
 type WebMapInstance = {
@@ -403,6 +405,26 @@ export class CapacitorGoogleMapsWeb extends WebPlugin implements CapacitorGoogle
       // Replace content
       marker.content = img;
     }
+  }
+
+  async updateMarkerPosition(args: UpdateMarkerPositionArgs): Promise<void> {
+    const map = this.maps[args.id];
+    if (!map) throw new Error('Map not found');
+
+    if (!map.markers[args.markerId]) return;
+
+    map.originalCoords[args.markerId] = { lat: args.coordinate.lat, lng: args.coordinate.lng };
+    this.recomputeSpread(args.id);
+  }
+
+  async updateMarkerPositionBymId(args: UpdateMarkerPositionBymIdArgs): Promise<void> {
+    const map = this.maps[args.id];
+    if (!map) throw new Error('Map not found');
+
+    const markerId = map.mIds[args.mId];
+    if (!markerId) return;
+
+    await this.updateMarkerPosition({ id: args.id, markerId, coordinate: args.coordinate });
   }
 
   async removeMarkers(_args: RemoveMarkersArgs): Promise<void> {

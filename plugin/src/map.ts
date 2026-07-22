@@ -21,6 +21,7 @@ import type {
   PolylineCallbackData,
   SelectionType,
   SelectionEndCallbackData,
+  LatLng,
 } from './definitions';
 import { LatLngBounds, MapType } from './definitions';
 import type { CreateMapArgs, GroundOverlayArgs } from './implementation';
@@ -43,6 +44,8 @@ export interface GoogleMapInterface {
   updateMarkerBymId(mId: string, marker: Marker): Promise<string>;
   updateMarkersBymId(mId: string, marker: Marker): Promise<string>;
   updateMarkerIcon(id: string, iconId: string, iconUrl: string): Promise<void>;
+  updateMarkerPosition(id: string, coordinate: LatLng): Promise<void>;
+  updateMarkerPositionBymId(mId: string, coordinate: LatLng): Promise<void>;
   removeMarker(id: string): Promise<void>;
   removeMarkerBymId(mId: string): Promise<void>;
   removeMarkers(ids: string[]): Promise<void>;
@@ -462,6 +465,36 @@ export class GoogleMap {
       mId: mId,
       iconId,
       iconUrl
+    });
+  }
+
+  /**
+   * Updates the position of an existing marker in place, without recreating it or changing its id
+   *
+   * @param id id of the marker to move
+   * @param coordinate new marker position
+   * @returns void
+   */
+  async updateMarkerPosition(id: string, coordinate: LatLng): Promise<void> {
+    return CapacitorGoogleMaps.updateMarkerPosition({
+      id: this.id,
+      markerId: id,
+      coordinate,
+    });
+  }
+  
+  /**
+   * Updates the position of an existing marker in place by mId, without recreating it or changing its id
+   *
+   * @param mId mId of the marker to move
+   * @param coordinate new marker position
+   * @returns void
+   */
+  async updateMarkerPositionBymId(mId: string, coordinate: LatLng): Promise<void> {
+    return CapacitorGoogleMaps.updateMarkerPositionBymId({
+      id: this.id,
+      mId,
+      coordinate,
     });
   }
 

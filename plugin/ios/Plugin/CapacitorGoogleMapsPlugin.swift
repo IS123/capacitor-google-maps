@@ -588,6 +588,63 @@ public class CapacitorGoogleMapsPlugin: CAPPlugin, GMSMapViewDelegate {
 		}
 	}
 
+	@objc func updateMarkerPosition(_ call: CAPPluginCall) {
+		do {
+			guard let id = call.getString("id") else {
+				throw GoogleMapErrors.invalidMapId
+			}
+
+			guard let markerId = call.getString("markerId"),
+				  let markerId = Int(markerId) else {
+				throw GoogleMapErrors.invalidArguments("markerId is missing")
+			}
+
+			guard let coordinateObj = call.getObject("coordinate") else {
+				throw GoogleMapErrors.invalidArguments("coordinate is missing")
+			}
+
+			let coordinate = try getLatLng(coordinateObj)
+
+			guard let map = self.maps[id] else {
+				throw GoogleMapErrors.mapNotFound
+			}
+
+			try map.updateMarkerPosition(markerId: markerId, coordinate: coordinate)
+
+			call.resolve()
+		} catch {
+			handleError(call, error: error)
+		}
+	}
+
+	@objc func updateMarkerPositionBymId(_ call: CAPPluginCall) {
+		do {
+			guard let id = call.getString("id") else {
+				throw GoogleMapErrors.invalidMapId
+			}
+
+			guard let mId = call.getString("mId") else {
+				throw GoogleMapErrors.invalidArguments("mId is missing")
+			}
+
+			guard let coordinateObj = call.getObject("coordinate") else {
+				throw GoogleMapErrors.invalidArguments("coordinate is missing")
+			}
+
+			let coordinate = try getLatLng(coordinateObj)
+
+			guard let map = self.maps[id] else {
+				throw GoogleMapErrors.mapNotFound
+			}
+
+			try map.updateMarkerPositionBymId(mId: mId, coordinate: coordinate)
+
+			call.resolve()
+		} catch {
+			handleError(call, error: error)
+		}
+	}
+
 	@objc func updateMarkerBymId(_ call: CAPPluginCall) {
 		do {
 			guard let id = call.getString("id") else {
@@ -709,6 +766,38 @@ public class CapacitorGoogleMapsPlugin: CAPPlugin, GMSMapViewDelegate {
 		}
 	}
 
+
+    @objc func setMarkers(_ call: CAPPluginCall) {
+        do {
+            guard let id = call.getString("id") else {
+                throw GoogleMapErrors.invalidMapId
+            }
+
+            guard let markerObjs = call.getArray("markers") as? [JSObject] else {
+                throw GoogleMapErrors.invalidArguments("markers array is missing")
+            }
+
+            guard let map = self.maps[id] else {
+                throw GoogleMapErrors.mapNotFound
+            }
+
+            var markers: [Marker] = []
+
+            try markerObjs.forEach { marker in
+                let marker = try Marker(fromJSObject: marker, imageCache: imageCache)
+                markers.append(marker)
+            }
+
+            map.setMarkers(markers: markers) { markerHashes in
+                call.resolve(["ids": markerHashes.map({ id in
+                    return String(id)
+                })])
+            }
+
+        } catch {
+            handleError(call, error: error)
+        }
+    }
 
     @objc func addMarkers(_ call: CAPPluginCall) {
         do {
@@ -1638,6 +1727,18 @@ public class CapacitorGoogleMapsPlugin: CAPPlugin, GMSMapViewDelegate {
         }
 
         return CLLocationCoordinate2D(latitude: lat, longitude: lng)
+    }
+
+    private func getLatLng(_ point: JSObject) throws -> LatLng {
+        guard let lat = point["lat"] as? Double else {
+            throw GoogleMapErrors.unhandledError("Point lat property not formatted properly.")
+        }
+
+        guard let lng = point["lng"] as? Double else {
+            throw GoogleMapErrors.unhandledError("Point lng property not formatted properly.")
+        }
+
+        return LatLng(lat: lat, lng: lng)
     }
 
     private func formatMapBoundsForResponse(bounds: GMSCoordinateBounds?, cameraPosition: GMSCameraPosition) -> PluginCallResultData {
