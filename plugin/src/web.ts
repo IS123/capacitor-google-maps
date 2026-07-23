@@ -275,7 +275,7 @@ export class CapacitorGoogleMapsWeb extends WebPlugin implements CapacitorGoogle
     map.fitBounds(bounds, _args.padding);
   }
 
-  async addMarkers(_args: AddMarkersArgs): Promise<{ ids: string[] }> {
+  async setMarkers(_args: AddMarkersArgs): Promise<{ ids: string[] }> {
     const markerIds: string[] = [];
     const map = this.maps[_args.id];
     const currentMids: string[] = [];
@@ -317,6 +317,7 @@ export class CapacitorGoogleMapsWeb extends WebPlugin implements CapacitorGoogle
       map.mIds[markerArgs.mId] = id;
       currentMids.push(markerArgs.mId);
       await this.setMarkerListeners(_args.id, id, markerArgs.mId, advancedMarker);
+      this.addMarkerToClusterer(map, advancedMarker);
 
       markerIds.push(id);
       this.currMarkerId++;
@@ -334,15 +335,47 @@ export class CapacitorGoogleMapsWeb extends WebPlugin implements CapacitorGoogle
     return { ids: markerIds };
   }
 
+  async addMarkers(_args: AddMarkersArgs): Promise<{ ids: string[] }> {
+    const map = this.maps[_args.id];
+    const markerIds: string[] = [];
+
+     if (!map) {
+      throw new Error('Google Map could not be found.');
+    }
+
+    for (const markerArgs of _args.markers) {
+      const advancedMarker = this.buildMarkerOpts(markerArgs, map.map);
+
+      const id = '' + this.currMarkerId;
+
+      map.markers[id] = advancedMarker;
+      map.originalCoords[id] = { lat: markerArgs.coordinate.lat, lng: markerArgs.coordinate.lng };
+      map.mIds[markerArgs.mId] = id;
+
+      await this.setMarkerListeners(_args.id, id, markerArgs.mId, advancedMarker);
+      this.addMarkerToClusterer(map, advancedMarker);
+
+      markerIds.push(id);
+
+      this.currMarkerId++;
+    }
+
+    this.recomputeSpread(_args.id);
+
+    return { ids: markerIds };
+  }
+
   async addMarker(_args: AddMarkerArgs): Promise<{ id: string }> {
-    const advancedMarker = this.buildMarkerOpts(_args.marker, this.maps[_args.id].map);
+    const map = this.maps[_args.id];
+    const advancedMarker = this.buildMarkerOpts(_args.marker, map.map);
 
     const id = '' + this.currMarkerId;
 
-    this.maps[_args.id].mIds[_args.marker.mId] = id;
-    this.maps[_args.id].markers[id] = advancedMarker;
-    this.maps[_args.id].originalCoords[id] = { lat: _args.marker.coordinate.lat, lng: _args.marker.coordinate.lng };
+    map.mIds[_args.marker.mId] = id;
+    map.markers[id] = advancedMarker;
+    map.originalCoords[id] = { lat: _args.marker.coordinate.lat, lng: _args.marker.coordinate.lng };
     await this.setMarkerListeners(_args.id, id, _args.marker.mId, advancedMarker);
+    this.addMarkerToClusterer(map, advancedMarker);
 
     this.currMarkerId++;
 
@@ -361,7 +394,7 @@ export class CapacitorGoogleMapsWeb extends WebPlugin implements CapacitorGoogle
 
     const oldMarker = map.markers[args.markerId];
     if (oldMarker) {
-      oldMarker.map = null;
+      this.removeMarkerFromMap(map, oldMarker);
       delete map.markers[args.markerId];
       delete map.originalCoords[args.markerId];
     }
@@ -378,6 +411,7 @@ export class CapacitorGoogleMapsWeb extends WebPlugin implements CapacitorGoogle
     map.originalCoords[newId] = { lat: args.marker.coordinate.lat, lng: args.marker.coordinate.lng };
 
     await this.setMarkerListeners(args.id, newId, args.marker.mId, newMarker);
+    this.addMarkerToClusterer(map, newMarker);
 
     this.recomputeSpread(args.id);
 
@@ -410,7 +444,7 @@ export class CapacitorGoogleMapsWeb extends WebPlugin implements CapacitorGoogle
 
     for (const id of _args.markerIds) {
       if (map.markers[id]) {
-        map.markers[id].map = null;
+        this.removeMarkerFromMap(map, map.markers[id]);
         delete map.markers[id];
         delete map.originalCoords[id];
 
@@ -429,7 +463,7 @@ export class CapacitorGoogleMapsWeb extends WebPlugin implements CapacitorGoogle
     const map = this.maps[_args.id];
 
     if (map.markers[_args.markerId]) {
-      map.markers[_args.markerId].map = null;
+      this.removeMarkerFromMap(map, map.markers[_args.markerId]);
 
       const mId = Object.values(map.mIds).find((markerId) => markerId === _args.markerId);
 
@@ -449,7 +483,9 @@ export class CapacitorGoogleMapsWeb extends WebPlugin implements CapacitorGoogle
 
     const id = map.mIds[args.mId];
 
-    map.markers[id] && (map.markers[id].map = null);
+    if (map.markers[id]) {
+      this.removeMarkerFromMap(map, map.markers[id]);
+    }
 
     delete map.markers[id];
     delete map.originalCoords[id];
@@ -464,7 +500,9 @@ export class CapacitorGoogleMapsWeb extends WebPlugin implements CapacitorGoogle
     args.mIds.forEach(mId => {
       const id = map.mIds[mId];
 
-      map.markers[id] && (map.markers[id].map = null);
+      if (map.markers[id]) {
+        this.removeMarkerFromMap(map, map.markers[id]);
+      }
 
       delete map.markers[id];
       delete map.originalCoords[id];
@@ -584,6 +622,11 @@ export class CapacitorGoogleMapsWeb extends WebPlugin implements CapacitorGoogle
   }
 
   async enableClustering(_args: EnableClusteringArgs): Promise<void> {
+    const existingClusterer = this.maps[_args.id].markerClusterer;
+    if (existingClusterer) {
+      existingClusterer.setMap(null);
+    }
+
     const markers: google.maps.marker.AdvancedMarkerElement[] = [];
 
     for (const id in this.maps[_args.id].markers) {
@@ -958,6 +1001,26 @@ export class CapacitorGoogleMapsWeb extends WebPlugin implements CapacitorGoogle
 
     // Force the clusterer to re-render with the updated positions
     map.markerClusterer?.render();
+  }
+
+  /** Registers a newly created marker with the active clusterer, if clustering is enabled. */
+  private addMarkerToClusterer(map: WebMapInstance, marker: google.maps.marker.AdvancedMarkerElement): void {
+    if (map.markerClusterer) {
+      map.markerClusterer.addMarker(marker);
+    }
+  }
+
+  /**
+   * Removes a marker from the map. If clustering is enabled, the marker must be removed
+   * through the clusterer so its internal marker list stays in sync - otherwise the
+   * clusterer keeps a stale reference and can re-show the marker on its next render.
+   */
+  private removeMarkerFromMap(map: WebMapInstance, marker: google.maps.marker.AdvancedMarkerElement): void {
+    if (map.markerClusterer) {
+      map.markerClusterer.removeMarker(marker);
+    } else {
+      marker.map = null;
+    }
   }
 
   private buildMarkerOpts(marker: Marker, map: google.maps.Map): google.maps.marker.AdvancedMarkerElement {

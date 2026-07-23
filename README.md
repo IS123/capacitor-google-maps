@@ -355,6 +355,7 @@ export default MyMap;
 * [`disableClustering()`](#disableclustering)
 * [`addMarker(...)`](#addmarker)
 * [`addMarkers(...)`](#addmarkers)
+* [`setMarkers(...)`](#setmarkers)
 * [`updateMarker(...)`](#updatemarker)
 * [`updateMarkerBymId(...)`](#updatemarkerbymid)
 * [`updateMarkersBymId(...)`](#updatemarkersbymid)
@@ -493,6 +494,21 @@ addMarker(marker: Marker) => Promise<string>
 
 ```typescript
 addMarkers(markers: Marker[]) => Promise<string[]>
+```
+
+| Param         | Type                  |
+| ------------- | --------------------- |
+| **`markers`** | <code>Marker[]</code> |
+
+**Returns:** <code>Promise&lt;string[]&gt;</code>
+
+--------------------
+
+
+### setMarkers(...)
+
+```typescript
+setMarkers(markers: Marker[]) => Promise<string[]>
 ```
 
 | Param         | Type                  |

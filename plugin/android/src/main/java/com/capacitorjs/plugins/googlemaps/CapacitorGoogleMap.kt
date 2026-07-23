@@ -43,6 +43,11 @@ import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
 
+sealed class MarkerUpdate {
+	data class Set(val markers: List<CapacitorGoogleMapMarker>) : MarkerUpdate()
+	data class Add(val markers: List<CapacitorGoogleMapMarker>) : MarkerUpdate()
+}
+
 @OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
 class CapacitorGoogleMap(
     val id: String,
@@ -75,7 +80,7 @@ class CapacitorGoogleMap(
     private val polylines = HashMap<String, CapacitorGoogleMapPolyline>()
     private var clusterManager: ClusterManager<CapacitorGoogleMapMarker>? = null
     private val markerDispatcher = Executors.newFixedThreadPool(8).asCoroutineDispatcher()
-	private val markerUpdates = MutableSharedFlow<List<CapacitorGoogleMapMarker>>(extraBufferCapacity = 1)
+	private val markerUpdates = MutableSharedFlow<MarkerUpdate>(extraBufferCapacity = 1)
 	private val markerMutex = Mutex()
 
     private val isReadyChannel = Channel<Boolean>()
@@ -241,82 +246,105 @@ class CapacitorGoogleMap(
         }
     }
 
+	fun setMarkers(markers: List<CapacitorGoogleMapMarker>, call: PluginCall) {
+		currentCall = call
+		markerUpdates.tryEmit(MarkerUpdate.Set(markers))
+	}
+
 	fun addMarkers(markers: List<CapacitorGoogleMapMarker>, call: PluginCall) {
 		currentCall = call
-		markerUpdates.tryEmit(markers)
+		markerUpdates.tryEmit(MarkerUpdate.Add(markers))
 	}
 
 	fun addMarkersReactive(
-		newMarkersFlow: Flow<List<CapacitorGoogleMapMarker>>
+		updatesFlow: Flow<MarkerUpdate>
 	): Flow<Result<List<String>>> =
-		newMarkersFlow
-			.flatMapLatest { newMarkers ->
+		updatesFlow
+			.flatMapLatest { update ->
 				flow {
 					markerMutex.withLock {
 						ensureMapAvailable()
-
-						val markerIds = mutableListOf<String>()
-						val currentMIds = mutableSetOf<String>()
-						val existingMIdsSnapshot = mIds.keys.toSet()
-
-						val markersToAdd = newMarkers.mapNotNull { marker ->
-							currentMIds += marker.mId
-							val existingId = mIds[marker.mId]
-							if (existingId != null) {
-								withContext(Dispatchers.Main) {
-									val existingMarker = markers[existingId]
-
-									existingMarker?.googleMapMarker?.position = marker.position
-									existingMarker?.originalCoordinate = marker.coordinate
-									existingMarker?.coordinate = marker.coordinate
-
-									existingMarker?.googleMapMarker?.isDraggable = marker.draggable
-
-									if (existingMarker?.iconId !== marker.iconId) {
-										updateMarkerIcon(marker.mId, marker.mId, marker.iconUrl!!)
-									}
-								}
-								return@mapNotNull null
-							} else {
-								marker.markerOptions = buildMarker(marker)
-								marker
-							}
+						val ids = when (update) {
+							is MarkerUpdate.Set -> setMarkersInternal(update.markers)
+							is MarkerUpdate.Add -> addMarkersInternal(update.markers)
 						}
-
-						withContext(Dispatchers.Main) {
-							val toRemove = existingMIdsSnapshot - currentMIds
-							removeMarkersBymIdInternal(toRemove.toList())
-
-							markersToAdd.forEach { marker ->
-								val googleMapMarker = googleMap?.addMarker(marker.markerOptions!!)
-								marker.googleMapMarker = googleMapMarker
-
-								googleMapMarker?.let { gm ->
-									if (clusterManager != null) {
-										googleMapMarker.remove()
-									}
-
-									mIds[marker.mId] = gm.id
-									markers[gm.id] = marker
-									markerIds += gm.id
-								}
-							}
-
-							clusterManager?.apply {
-								addItems(markersToAdd)
-								cluster()
-							}
-
-							recomputeSpread()
-							clusterManager?.cluster()
-						}
-
-						emit(Result.success(markerIds))
+						emit(Result.success(ids))
 					}
 				}.catch { e ->
 					emit(Result.failure(e))
 				}.flowOn(markerDispatcher)
 			}
+
+	private suspend fun addMarkersToMap(markersToAdd: List<CapacitorGoogleMapMarker>): List<String> {
+		val markerIds = mutableListOf<String>()
+		withContext(Dispatchers.Main) {
+			markersToAdd.forEach { marker ->
+				val googleMapMarker = googleMap?.addMarker(marker.markerOptions!!)
+				marker.googleMapMarker = googleMapMarker
+
+				googleMapMarker?.let { gm ->
+					if (clusterManager != null) {
+						googleMapMarker.remove()
+					}
+					mIds[marker.mId] = gm.id
+					markers[gm.id] = marker
+					markerIds += gm.id
+				}
+			}
+
+			clusterManager?.apply {
+				addItems(markersToAdd)
+                recomputeSpread()
+				cluster()
+			}
+		}
+		return markerIds
+	}
+
+	private suspend fun addMarkersInternal(newMarkers: List<CapacitorGoogleMapMarker>): List<String> {
+		val markersToAdd = newMarkers.mapNotNull { marker ->
+			if (mIds[marker.mId] == null) {
+				marker.markerOptions = buildMarker(marker)
+				marker
+			} else null
+		}
+		return addMarkersToMap(markersToAdd)
+	}
+
+	private suspend fun setMarkersInternal(newMarkers: List<CapacitorGoogleMapMarker>): List<String> {
+		val currentMIds = mutableSetOf<String>()
+		val existingMIdsSnapshot = mIds.keys.toSet()
+
+		val markersToAdd = newMarkers.mapNotNull { marker ->
+			currentMIds += marker.mId
+			val existingId = mIds[marker.mId]
+			if (existingId != null) {
+				withContext(Dispatchers.Main) {
+					val existingMarker = markers[existingId]
+					existingMarker?.originalCoordinate = marker.coordinate
+					existingMarker?.coordinate = marker.coordinate
+					if (clusterManager == null) {
+						existingMarker?.googleMapMarker?.position = marker.position
+					}
+					existingMarker?.googleMapMarker?.isDraggable = marker.draggable
+					if (existingMarker?.iconId !== marker.iconId) {
+						updateMarkerIcon(marker.mId, marker.mId, marker.iconUrl!!)
+					}
+				}
+				null
+			} else {
+				marker.markerOptions = buildMarker(marker)
+				marker
+			}
+		}
+
+		withContext(Dispatchers.Main) {
+			val toRemove = existingMIdsSnapshot - currentMIds
+			removeMarkersBymIdInternal(toRemove.toList())
+		}
+
+		return addMarkersToMap(markersToAdd)
+	}
 
 	private fun ensureMapAvailable() {
 		if (googleMap == null) throw GoogleMapNotAvailable()
@@ -1142,7 +1170,7 @@ fun updateMarkerIcon(mId: String, iconId: String, iconUrl: String) {
             getScaledPixels(delegate.bridge, config.y + config.height)
         )
     }
-
+    
     // False once our view has been torn out of the hierarchy (e.g. destroy() was skipped
     // upstream) so a leaked map entry stops claiming touches for its last-known bounds.
     fun isAttached(): Boolean {
@@ -1286,7 +1314,7 @@ fun updateMarkerIcon(mId: String, iconId: String, iconUrl: String) {
             val orig0 = group[0].originalCoordinate!!
 
             if (N == 1) {
-                group[0].googleMapMarker?.position = orig0
+                if (clusterManager == null) group[0].googleMapMarker?.position = orig0
                 group[0].coordinate = orig0
                 continue
             }
@@ -1304,7 +1332,7 @@ fun updateMarkerIcon(mId: String, iconId: String, iconUrl: String) {
                     orig.latitude + dLat * Math.sin(angle),
                     newLng
                 )
-                m.googleMapMarker?.position = newPos
+                if (clusterManager == null) m.googleMapMarker?.position = newPos
                 m.coordinate = newPos
             }
         }
