@@ -1345,6 +1345,12 @@ public class CapacitorGoogleMapsPlugin: CAPPlugin, GMSMapViewDelegate {
             }
 
             try DispatchQueue.main.sync {
+                // GMapView is nilled out on the main queue during map destroy, so it can already be
+                // gone by the time this block runs. Guard instead of force-unwrapping to avoid a crash.
+                guard let gMapView = map.mapViewController.GMapView else {
+                    throw GoogleMapErrors.unhandledError("Google Map view is not available.")
+                }
+
                 guard let bounds = map.getMapLatLngBounds() else {
                     throw GoogleMapErrors.unhandledError("Google Map Bounds could not be found.")
                 }
@@ -1352,7 +1358,7 @@ public class CapacitorGoogleMapsPlugin: CAPPlugin, GMSMapViewDelegate {
                 call.resolve(
                     formatMapBoundsForResponse(
                         bounds: bounds,
-                        cameraPosition: map.mapViewController.GMapView.camera
+                        cameraPosition: gMapView.camera
                     )
                 )
             }
@@ -1371,9 +1377,14 @@ public class CapacitorGoogleMapsPlugin: CAPPlugin, GMSMapViewDelegate {
                 throw GoogleMapErrors.mapNotFound
             }
 
-            DispatchQueue.main.sync {
-                let zoom = map.mapViewController.GMapView.camera.zoom
-                call.resolve(["zoomLevel": zoom])
+            try DispatchQueue.main.sync {
+                // GMapView is nilled out on the main queue during map destroy, so it can already be
+                // gone by the time this block runs. Guard instead of force-unwrapping to avoid a crash.
+                guard let gMapView = map.mapViewController.GMapView else {
+                    throw GoogleMapErrors.unhandledError("Google Map view is not available.")
+                }
+
+                call.resolve(["zoomLevel": gMapView.camera.zoom])
             }
         } catch {
             handleError(call, error: error)
