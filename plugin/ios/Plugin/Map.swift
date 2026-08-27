@@ -583,7 +583,6 @@ public class Map {
             self.originalCoords[markerId] = newCoord
             marker.position = newCoord
 
-            self.recomputeSpread()
             if self.mapViewController.clusteringEnabled {
                 self.mapViewController.recluster()
             }

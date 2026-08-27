@@ -746,7 +746,6 @@ class CapacitorGoogleMap(
                     marker.googleMapMarker?.position = coordinate
                 }
 
-                recomputeSpread()
                 clusterManager?.cluster()
                 callback(null)
             }

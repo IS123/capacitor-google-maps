@@ -414,7 +414,7 @@ export class CapacitorGoogleMapsWeb extends WebPlugin implements CapacitorGoogle
     if (!map.markers[args.markerId]) return;
 
     map.originalCoords[args.markerId] = { lat: args.coordinate.lat, lng: args.coordinate.lng };
-    this.recomputeSpread(args.id);
+    map.markers[args.markerId].position = { lat: args.coordinate.lat, lng: args.coordinate.lng };
   }
 
   async updateMarkerPositionBymId(args: UpdateMarkerPositionBymIdArgs): Promise<void> {
