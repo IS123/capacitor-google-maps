@@ -47,6 +47,8 @@ type WebMapInstance = {
   };
   /** Stores the true (pre-spread) coordinate for each marker id. */
   originalCoords: Record<string, { lat: number; lng: number }>;
+  /** Whether moving a marker should recompute the spread offsets of overlapping markers. */
+  recomputeFlags: Record<string, boolean>;
   polygons: {
     [id: string]: google.maps.Polygon;
   };
@@ -316,6 +318,7 @@ export class CapacitorGoogleMapsWeb extends WebPlugin implements CapacitorGoogle
 
       map.markers[id] = advancedMarker;
       map.originalCoords[id] = { lat: markerArgs.coordinate.lat, lng: markerArgs.coordinate.lng };
+      map.recomputeFlags[id] = markerArgs.recompute ?? true;
       map.mIds[markerArgs.mId] = id;
       currentMids.push(markerArgs.mId);
       await this.setMarkerListeners(_args.id, id, markerArgs.mId, advancedMarker);
@@ -344,6 +347,7 @@ export class CapacitorGoogleMapsWeb extends WebPlugin implements CapacitorGoogle
     this.maps[_args.id].mIds[_args.marker.mId] = id;
     this.maps[_args.id].markers[id] = advancedMarker;
     this.maps[_args.id].originalCoords[id] = { lat: _args.marker.coordinate.lat, lng: _args.marker.coordinate.lng };
+    this.maps[_args.id].recomputeFlags[id] = _args.marker.recompute ?? true;
     await this.setMarkerListeners(_args.id, id, _args.marker.mId, advancedMarker);
 
     this.currMarkerId++;
@@ -366,6 +370,7 @@ export class CapacitorGoogleMapsWeb extends WebPlugin implements CapacitorGoogle
       oldMarker.map = null;
       delete map.markers[args.markerId];
       delete map.originalCoords[args.markerId];
+      delete map.recomputeFlags[args.markerId];
     }
 
     if (mId) {
@@ -378,6 +383,7 @@ export class CapacitorGoogleMapsWeb extends WebPlugin implements CapacitorGoogle
     map.mIds[args.marker.mId] = newId;
     map.markers[newId] = newMarker;
     map.originalCoords[newId] = { lat: args.marker.coordinate.lat, lng: args.marker.coordinate.lng };
+    map.recomputeFlags[newId] = args.marker.recompute ?? true;
 
     await this.setMarkerListeners(args.id, newId, args.marker.mId, newMarker);
 
@@ -415,6 +421,8 @@ export class CapacitorGoogleMapsWeb extends WebPlugin implements CapacitorGoogle
 
     map.originalCoords[args.markerId] = { lat: args.coordinate.lat, lng: args.coordinate.lng };
     map.markers[args.markerId].position = { lat: args.coordinate.lat, lng: args.coordinate.lng };
+
+    this.recomputeSpread(args.id);
   }
 
   async updateMarkerPositionBymId(args: UpdateMarkerPositionBymIdArgs): Promise<void> {
@@ -435,6 +443,7 @@ export class CapacitorGoogleMapsWeb extends WebPlugin implements CapacitorGoogle
         map.markers[id].map = null;
         delete map.markers[id];
         delete map.originalCoords[id];
+        delete map.recomputeFlags[id];
 
         const mId = Object.values(map.mIds).find((markerId) => markerId === id);
 
@@ -457,6 +466,7 @@ export class CapacitorGoogleMapsWeb extends WebPlugin implements CapacitorGoogle
 
       delete map.markers[_args.markerId];
       delete map.originalCoords[_args.markerId];
+      delete map.recomputeFlags[_args.markerId];
 
       if (mId) {
         delete map.mIds[mId];
@@ -475,6 +485,7 @@ export class CapacitorGoogleMapsWeb extends WebPlugin implements CapacitorGoogle
 
     delete map.markers[id];
     delete map.originalCoords[id];
+    delete map.recomputeFlags[id];
     delete map.mIds[args.mId];
 
     this.recomputeSpread(args.id);
@@ -490,6 +501,7 @@ export class CapacitorGoogleMapsWeb extends WebPlugin implements CapacitorGoogle
 
       delete map.markers[id];
       delete map.originalCoords[id];
+      delete map.recomputeFlags[id];
       delete map.mIds[mId];
     });
 
@@ -663,6 +675,7 @@ export class CapacitorGoogleMapsWeb extends WebPlugin implements CapacitorGoogle
       element: _args.element,
       markers: {},
       originalCoords: {},
+      recomputeFlags: {},
       polygons: {},
       circles: {},
       polylines: {},
@@ -936,8 +949,10 @@ export class CapacitorGoogleMapsWeb extends WebPlugin implements CapacitorGoogle
     const R_METERS = 8;
     const map = this.maps[mapId];
 
+    const eligibleMarkerIds = Object.keys(map.markers).filter(markerId => map.recomputeFlags[markerId] ?? true);
+
     // Ensure every marker has an original coord recorded
-    for (const markerId of Object.keys(map.markers)) {
+    for (const markerId of eligibleMarkerIds) {
       if (!map.originalCoords[markerId]) {
         const pos = map.markers[markerId].position as google.maps.LatLngLiteral;
         map.originalCoords[markerId] = { lat: pos.lat, lng: pos.lng };
@@ -946,7 +961,7 @@ export class CapacitorGoogleMapsWeb extends WebPlugin implements CapacitorGoogle
 
     // Group markerIds by rounded original coordinate
     const groups: Record<string, string[]> = {};
-    for (const markerId of Object.keys(map.markers)) {
+    for (const markerId of eligibleMarkerIds) {
       const orig = map.originalCoords[markerId];
       const key = `${orig.lat.toFixed(6)},${orig.lng.toFixed(6)}`;
       (groups[key] ??= []).push(markerId);

@@ -746,6 +746,7 @@ class CapacitorGoogleMap(
                     marker.googleMapMarker?.position = coordinate
                 }
 
+                recomputeSpread()
                 clusterManager?.cluster()
                 callback(null)
             }
@@ -1314,6 +1315,10 @@ fun updateMarkerIcon(mId: String, iconId: String, iconUrl: String) {
 
         val groups = mutableMapOf<String, MutableList<CapacitorGoogleMapMarker>>()
         for ((_, marker) in markers) {
+            if (!marker.recompute) {
+                continue
+            }
+
             val orig = marker.originalCoordinate ?: marker.coordinate
             marker.originalCoordinate = orig
             val key = "%.6f,%.6f".format(orig.latitude, orig.longitude)

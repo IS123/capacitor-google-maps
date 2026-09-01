@@ -91,6 +91,8 @@ public class Map {
     var markers = [Int: GMSMarker]()
     /** True (pre-spread) coordinate for each marker hash. */
     var originalCoords = [Int: CLLocationCoordinate2D]()
+    /** Whether moving a marker should recompute the spread offsets of overlapping markers. */
+    var recomputeFlags = [Int: Bool]()
     var polygons = [Int: GMSPolygon]()
     var circles = [Int: GMSCircle]()
     var polylines = [Int: GMSPolyline]()
@@ -314,6 +316,7 @@ public class Map {
                 latitude: marker.coordinate.lat,
                 longitude: marker.coordinate.lng
             )
+            self.recomputeFlags[hash] = marker.recompute ?? true
 
             markerHash = hash
 
@@ -482,6 +485,7 @@ public class Map {
                         latitude: markerData.coordinate.lat,
                         longitude: markerData.coordinate.lng
                     )
+                    self.recomputeFlags[hash] = markerData.recompute ?? true
                     markerHashes.append(hash)
 
                     if let mId = markerData.mId {
@@ -541,6 +545,7 @@ public class Map {
                     latitude: markerData.coordinate.lat,
                     longitude: markerData.coordinate.lng
                 )
+                self.recomputeFlags[hash] = markerData.recompute ?? true
                 markerHashes.append(hash)
 
                 if let mId = markerData.mId {
@@ -583,6 +588,8 @@ public class Map {
             self.originalCoords[markerId] = newCoord
             marker.position = newCoord
 
+            self.recomputeSpread()
+
             if self.mapViewController.clusteringEnabled {
                 self.mapViewController.recluster()
             }
@@ -614,6 +621,7 @@ public class Map {
             // isCoordinatesDifferent returns false — without this line originalCoords
             // would keep the old group key and recomputeSpread would snap the marker back.
             self.originalCoords[markerId] = newCoord
+            self.recomputeFlags[markerId] = newMarker.recompute ?? true
 
             if self.isCoordinatesDifferent(coords1: newMarker.coordinate, coords2: marker.position) {
                 marker.position = newCoord
@@ -727,6 +735,7 @@ public class Map {
                 marker.map = nil
                 self.markers.removeValue(forKey: id)
                 self.originalCoords.removeValue(forKey: id)
+                self.recomputeFlags.removeValue(forKey: id)
                 self.recomputeSpread()
                 if self.mapViewController.clusteringEnabled {
                     self.mapViewController.recluster()
@@ -751,6 +760,7 @@ public class Map {
                 marker.map = nil
                 self.markers.removeValue(forKey: markerHash)
                 self.originalCoords.removeValue(forKey: markerHash)
+                self.recomputeFlags.removeValue(forKey: markerHash)
                 self.mIds.removeValue(forKey: mId)
                 self.recomputeSpread()
                 if self.mapViewController.clusteringEnabled {
@@ -898,6 +908,7 @@ public class Map {
 
                     self.markers.removeValue(forKey: id)
                     self.originalCoords.removeValue(forKey: id)
+                    self.recomputeFlags.removeValue(forKey: id)
                     markers.append(marker)
                 }
             }
@@ -928,6 +939,7 @@ public class Map {
 
                     self.markers.removeValue(forKey: markerHash)
                     self.originalCoords.removeValue(forKey: markerHash)
+                    self.recomputeFlags.removeValue(forKey: markerHash)
                     self.mIds.removeValue(forKey: mId)
 
                     markers.append(marker)
@@ -1069,6 +1081,10 @@ public class Map {
         // Group marker hashes by rounded original coordinate
         var groups: [String: [Int]] = [:]
         for (hash, gmsMarker) in markers {
+            if !(recomputeFlags[hash] ?? true) {
+                continue
+            }
+
             let orig = originalCoords[hash] ?? gmsMarker.position
             originalCoords[hash] = orig
             let key = String(format: "%.6f,%.6f", orig.latitude, orig.longitude)

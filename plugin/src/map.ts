@@ -482,7 +482,7 @@ export class GoogleMap {
       coordinate,
     });
   }
-  
+
   /**
    * Updates the position of an existing marker in place by mId, without recreating it or changing its id
    *

@@ -1325,6 +1325,7 @@ A marker is an icon placed at a particular point on the map's surface.
 | **`iconId`**          | <code>string</code>                                          | Icon id that`s using for caching purposes.                                                                                                                                                |                    |       |
 | **`mId`**             | <code>string</code>                                          | <a href="#marker">Marker</a>'s alternative id                                                                                                                                             |                    |       |
 | **`clearAllMarkers`** | <code>boolean</code>                                         | Is remove all other markers from map when use addMarker() function                                                                                                                        |                    |       |
+| **`recompute`**       | <code>boolean</code>                                         | Controls whether moving this marker (via updateMarkerPosition() or updateMarkerPositionBymId()) recomputes the spread offsets of overlapping markers.                                     | <code>true</code>  |       |
 
 
 #### Size
