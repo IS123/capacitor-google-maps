@@ -630,6 +630,35 @@ class CapacitorGoogleMapsPlugin : Plugin(), OnMapsSdkInitializedCallback {
 	}
 
 	@PluginMethod
+	fun setMarkers(call: PluginCall) {
+		try {
+			val id = call.getString("id")
+			id ?: throw InvalidMapIdError()
+
+			val markerObjectArray = call.getArray("markers", null)
+			markerObjectArray ?: throw InvalidArgumentsError("markers array is missing")
+
+			val map = maps[id]
+			map ?: throw MapNotFoundError()
+
+			val markers: MutableList<CapacitorGoogleMapMarker> = mutableListOf()
+
+			for (i in 0 until markerObjectArray.length()) {
+				val markerObj = markerObjectArray.getJSONObject(i)
+				val marker = CapacitorGoogleMapMarker(markerObj)
+
+				markers.add(marker)
+			}
+
+			map.setMarkers(markers, call)
+		} catch (e: GoogleMapsError) {
+			handleError(call, e)
+		} catch (e: Exception) {
+			handleError(call, e)
+		}
+	}
+
+	@PluginMethod
 	fun addPolygons(call: PluginCall) {
 		try {
 			val id = call.getString("id")
