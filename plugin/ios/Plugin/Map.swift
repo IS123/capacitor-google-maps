@@ -825,10 +825,12 @@ public class Map {
         DispatchQueue.main.sync {
             let newCamera = GMSCameraPosition(latitude: lat, longitude: lng, zoom: zoom, bearing: bearing, viewingAngle: angle)
 
+            // Use the map view captured by the guard above: the GMapView property is nilled out
+            // on the main queue during map destroy and re-reading it here could force-unwrap nil.
             if animate {
-                self.mapViewController.GMapView.animate(to: newCamera)
+                gMapView.animate(to: newCamera)
             } else {
-                self.mapViewController.GMapView.camera = newCamera
+                gMapView.camera = newCamera
             }
         }
 
@@ -958,13 +960,15 @@ public class Map {
     }
 
     func getMapLatLngBounds() -> GMSCoordinateBounds? {
-        return GMSCoordinateBounds(region: self.mapViewController.GMapView.projection.visibleRegion())
+        guard let gMapView = self.mapViewController.GMapView else { return nil }
+        return GMSCoordinateBounds(region: gMapView.projection.visibleRegion())
     }
 
     func fitBounds(bounds: GMSCoordinateBounds, padding: CGFloat) {
         DispatchQueue.main.sync {
+            guard let gMapView = self.mapViewController.GMapView else { return }
             let cameraUpdate = GMSCameraUpdate.fit(bounds, withPadding: padding)
-            self.mapViewController.GMapView.animate(with: cameraUpdate)
+            gMapView.animate(with: cameraUpdate)
         }
     }
 
