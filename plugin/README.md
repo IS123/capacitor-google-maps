@@ -359,6 +359,8 @@ export default MyMap;
 * [`updateMarkerBymId(...)`](#updatemarkerbymid)
 * [`updateMarkersBymId(...)`](#updatemarkersbymid)
 * [`updateMarkerIcon(...)`](#updatemarkericon)
+* [`updateMarkerPosition(...)`](#updatemarkerposition)
+* [`updateMarkerPositionBymId(...)`](#updatemarkerpositionbymid)
 * [`removeMarker(...)`](#removemarker)
 * [`removeMarkerBymId(...)`](#removemarkerbymid)
 * [`removeMarkers(...)`](#removemarkers)
@@ -563,6 +565,34 @@ updateMarkerIcon(id: string, iconId: string, iconUrl: string) => Promise<void>
 | **`id`**      | <code>string</code> |
 | **`iconId`**  | <code>string</code> |
 | **`iconUrl`** | <code>string</code> |
+
+--------------------
+
+
+### updateMarkerPosition(...)
+
+```typescript
+updateMarkerPosition(id: string, coordinate: LatLng) => Promise<void>
+```
+
+| Param            | Type                                      |
+| ---------------- | ----------------------------------------- |
+| **`id`**         | <code>string</code>                       |
+| **`coordinate`** | <code><a href="#latlng">LatLng</a></code> |
+
+--------------------
+
+
+### updateMarkerPositionBymId(...)
+
+```typescript
+updateMarkerPositionBymId(mId: string, coordinate: LatLng) => Promise<void>
+```
+
+| Param            | Type                                      |
+| ---------------- | ----------------------------------------- |
+| **`mId`**        | <code>string</code>                       |
+| **`coordinate`** | <code><a href="#latlng">LatLng</a></code> |
 
 --------------------
 
@@ -1295,6 +1325,7 @@ A marker is an icon placed at a particular point on the map's surface.
 | **`iconId`**          | <code>string</code>                                          | Icon id that`s using for caching purposes.                                                                                                                                                |                    |       |
 | **`mId`**             | <code>string</code>                                          | <a href="#marker">Marker</a>'s alternative id                                                                                                                                             |                    |       |
 | **`clearAllMarkers`** | <code>boolean</code>                                         | Is remove all other markers from map when use addMarker() function                                                                                                                        |                    |       |
+| **`recompute`**       | <code>boolean</code>                                         | Controls whether moving this marker (via updateMarkerPosition() or updateMarkerPositionBymId()) recomputes the spread offsets of overlapping markers.                                     | <code>true</code>  |       |
 
 
 #### Size

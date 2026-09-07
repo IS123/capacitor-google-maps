@@ -9,6 +9,7 @@ CAP_PLUGIN(CapacitorGoogleMapsPlugin, "CapacitorGoogleMaps",
    CAP_PLUGIN_METHOD(enableTouch, CAPPluginReturnPromise);
    CAP_PLUGIN_METHOD(disableTouch, CAPPluginReturnPromise);
    CAP_PLUGIN_METHOD(addMarker, CAPPluginReturnPromise);
+   CAP_PLUGIN_METHOD(setMarkers, CAPPluginReturnPromise);
    CAP_PLUGIN_METHOD(addMarkers, CAPPluginReturnPromise);
    CAP_PLUGIN_METHOD(addPolygons, CAPPluginReturnPromise);
    CAP_PLUGIN_METHOD(addPolylines, CAPPluginReturnPromise);
@@ -45,6 +46,8 @@ CAP_PLUGIN(CapacitorGoogleMapsPlugin, "CapacitorGoogleMaps",
    CAP_PLUGIN_METHOD(hasIcon, CAPPluginReturnPromise);
    CAP_PLUGIN_METHOD(cacheMarkerIcon, CAPPluginReturnPromise);
    CAP_PLUGIN_METHOD(updateMarker, CAPPluginReturnPromise);
+   CAP_PLUGIN_METHOD(updateMarkerPosition, CAPPluginReturnPromise);
+   CAP_PLUGIN_METHOD(updateMarkerPositionBymId, CAPPluginReturnPromise);
    CAP_PLUGIN_METHOD(updateMarkerBymId, CAPPluginReturnPromise);
    CAP_PLUGIN_METHOD(updateMarkersBymId, CAPPluginReturnPromise);
    CAP_PLUGIN_METHOD(updateMarkerIcon, CAPPluginReturnPromise);

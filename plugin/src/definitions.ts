@@ -407,6 +407,14 @@ export interface Marker {
    *
    */
   clearAllMarkers?: boolean;
+
+  /**
+   * Controls whether moving this marker (via updateMarkerPosition() or updateMarkerPositionBymId())
+   * recomputes the spread offsets of overlapping markers.
+   *
+   * @default true
+   */
+  recompute?: boolean;
 }
 
 /**
