@@ -588,6 +588,63 @@ public class CapacitorGoogleMapsPlugin: CAPPlugin, GMSMapViewDelegate {
 		}
 	}
 
+	@objc func updateMarkerPosition(_ call: CAPPluginCall) {
+		do {
+			guard let id = call.getString("id") else {
+				throw GoogleMapErrors.invalidMapId
+			}
+
+			guard let markerId = call.getString("markerId"),
+				  let markerId = Int(markerId) else {
+				throw GoogleMapErrors.invalidArguments("markerId is missing")
+			}
+
+			guard let coordinateObj = call.getObject("coordinate") else {
+				throw GoogleMapErrors.invalidArguments("coordinate is missing")
+			}
+
+			let coordinate = try getLatLng(coordinateObj)
+
+			guard let map = self.maps[id] else {
+				throw GoogleMapErrors.mapNotFound
+			}
+
+			try map.updateMarkerPosition(markerId: markerId, coordinate: coordinate)
+
+			call.resolve()
+		} catch {
+			handleError(call, error: error)
+		}
+	}
+
+	@objc func updateMarkerPositionBymId(_ call: CAPPluginCall) {
+		do {
+			guard let id = call.getString("id") else {
+				throw GoogleMapErrors.invalidMapId
+			}
+
+			guard let mId = call.getString("mId") else {
+				throw GoogleMapErrors.invalidArguments("mId is missing")
+			}
+
+			guard let coordinateObj = call.getObject("coordinate") else {
+				throw GoogleMapErrors.invalidArguments("coordinate is missing")
+			}
+
+			let coordinate = try getLatLng(coordinateObj)
+
+			guard let map = self.maps[id] else {
+				throw GoogleMapErrors.mapNotFound
+			}
+
+			try map.updateMarkerPositionBymId(mId: mId, coordinate: coordinate)
+
+			call.resolve()
+		} catch {
+			handleError(call, error: error)
+		}
+	}
+
 	@objc func updateMarkerBymId(_ call: CAPPluginCall) {
 		do {
 			guard let id = call.getString("id") else {
@@ -1377,6 +1434,12 @@ public class CapacitorGoogleMapsPlugin: CAPPlugin, GMSMapViewDelegate {
             }
 
             try DispatchQueue.main.sync {
+                // GMapView is nilled out on the main queue during map destroy, so it can already be
+                // gone by the time this block runs. Guard instead of force-unwrapping to avoid a crash.
+                guard let gMapView = map.mapViewController.GMapView else {
+                    throw GoogleMapErrors.unhandledError("Google Map view is not available.")
+                }
+
                 guard let bounds = map.getMapLatLngBounds() else {
                     throw GoogleMapErrors.unhandledError("Google Map Bounds could not be found.")
                 }
@@ -1384,7 +1447,7 @@ public class CapacitorGoogleMapsPlugin: CAPPlugin, GMSMapViewDelegate {
                 call.resolve(
                     formatMapBoundsForResponse(
                         bounds: bounds,
-                        cameraPosition: map.mapViewController.GMapView.camera
+                        cameraPosition: gMapView.camera
                     )
                 )
             }
@@ -1403,9 +1466,14 @@ public class CapacitorGoogleMapsPlugin: CAPPlugin, GMSMapViewDelegate {
                 throw GoogleMapErrors.mapNotFound
             }
 
-            DispatchQueue.main.sync {
-                let zoom = map.mapViewController.GMapView.camera.zoom
-                call.resolve(["zoomLevel": zoom])
+            try DispatchQueue.main.sync {
+                // GMapView is nilled out on the main queue during map destroy, so it can already be
+                // gone by the time this block runs. Guard instead of force-unwrapping to avoid a crash.
+                guard let gMapView = map.mapViewController.GMapView else {
+                    throw GoogleMapErrors.unhandledError("Google Map view is not available.")
+                }
+
+                call.resolve(["zoomLevel": gMapView.camera.zoom])
             }
         } catch {
             handleError(call, error: error)
@@ -1670,6 +1738,18 @@ public class CapacitorGoogleMapsPlugin: CAPPlugin, GMSMapViewDelegate {
         }
 
         return CLLocationCoordinate2D(latitude: lat, longitude: lng)
+    }
+
+    private func getLatLng(_ point: JSObject) throws -> LatLng {
+        guard let lat = point["lat"] as? Double else {
+            throw GoogleMapErrors.unhandledError("Point lat property not formatted properly.")
+        }
+
+        guard let lng = point["lng"] as? Double else {
+            throw GoogleMapErrors.unhandledError("Point lng property not formatted properly.")
+        }
+
+        return LatLng(lat: lat, lng: lng)
     }
 
     private func formatMapBoundsForResponse(bounds: GMSCoordinateBounds?, cameraPosition: GMSCameraPosition) -> PluginCallResultData {

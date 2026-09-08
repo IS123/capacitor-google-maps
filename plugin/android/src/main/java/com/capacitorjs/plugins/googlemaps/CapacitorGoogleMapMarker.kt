@@ -26,6 +26,8 @@ class CapacitorGoogleMapMarker(fromJSONObject: JSONObject): ClusterItem {
     var mId: String = ""
     /** True (pre-spread) coordinate. Null until the first spread computation. */
     var originalCoordinate: LatLng? = null
+    /** Whether moving this marker should recompute the spread offsets of overlapping markers. */
+    var recompute: Boolean = true
 
     init {
         if (!fromJSONObject.has("coordinate")) {
@@ -74,6 +76,7 @@ class CapacitorGoogleMapMarker(fromJSONObject: JSONObject): ClusterItem {
         draggable = fromJSONObject.optBoolean("draggable", false)
         zIndex = fromJSONObject.optLong("zIndex").toFloat()
         iconId = fromJSONObject.optString("iconId")
+        recompute = fromJSONObject.optBoolean("recompute", true)
     }
 
     override fun getPosition(): LatLng {

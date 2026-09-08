@@ -1,6 +1,6 @@
 {
   "name": "@capacitor/google-maps",
-  "version": "7.2.0-android-clusterization.2",
+  "version": "7.2.0-android-clusterization.3",
   "description": "Fork of Ionic Team Capacitor Google Maps",
   "private": true,
   "main": "dist/plugin.cjs.js",

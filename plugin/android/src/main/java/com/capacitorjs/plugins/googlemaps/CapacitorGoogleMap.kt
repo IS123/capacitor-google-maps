@@ -756,6 +756,46 @@ class CapacitorGoogleMap(
         }
     }
 
+    fun updateMarkerPosition(id: String, coordinate: LatLng, callback: (error: GoogleMapsError?) -> Unit) {
+        try {
+            googleMap ?: throw GoogleMapNotAvailable()
+
+            val marker = markers[id]
+            marker ?: throw MarkerNotFoundError()
+
+            CoroutineScope(Dispatchers.Main).launch {
+                marker.coordinate = coordinate
+                marker.originalCoordinate = coordinate
+
+                if (clusterManager != null) {
+                    clusterManager?.removeItem(marker)
+                    clusterManager?.addItem(marker)
+                } else {
+                    marker.googleMapMarker?.position = coordinate
+                }
+
+                recomputeSpread()
+                clusterManager?.cluster()
+                callback(null)
+            }
+        } catch (e: GoogleMapsError) {
+            callback(e)
+        }
+    }
+
+    fun updateMarkerPositionBymId(mId: String, coordinate: LatLng, callback: (error: GoogleMapsError?) -> Unit) {
+        try {
+            googleMap ?: throw GoogleMapNotAvailable()
+
+            val markerId = mIds[mId]
+            markerId ?: throw MarkerNotFoundError()
+
+            updateMarkerPosition(markerId, coordinate, callback)
+        } catch (e: GoogleMapsError) {
+            callback(e)
+        }
+    }
+
     fun updateMarker(id: String, marker: CapacitorGoogleMapMarker, callback: (result: Result<String>) -> Unit) {
         try {
             googleMap ?: throw GoogleMapNotAvailable()
@@ -1303,6 +1343,10 @@ fun updateMarkerIcon(mId: String, iconId: String, iconUrl: String) {
 
         val groups = mutableMapOf<String, MutableList<CapacitorGoogleMapMarker>>()
         for ((_, marker) in markers) {
+            if (!marker.recompute) {
+                continue
+            }
+
             val orig = marker.originalCoordinate ?: marker.coordinate
             marker.originalCoordinate = orig
             val key = "%.6f,%.6f".format(orig.latitude, orig.longitude)
