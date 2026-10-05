@@ -37,7 +37,8 @@ import kotlin.collections.component2
 )
 class CapacitorGoogleMapsPlugin : Plugin(), OnMapsSdkInitializedCallback {
 	private var maps: HashMap<String, CapacitorGoogleMap> = HashMap()
-	private var cachedTouchEvents: HashMap<String, MutableList<MotionEvent>> = HashMap()
+	// Touches inside a map's bounds, held until JS answers isMapInFocus. Main thread only.
+	private val touchReplayQueues: HashMap<String, TouchReplayQueue<MotionEvent>> = HashMap()
 	// Prevent accidental lasso start right after a two-finger gesture.
 	private var shapeAwaitingFreshDown: HashMap<String, Boolean> = HashMap()
 	// Track DOWN point to require minimal drag distance before starting shape.
@@ -338,16 +339,7 @@ class CapacitorGoogleMapsPlugin : Plugin(), OnMapsSdkInitializedCallback {
 									}
 								}
 
-								if (event.action == MotionEvent.ACTION_DOWN) {
-									if (cachedTouchEvents[id] == null) {
-										cachedTouchEvents[id] = mutableListOf<MotionEvent>()
-									}
-
-									cachedTouchEvents[id]?.clear()
-								}
-
-								val motionEvent = MotionEvent.obtain(event)
-								cachedTouchEvents[id]?.add(motionEvent)
+								replayQueueFor(id).enqueue(event)
 
 								val payload = JSObject()
 								payload.put("x", touchX / map.config.devicePixelRatio)
@@ -363,16 +355,7 @@ class CapacitorGoogleMapsPlugin : Plugin(), OnMapsSdkInitializedCallback {
 									return true
 								}
 							} else {
-								if (event.action == MotionEvent.ACTION_DOWN) {
-									if (cachedTouchEvents[id] == null) {
-										cachedTouchEvents[id] = mutableListOf<MotionEvent>()
-									}
-
-									cachedTouchEvents[id]?.clear()
-								}
-
-								val motionEvent = MotionEvent.obtain(event)
-								cachedTouchEvents[id]?.add(motionEvent)
+								replayQueueFor(id).enqueue(event)
 
 								val payload = JSObject()
 								payload.put("x", touchX / map.config.devicePixelRatio)
@@ -396,15 +379,7 @@ class CapacitorGoogleMapsPlugin : Plugin(), OnMapsSdkInitializedCallback {
 								}
 							}
 						} else {
-							if (event.action == MotionEvent.ACTION_DOWN) {
-								if (cachedTouchEvents[id] == null) {
-									cachedTouchEvents[id] = mutableListOf<MotionEvent>()
-								}
-								cachedTouchEvents[id]?.clear()
-							}
-
-							val motionEvent = MotionEvent.obtain(event)
-							cachedTouchEvents[id]?.add(motionEvent)
+							replayQueueFor(id).enqueue(event)
 
 							val payload = JSObject()
 							payload.put("x", touchX / map.config.devicePixelRatio)
@@ -436,7 +411,7 @@ class CapacitorGoogleMapsPlugin : Plugin(), OnMapsSdkInitializedCallback {
 						shapeDownY.remove(id)
 						shapePendingMapDownEvent.remove(id)?.recycle()
 						shapeForwardingToMap.remove(id)
-						cachedTouchEvents.remove(id)
+						abandonReplayQueue(id)
 					}
 
 					if (activeGestureClaimedByMap) {
@@ -451,6 +426,25 @@ class CapacitorGoogleMapsPlugin : Plugin(), OnMapsSdkInitializedCallback {
 				}
 			}
 		)
+	}
+
+	private fun replayQueueFor(id: String): TouchReplayQueue<MotionEvent> =
+		touchReplayQueues.getOrPut(id) {
+			TouchReplayQueue(
+				actionOf = { it.actionMasked },
+				copy = { MotionEvent.obtain(it) },
+				release = { it.recycle() },
+				cancelOf = { MotionEvent.obtain(it).apply { action = MotionEvent.ACTION_CANCEL } },
+			)
+		}
+
+	// The map is gone, so only the WebView can still be holding an unfinished gesture.
+	private fun abandonReplayQueue(id: String) {
+		touchReplayQueues.remove(id)?.abandon { target, event ->
+			if (target == TouchReplayQueue.Target.WEBVIEW) {
+				bridge.webView.onTouchEvent(event)
+			}
+		}
 	}
 
 	override fun onMapsSdkInitialized(renderer: MapsInitializer.Renderer) {
@@ -535,6 +529,7 @@ class CapacitorGoogleMapsPlugin : Plugin(), OnMapsSdkInitializedCallback {
 
 			val removedMap = maps.remove(id) ?: throw MapNotFoundError()
 			removedMap.destroy()
+			bridge.executeOnMainThread { abandonReplayQueue(id) }
 			Log.d("DEBUG-9545", "destroy id=$id done - tracked maps now: ${maps.keys}")
 
 			call.resolve()
@@ -1471,20 +1466,16 @@ class CapacitorGoogleMapsPlugin : Plugin(), OnMapsSdkInitializedCallback {
 
 			val focus = call.getBoolean("focus", false)!!
 
-			val events = cachedTouchEvents[id]
-			if (events != null) {
-				while(events.size > 0) {
-					val event = events.first()
-					if (focus) {
-						map.dispatchTouchEvent(event)
-					} else {
-						this.bridge.webView.onTouchEvent(event)
+			// The queue is filled by the touch listener on the main thread; replay there too.
+			bridge.executeOnMainThread {
+				touchReplayQueues[id]?.flush(focus) { target, event ->
+					when (target) {
+						TouchReplayQueue.Target.MAP -> map.dispatchTouchEvent(event)
+						TouchReplayQueue.Target.WEBVIEW -> bridge.webView.onTouchEvent(event)
 					}
-					events.removeAt(0)
 				}
+				call.resolve()
 			}
-
-			call.resolve()
 		} catch (e: GoogleMapsError) {
 			handleError(call, e)
 		} catch (e: Exception) {
