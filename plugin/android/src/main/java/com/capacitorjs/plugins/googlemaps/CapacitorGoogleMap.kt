@@ -272,8 +272,9 @@ class CapacitorGoogleMap(
 
 									existingMarker?.googleMapMarker?.isDraggable = marker.draggable
 
-									if (existingMarker?.iconId !== marker.iconId) {
-										updateMarkerIcon(marker.mId, marker.mId, marker.iconUrl!!)
+									val newIconUrl = marker.iconUrl
+									if (existingMarker != null && newIconUrl != null && existingMarker.iconId != marker.iconId) {
+										updateMarkerIcon(marker.mId, marker.iconId.orEmpty(), newIconUrl)
 									}
 								}
 								return@mapNotNull null
@@ -831,12 +832,15 @@ fun updateMarkerIcon(mId: String, iconId: String, iconUrl: String) {
             if (iconId.isNotEmpty()) {
                     val base64Data = iconUrl.substringAfter("base64,", "")
 
-                    if (marker.iconUrl?.startsWith("data:image/svg+xml") == true) {
+                    if (iconUrl.startsWith("data:image/svg+xml")) {
                         if (base64Data.isNotEmpty()) {
                             val bitmap = svgBase64ToBitmap(base64Data, marker.iconSize!!.width, marker.iconSize!!.height)
                             if (bitmap != null) {
-								this.delegate.markerIcons[marker.iconId!!] = bitmap
+								this.delegate.markerIcons[iconId] = bitmap
                                 marker.googleMapMarker?.setIcon(getResizedIcon(bitmap, marker))
+								// Keep the stored icon in sync, otherwise the next setMarkers diffs against a stale iconId
+								marker.iconId = iconId
+								marker.iconUrl = iconUrl
                             } else {
                                 Log.w("CapacitorGoogleMaps", "Failed to decode SVG icon for mId=${marker.mId}, iconId=${marker.iconId}")
                             }
@@ -1755,7 +1759,9 @@ fun updateMarkerIcon(mId: String, iconId: String, iconUrl: String) {
         data.put("title", marker.title)
         data.put("snippet", marker.snippet)
         delegate.notify("onMarkerClick", data)
-        return false
+        // Consume the tap unless there is an info window to show: the default behavior recenters the camera,
+        // sliding markers under the user's finger between taps
+        return marker.title.isNullOrEmpty()
     }
 
     override fun onPolylineClick(polyline: Polyline) {
