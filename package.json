@@ -24,9 +24,9 @@
   "author": "Ionic <hi@ionicframework.com>",
   "license": "MIT",
   "scripts": {
-    "build": "lerna run build && yes | cp ./plugin/README.md ./README.md",
+    "build": "lerna run build && node ./scripts/copy-readme.js",
     "copy:plugin": "node on-postinstall.js",
-    "create:tag": "bash ./scripts/create-tag.sh",
+    "create:tag": "node ./scripts/create-tag.mjs",
     "lint": "pnpm lerna run lint",
     "fmt": "pnpm lerna run fmt",
     "publish:cocoapod": "lerna run publish:cocoapod --concurrency 1",
