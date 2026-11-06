@@ -1,6 +1,6 @@
 {
   "name": "@capacitor/google-maps",
-  "version": "7.3.0",
+  "version": "7.3.0-marker-position-clusterization.2",
   "description": "Fork of Ionic Team Capacitor Google Maps",
   "private": true,
   "main": "dist/plugin.cjs.js",
