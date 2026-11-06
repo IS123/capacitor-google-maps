@@ -96,7 +96,7 @@ public class Map {
     var polygons = [Int: GMSPolygon]()
     var circles = [Int: GMSCircle]()
     var polylines = [Int: GMSPolyline]()
-    var markerIcons = [String: UIImage]()
+    let markerIcons = MarkerIconCache.shared
     var mIds = [String: Int]()
     private var addMarkersGeneration: Int = 0
     private var pendingOverlayTask: URLSessionDataTask?
@@ -405,7 +405,7 @@ public class Map {
         }
     }
 
-    func addMarkers(markers: [Marker], completion: @escaping ([Int]) -> Void) {
+    func setMarkers(markers: [Marker], completion: @escaping ([Int]) -> Void) {
         addMarkersGeneration += 1
         let currentGeneration = addMarkersGeneration
 
@@ -442,7 +442,7 @@ public class Map {
                     do {
                         try self.removeMarkersBymId(mIds: mIdsToRemove)
                     } catch {
-                        print("addMarkersInBatches() cleanup error: \(error)")
+                        print("setMarkers() cleanup error: \(error)")
                     }
                 }
 
@@ -519,6 +519,50 @@ public class Map {
         }
 
         addNextBatch()
+    }
+
+    func addMarkers(markers: [Marker], completion: @escaping ([Int]) -> Void) {
+        DispatchQueue.main.async {
+            var markerHashes: [Int] = []
+            var clusterMarkers: [GMSMarker] = []
+
+            for markerData in markers {
+                if let mId = markerData.mId, self.mIds[mId] != nil {
+                    continue
+                }
+
+                let newMarker = self.buildMarker(marker: markerData)
+
+                if self.mapViewController.clusteringEnabled {
+                    clusterMarkers.append(newMarker)
+                } else {
+                    newMarker.map = self.mapViewController.GMapView
+                }
+
+                let hash = newMarker.hash.hashValue
+                self.markers[hash] = newMarker
+                self.originalCoords[hash] = CLLocationCoordinate2D(
+                    latitude: markerData.coordinate.lat,
+                    longitude: markerData.coordinate.lng
+                )
+                self.recomputeFlags[hash] = markerData.recompute ?? true
+                markerHashes.append(hash)
+
+                if let mId = markerData.mId {
+                    self.mIds[mId] = hash
+                }
+            }
+
+            if self.mapViewController.clusteringEnabled {
+                self.mapViewController.addMarkersToCluster(markers: clusterMarkers)
+                self.recomputeSpread()
+                self.mapViewController.recluster()
+            } else {
+                self.recomputeSpread()
+            }
+
+            completion(markerHashes)
+        }
     }
 
     func isCoordinatesDifferent(coords1: LatLng, coords2: CLLocationCoordinate2D) -> Bool {
@@ -1110,24 +1154,33 @@ public class Map {
                 if iconUrl.starts(with: "data:image/svg+xml;base64,") {
                     let base64String = iconUrl.replacingOccurrences(of: "data:image/svg+xml;base64,", with: "")
 
+                    newMarker.icon = pendingIconPlaceholder
+
                     DispatchQueue.main.async {
-                        if let svgData = Data(base64Encoded: base64String),
+                        if let cachedImage = self.markerIcons[iconUrl] {
+                            newMarker.icon = cachedImage
+                        } else if let svgData = Data(base64Encoded: base64String),
                            let svgString = String(data: svgData, encoding: .utf8),
                            let svgImage = svgToImage(svgString: svgString, size: marker.iconSize) {
                             self.markerIcons[iconUrl] = svgImage
                             newMarker.icon = svgImage
                         } else {
                             print("Failed to decode SVG Base64 or render image")
+                            clearPendingIconPlaceholder(newMarker)
                         }
                     }
                 }
                 else if iconUrl.starts(with: "https:") {
                     if let url = URL(string: iconUrl) {
+                        newMarker.icon = pendingIconPlaceholder
+
                         URLSession.shared.dataTask(with: url) { (data, _, _) in
                             DispatchQueue.main.async {
                                 if let data = data, let iconImage = UIImage(data: data) {
                                     self.markerIcons[iconUrl] = iconImage
                                     newMarker.icon = getResizedIcon(iconImage, marker.iconSize)
+                                } else {
+                                    clearPendingIconPlaceholder(newMarker)
                                 }
                             }
                         }.resume()
@@ -1175,7 +1228,8 @@ public class Map {
             marker.userData = iconUrl
 
             // Use provided iconSize, fall back to current icon size to preserve dimensions
-            let effectiveIconSize = iconSize ?? marker.icon?.size
+            let currentIcon = marker.icon === pendingIconPlaceholder ? nil : marker.icon
+            let effectiveIconSize = iconSize ?? currentIcon?.size
 
             // 1. Direct image provided (from plugin's imageCache)
             if let iconImage = iconImage {
@@ -1652,6 +1706,42 @@ public class Map {
         // In iOS, we can't directly dispatch UITouch events like in Android
         // This would need to be handled through JavaScript bridge or native gesture recognizers
         // For now, this is a placeholder
+    }
+}
+
+final class MarkerIconCache {
+    static let shared = MarkerIconCache()
+
+    private let cache = NSCache<NSString, UIImage>()
+
+    private init() {
+        cache.totalCostLimit = 200 * 1024 * 1024
+    }
+
+    subscript(key: String) -> UIImage? {
+        get {
+            return cache.object(forKey: key as NSString)
+        }
+        set {
+            if let image = newValue {
+                let pixelCount = image.size.width * image.scale * image.size.height * image.scale
+                cache.setObject(image, forKey: key as NSString, cost: Int(pixelCount) * 4)
+            } else {
+                cache.removeObject(forKey: key as NSString)
+            }
+        }
+    }
+}
+
+let pendingIconPlaceholder: UIImage = {
+    let format = UIGraphicsImageRendererFormat.default()
+    format.opaque = false
+    return UIGraphicsImageRenderer(size: CGSize(width: 1, height: 1), format: format).image { _ in }
+}()
+
+private func clearPendingIconPlaceholder(_ marker: GMSMarker) {
+    if marker.icon === pendingIconPlaceholder {
+        marker.icon = nil
     }
 }
 
