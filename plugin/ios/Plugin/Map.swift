@@ -405,7 +405,30 @@ public class Map {
         }
     }
 
+    func markerHash(forMId mId: String) -> Int? {
+        var hash: Int?
+        runOnMainThread {
+            hash = self.mIds[mId]
+        }
+        return hash
+    }
+
+    func mIdsSnapshot() -> [String: Int] {
+        var snapshot: [String: Int] = [:]
+        runOnMainThread {
+            snapshot = self.mIds
+        }
+        return snapshot
+    }
+
     func setMarkers(markers: [Marker], completion: @escaping ([Int]) -> Void) {
+        guard Thread.isMainThread else {
+            DispatchQueue.main.async {
+                self.setMarkers(markers: markers, completion: completion)
+            }
+            return
+        }
+
         addMarkersGeneration += 1
         let currentGeneration = addMarkersGeneration
 
@@ -579,11 +602,14 @@ public class Map {
     }
 
     func updateMarkerPosition(markerId: Int, coordinate: LatLng) throws {
-        guard let marker = self.markers[markerId] else {
-            throw GoogleMapErrors.markerNotFound
-        }
+        var found = false
 
         runOnMainThread {
+            guard let marker = self.markers[markerId] else {
+                return
+            }
+            found = true
+
             let newCoord = CLLocationCoordinate2D(latitude: coordinate.lat, longitude: coordinate.lng)
             self.originalCoords[markerId] = newCoord
             marker.position = newCoord
@@ -594,10 +620,14 @@ public class Map {
                 self.mapViewController.recluster()
             }
         }
+
+        if !found {
+            throw GoogleMapErrors.markerNotFound
+        }
     }
 
     func updateMarkerPositionBymId(mId: String, coordinate: LatLng) throws {
-        guard let markerId = self.mIds[mId] else {
+        guard let markerId = self.markerHash(forMId: mId) else {
             throw GoogleMapErrors.markerNotFound
         }
 
@@ -605,13 +635,13 @@ public class Map {
     }
 
     func updateMarker(markerId: Int, newMarker: Marker) -> Void {
-        guard let marker = self.markers[markerId] else {
-            print("updateMarker(): no marker found for \(markerId) id")
-
-            return
-        }
-
         runOnMainThread {
+            guard let marker = self.markers[markerId] else {
+                print("updateMarker(): no marker found for \(markerId) id")
+
+                return
+            }
+
             let newCoord = CLLocationCoordinate2D(
                 latitude: newMarker.coordinate.lat,
                 longitude: newMarker.coordinate.lng
@@ -722,52 +752,63 @@ public class Map {
     }
 
     func removeMarker(id: Int) throws {
-        if let marker = self.markers[id] {
-            DispatchQueue.main.async {
-                if self.mapViewController.clusteringEnabled {
-                    self.mapViewController.removeMarkersFromCluster(markers: [marker])
-                }
+        var found = false
 
-                if let mId = self.mIds.first(where: {$0.value == id})?.key {
-                    self.mIds.removeValue(forKey: mId)
-                }
-
-                marker.map = nil
-                self.markers.removeValue(forKey: id)
-                self.originalCoords.removeValue(forKey: id)
-                self.recomputeFlags.removeValue(forKey: id)
-                self.recomputeSpread()
-                if self.mapViewController.clusteringEnabled {
-                    self.mapViewController.recluster()
-                }
+        runOnMainThread {
+            guard let marker = self.markers[id] else {
+                return
             }
-        } else {
+            found = true
+
+            if self.mapViewController.clusteringEnabled {
+                self.mapViewController.removeMarkersFromCluster(markers: [marker])
+            }
+
+            if let mId = self.mIds.first(where: {$0.value == id})?.key {
+                self.mIds.removeValue(forKey: mId)
+            }
+
+            marker.map = nil
+            self.markers.removeValue(forKey: id)
+            self.originalCoords.removeValue(forKey: id)
+            self.recomputeFlags.removeValue(forKey: id)
+            self.recomputeSpread()
+            if self.mapViewController.clusteringEnabled {
+                self.mapViewController.recluster()
+            }
+        }
+
+        if !found {
             throw GoogleMapErrors.markerNotFound
         }
     }
 
     func removeMarkerBymId(mId: String) throws {
-        guard let markerHash = self.mIds[mId] else {
-            throw GoogleMapErrors.markerNotFound
+        var found = false
+
+        runOnMainThread {
+            guard let markerHash = self.mIds[mId],
+                  let marker = self.markers[markerHash] else {
+                return
+            }
+            found = true
+
+            if self.mapViewController.clusteringEnabled {
+                self.mapViewController.removeMarkersFromCluster(markers: [marker])
+            }
+
+            marker.map = nil
+            self.markers.removeValue(forKey: markerHash)
+            self.originalCoords.removeValue(forKey: markerHash)
+            self.recomputeFlags.removeValue(forKey: markerHash)
+            self.mIds.removeValue(forKey: mId)
+            self.recomputeSpread()
+            if self.mapViewController.clusteringEnabled {
+                self.mapViewController.recluster()
+            }
         }
 
-        if let marker = self.markers[Int(markerHash)] {
-            DispatchQueue.main.async {
-                if self.mapViewController.clusteringEnabled {
-                    self.mapViewController.removeMarkersFromCluster(markers: [marker])
-                }
-
-                marker.map = nil
-                self.markers.removeValue(forKey: markerHash)
-                self.originalCoords.removeValue(forKey: markerHash)
-                self.recomputeFlags.removeValue(forKey: markerHash)
-                self.mIds.removeValue(forKey: mId)
-                self.recomputeSpread()
-                if self.mapViewController.clusteringEnabled {
-                    self.mapViewController.recluster()
-                }
-            }
-        } else {
+        if !found {
             throw GoogleMapErrors.markerNotFound
         }
     }

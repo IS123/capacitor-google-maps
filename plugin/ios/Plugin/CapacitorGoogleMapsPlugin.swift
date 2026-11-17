@@ -321,7 +321,7 @@ public class CapacitorGoogleMapsPlugin: CAPPlugin, GMSMapViewDelegate {
 				throw GoogleMapErrors.mapNotFound
 			}
 
-			call.resolve(map.mIds)
+			call.resolve(map.mIdsSnapshot())
 		} catch {
 			handleError(call, error: error)
 		}
@@ -665,7 +665,7 @@ public class CapacitorGoogleMapsPlugin: CAPPlugin, GMSMapViewDelegate {
 				throw GoogleMapErrors.mapNotFound
 			}
 
-			guard let markerHash = map.mIds[mId] else {
+			guard let markerHash = map.markerHash(forMId: mId) else {
 				throw GoogleMapErrors.markerNotFound
 			}
 
@@ -712,7 +712,7 @@ public class CapacitorGoogleMapsPlugin: CAPPlugin, GMSMapViewDelegate {
 			var markerHashes: [String] = []
 
 			for mId in mIds {
-				guard let markerHash = map.mIds[mId],
+				guard let markerHash = map.markerHash(forMId: mId),
 					  let marker = markers.first(where: { $0.mId == mId }) else {
 					print("updateMarkersBymId(): Marker not found \(mId)")
 					continue
