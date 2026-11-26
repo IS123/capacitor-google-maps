@@ -251,10 +251,20 @@ export class CapacitorGoogleMapsWeb extends WebPlugin implements CapacitorGoogle
   }
 
   async getMapBounds(_args: { id: string }): Promise<LatLngBounds> {
-    const bounds = this.maps[_args.id].map.getBounds();
+    const bounds = this.readMapBounds(_args.id);
 
     if (!bounds) {
       throw new Error('Google Map Bounds could not be found.');
+    }
+
+    return bounds;
+  }
+
+  private readMapBounds(mapId: string): LatLngBounds | undefined {
+    const bounds = this.maps[mapId]?.map.getBounds();
+
+    if (!bounds) {
+      return undefined;
     }
 
     return new LatLngBounds({
@@ -732,7 +742,9 @@ export class CapacitorGoogleMapsWeb extends WebPlugin implements CapacitorGoogle
     const mapItem = this.maps[_args.id];
     mapItem.element.innerHTML = '';
     mapItem.map.unbindAll();
+    google.maps.event.clearInstanceListeners(mapItem.map);
     delete this.maps[_args.id];
+    delete this.cameraIsMoving[_args.id];
   }
 
   async mapBoundsContains(_args: MapBoundsContainsArgs): Promise<{ contains: boolean }> {
@@ -920,9 +932,10 @@ export class CapacitorGoogleMapsWeb extends WebPlugin implements CapacitorGoogle
   async setMapListeners(mapId: string): Promise<void> {
     const map = this.maps[mapId].map;
 
-    map.addListener('idle', async () => {
+    map.addListener('idle', () => {
       this.cameraIsMoving[mapId] = false;
-      const bounds = await this.getMapBounds({ id: mapId });
+      const bounds = this.readMapBounds(mapId);
+      if (!bounds) return;
       this.notifyListeners('onCameraIdle', {
         mapId: mapId,
         bearing: map.getHeading(),
@@ -943,8 +956,9 @@ export class CapacitorGoogleMapsWeb extends WebPlugin implements CapacitorGoogle
       });
     });
 
-    map.addListener('bounds_changed', async () => {
-      const bounds = await this.getMapBounds({ id: mapId });
+    map.addListener('bounds_changed', () => {
+      const bounds = this.readMapBounds(mapId);
+      if (!bounds) return;
       this.notifyListeners('onBoundsChanged', {
         mapId: mapId,
         bearing: map.getHeading(),
